@@ -7,23 +7,67 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
-  .shell { max-width: 960px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .shell { max-width: 980px; margin: 0 auto; padding: 1.75rem 1.25rem; }
   .page-header { margin-bottom: 1.5rem; }
   .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-header p  { font-size: 13px; color: var(--muted); }
 
-  /* Controls — all items baseline-aligned, helper text lives below the whole row */
-  .controls-row {
-    display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  .controls-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .controls-row .field { flex:1 1 180px; margin-bottom:0; }
+  .controls-meta { font-size:11px; color:var(--muted2); margin-top:8px; min-height:16px; display:flex; align-items:center; gap:8px; }
+  select:disabled { opacity:.6; cursor:not-allowed; }
+
+  /* ── Cost headline banner ── */
+  .cost-headline {
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    display: none;
+    background: linear-gradient(135deg, var(--amber-light) 0%, var(--surface) 100%);
+    border: 1.5px solid var(--amber-border);
   }
-  .controls-row .field { flex: 1 1 180px; margin-bottom: 0; }
-  .controls-meta {
-    font-size: 11px; color: var(--muted2); margin-top: 8px; min-height: 16px;
-    display: flex; align-items: center; gap: 8px;
+  .cost-headline-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .cost-headline-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--amber); margin-bottom: 6px;
+  }
+  .cost-headline-main {
+    font-size: 28px; font-weight: 700; color: var(--amber); line-height: 1;
+  }
+  .cost-headline-sub {
+    font-size: 13px; color: var(--muted); margin-top: 4px;
+  }
+  .cost-headline-annual {
+    text-align: right;
+  }
+  .cost-headline-annual .cost-headline-main {
+    font-size: 22px;
+  }
+  .cost-headline-breakdown {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--amber-border);
+    font-size: 12px; color: var(--muted);
+  }
+  .cost-breakdown-item strong { color: var(--text); }
+
+  /* ── Extended stat cards ── */
+  .stat-cost {
+    font-size: 11px; font-weight: 600; margin-top: 4px; opacity: .85;
   }
 
-  select:disabled { opacity: .6; cursor: not-allowed; }
+  /* ── Cost column in table ── */
+  .cost-cell {
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .cost-cell.has-cost  { color: var(--amber); }
+  .cost-cell.free-cost { color: var(--muted2); font-weight: 400; }
+  .cost-cell.no-cost   { color: var(--muted2); font-weight: 400; }
 
+  /* ── Table extras ── */
   .lic-pill { display:inline-block; background:var(--blue-light); color:var(--blue-dark); border-radius:4px; padding:2px 7px; font-size:11px; margin:1px; }
   .age-never    { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
   .age-critical { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
@@ -33,8 +77,8 @@
   .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
   .avatar.stale { background:var(--red-light);  color:var(--red); }
   .avatar.ok    { background:var(--blue-light); color:var(--blue-dark); }
-  .user-name  { font-size:13px; font-weight:600; }
-  .user-upn   { font-size:11px; color:var(--muted); }
+  .user-name { font-size:13px; font-weight:600; }
+  .user-upn  { font-size:11px; color:var(--muted); }
   #authScreen { display:flex; }
 </style>
 </head>
@@ -72,15 +116,14 @@
 
 <div id="appScreen" style="display:none">
   <div class="shell">
+
     <div class="page-header">
       <h1>License Audit</h1>
-      <p>Identify inactive M365 license holders and surface recoverable seats.</p>
+      <p>Identify inactive M365 license holders, surface recoverable seats, and quantify cost savings.</p>
     </div>
 
     <div class="card">
       <div class="card-title">Configure audit</div>
-
-      <!-- Controls row — all items align to bottom edge -->
       <div class="controls-row">
         <div class="field">
           <label class="field-label">License type</label>
@@ -100,20 +143,36 @@
         </div>
         <button class="btn btn-primary" id="runBtn" onclick="runAudit()" disabled>Run Audit</button>
       </div>
-
-      <!-- Helper text below the entire row — never affects alignment -->
       <div class="controls-meta" id="skuMeta">
         <div class="spinner" id="skuSpinner"></div>
         <span id="skuMetaText">Fetching licenses from your tenant…</span>
       </div>
-
       <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
     </div>
 
-    <div class="banner error"  id="errBanner"></div>
-    <div class="banner warn"   id="warnBanner"></div>
-    <div class="stats-row"     id="statsRow"   style="display:none"></div>
+    <div class="banner error" id="errBanner"></div>
+    <div class="banner warn"  id="warnBanner"></div>
+
+    <!-- Cost headline — shown when inactive users found and cost is known -->
+    <div class="cost-headline" id="costHeadline">
+      <div class="cost-headline-top">
+        <div>
+          <div class="cost-headline-label">💰 Recoverable spend</div>
+          <div class="cost-headline-main" id="hlMonthly"></div>
+          <div class="cost-headline-sub" id="hlSub"></div>
+        </div>
+        <div class="cost-headline-annual">
+          <div class="cost-headline-label">Annual projection</div>
+          <div class="cost-headline-main" id="hlAnnual"></div>
+          <div class="cost-headline-sub">if all inactive seats reclaimed</div>
+        </div>
+      </div>
+      <div class="cost-headline-breakdown" id="hlBreakdown"></div>
+    </div>
+
+    <div class="stats-row" id="statsRow" style="display:none"></div>
     <div id="tableSection"></div>
+
   </div>
 </div>
 
@@ -121,36 +180,27 @@
 <script>
 const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All"];
 
-// ── Friendly name map ────────────────────────────────────────────────────────
-// Covers all licenses found in tenant as of Mar 2026 + common extras.
-// To add a new SKU: "SKU_PART_NUMBER": "Friendly Display Name"
+// ── Friendly name map ─────────────────────────────────────────────────────────
 const SKU_NAMES = {
-  // ── Microsoft 365 suites ──
   "O365_BUSINESS_ESSENTIALS":                          "Microsoft 365 Business Basic",
   "O365_BUSINESS_PREMIUM":                             "Microsoft 365 Business Standard",
   "O365_BUSINESS":                                     "Microsoft 365 Apps for Business",
   "SPE_E3":                                            "Microsoft 365 E3",
   "SPE_E5":                                            "Microsoft 365 E5",
-  "SPE_F1":                                            "Microsoft 365 F3",  // F1 SKU was rebranded to F3
+  "SPE_F1":                                            "Microsoft 365 F3",
   "SPE_F3":                                            "Microsoft 365 F3",
   "Microsoft_365_Copilot":                             "Microsoft 365 Copilot",
   "Microsoft_Copilot_for_Microsoft_365":               "Copilot for Microsoft 365",
   "OFFICESUBSCRIPTION":                                "Microsoft 365 Apps for Enterprise",
-
-  // ── Office 365 ──
   "ENTERPRISEPACK":                                    "Office 365 E3",
   "ENTERPRISEPREMIUM":                                 "Office 365 E5",
   "STANDARDPACK":                                      "Office 365 E1",
   "DESKLESSPACK":                                      "Office 365 F3",
-
-  // ── Exchange ──
   "EXCHANGESTANDARD":                                  "Exchange Online Plan 1",
   "EXCHANGEENTERPRISE":                                "Exchange Online Plan 2",
   "EXCHANGE_S_DESKLESS":                               "Exchange Online Kiosk",
   "EXCHANGEESSENTIALS":                                "Exchange Online Essentials",
   "EXCHANGEARCHIVE_ADDON":                             "Exchange Online Archiving for Exchange Online",
-
-  // ── Teams & Calling ──
   "TEAMS_EXPLORATORY":                                 "Microsoft Teams Exploratory",
   "MCOTEAMS_ESSENTIALS":                               "Microsoft Teams Essentials",
   "MSTEAMS_PREMIUM":                                   "Microsoft Teams Premium",
@@ -170,8 +220,6 @@ const SKU_NAMES = {
   "Teams_Phone_with_Calling_Plan":                     "Teams Phone with Calling Plan (US)",
   "MCOPSTN_1_5":                                       "Teams Phone with Calling Plan (country zone 1 - US)",
   "MCOSTANDARD":                                       "Skype for Business Online Plan 2",
-
-  // ── Power BI ──
   "POWER_BI_STANDARD":                                 "Power BI (Free)",
   "POWER_BI_PRO":                                      "Power BI Pro",
   "POWER_BI_PRO_DEPT":                                 "Power BI Pro (Departmental)",
@@ -179,8 +227,6 @@ const SKU_NAMES = {
   "POWER_BI_PREMIUM_PER_USER":                         "Power BI Premium Per User",
   "PBI_PREMIUM_PER_USER_ADDON":                        "Power BI Premium Per User Add-On",
   "POWER_BI_PREMIUM_PER_USER_ADDON":                   "Power BI Premium Per User Add-On",
-
-  // ── Power Platform ──
   "POWERAPPS_PER_USER":                                "Power Apps Per User Plan",
   "POWERAPPS_VIRAL":                                   "Microsoft Power Apps Plan 2 Trial",
   "POWERAPPS_DEV":                                     "Microsoft Power Apps for Developer",
@@ -189,22 +235,16 @@ const SKU_NAMES = {
   "POWERAUTOMATE_ATTENDED_RPA":                        "Power Automate Premium",
   "Power_Pages_vTrial_for_Makers":                     "Power Pages vTrial for Makers",
   "POWERPAGES_VIRAL":                                  "Power Pages vTrial for Makers",
-
-  // ── Copilot Studio ──
   "COPILOTSTUDIO":                                     "Microsoft Copilot Studio User License",
   "VIRTUAL_AGENT_USL":                                 "Microsoft Copilot Studio User License",
   "CCIBOTS_PRIVPREV_VIRAL":                            "Microsoft Copilot Studio (Private Preview)",
   "COPILOTSTUDIO_VIRAL":                               "Microsoft Copilot Studio Viral Trial",
   "POWERVIRTUALAGENTS_VIRAL":                          "Microsoft Copilot Studio Viral Trial",
   "Power_Virtual_Agents":                              "Microsoft Copilot Studio",
-
-  // ── Fabric & Analytics ──
   "FABRIC_FREE":                                       "Microsoft Fabric (Free)",
   "STREAM":                                            "Microsoft Stream Plan 2",
   "STREAM_STORAGE":                                    "Microsoft Stream Storage Add-On",
   "STREAM_TRIAL":                                      "Microsoft Stream Trial",
-
-  // ── Security & Compliance ──
   "EMS":                                               "Enterprise Mobility + Security E3",
   "EMSPREMIUM":                                        "Enterprise Mobility + Security E5",
   "AAD_PREMIUM":                                       "Microsoft Entra ID P1",
@@ -216,30 +256,48 @@ const SKU_NAMES = {
   "INFORMATION_PROTECTION_COMPLIANCE":                 "Microsoft 365 E5 Compliance",
   "RIGHTSMANAGEMENT":                                  "Azure Information Protection Plan 1",
   "RMSBASIC":                                          "Rights Management Basic",
-
-  // ── Project & Visio ──
   "PROJECTPROFESSIONAL":                               "Project Plan 3",
   "PROJECTPREMIUM":                                    "Project Plan 5",
   "VISIOCLIENT":                                       "Visio Plan 2",
   "VISIO_PLAN2_DEPT":                                  "Visio Plan 2 (Departmental)",
   "VISIOONLINE_PLAN1":                                 "Visio Plan 1",
-
-  // ── Other ──
   "MBS_BUSINESS_ESSENTIALS":                           "Microsoft Business Center",
   "MICROSOFT_BUSINESS_CENTER":                         "Microsoft Business Center",
   "SPZA_IW":                                           "App Connect IW",
   "WINDOWS_STORE":                                     "Windows Store for Business",
-  "Dynamics_365_Hiring":                               "Dynamics 365 Talent",
   "DEVELOPERPACK":                                     "Office 365 E3 Developer",
   "DEVELOPERPACK_E5":                                  "Microsoft 365 E5 Developer",
 };
 
-function getFriendlyName(sku) {
-  return SKU_NAMES[sku] || sku;
+function getFriendlyName(sku) { return SKU_NAMES[sku] || sku; }
+
+// ── Cost data (loaded from costs.json) ───────────────────────────────────────
+let _costData = { costs: {}, free_skus: [] };
+
+async function loadCosts() {
+  try {
+    const res = await fetch("../../costs.json?v=" + Date.now());
+    _costData = await res.json();
+  } catch(_) {
+    // costs.json not found — tool still works, just no cost data
+    console.warn("costs.json not found — cost features disabled.");
+  }
+}
+
+function getCost(skuPartNumber) {
+  if (_costData.free_skus?.includes(skuPartNumber)) return 0;
+  return _costData.costs?.[skuPartNumber] ?? null; // null = unknown
+}
+
+function formatCurrency(val) {
+  return "$" + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatCurrencyRound(val) {
+  return "$" + Math.round(val).toLocaleString("en-US");
 }
 
 // ── Graph retry wrapper ───────────────────────────────────────────────────────
-// Automatically retries on 429 (rate limit) with exponential backoff.
 async function graphWithRetry(fn, maxRetries = 5) {
   let attempt = 0;
   while (true) {
@@ -248,10 +306,8 @@ async function graphWithRetry(fn, maxRetries = 5) {
     } catch(e) {
       attempt++;
       const isRateLimit = e.message && (
-        e.message.includes("429") ||
-        e.message.includes("Rate limited") ||
-        e.message.includes("Too Many Requests") ||
-        e.message.includes("503") ||
+        e.message.includes("429") || e.message.includes("Rate limited") ||
+        e.message.includes("Too Many Requests") || e.message.includes("503") ||
         e.message.includes("temporarily unavailable")
       );
       if (!isRateLimit || attempt > maxRetries) throw e;
@@ -262,7 +318,7 @@ async function graphWithRetry(fn, maxRetries = 5) {
   }
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "License Audit", hubRelPath: "../../" });
@@ -274,7 +330,7 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
-      await loadSkus();
+      await Promise.all([loadSkus(), loadCosts()]);
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
@@ -290,7 +346,7 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
-    await loadSkus();
+    await Promise.all([loadSkus(), loadCosts()]);
   } catch(e) {
     const el = document.getElementById("authErr");
     el.textContent = e.message; el.style.display = "block";
@@ -299,11 +355,11 @@ async function doSignIn() {
 
 function toggleUri() {
   const b = document.getElementById("uriBox");
-  b.textContent   = ITTools.auth.redirectUri();
+  b.textContent = ITTools.auth.redirectUri();
   b.style.display = b.style.display === "none" ? "block" : "none";
 }
 
-// ── Live SKU loader ───────────────────────────────────────────────────────────
+// ── SKU loader ────────────────────────────────────────────────────────────────
 let _skus = [];
 
 async function loadSkus() {
@@ -314,15 +370,13 @@ async function loadSkus() {
 
   spinner.style.display = "block";
   metaTxt.textContent   = "Fetching licenses from your tenant…";
-  select.disabled       = true;
-  runBtn.disabled       = true;
+  select.disabled = true; runBtn.disabled = true;
 
   try {
     const skus = await graphWithRetry(() => ITTools.graph.getAll("/subscribedSkus"));
-
     _skus = skus.sort((a, b) => {
-      const aName  = getFriendlyName(a.skuPartNumber);
-      const bName  = getFriendlyName(b.skuPartNumber);
+      const aName = getFriendlyName(a.skuPartNumber);
+      const bName = getFriendlyName(b.skuPartNumber);
       const aKnown = aName !== a.skuPartNumber;
       const bKnown = bName !== b.skuPartNumber;
       if (aKnown && !bKnown) return -1;
@@ -330,17 +384,18 @@ async function loadSkus() {
       return aName.localeCompare(bName);
     });
 
-    select.innerHTML = _skus.map(s =>
-      `<option value="${s.skuPartNumber}">${getFriendlyName(s.skuPartNumber)}</option>`
-    ).join("");
+    select.innerHTML = _skus.map(s => {
+      const name = getFriendlyName(s.skuPartNumber);
+      const cost = getCost(s.skuPartNumber);
+      const costHint = cost > 0 ? ` — ${formatCurrency(cost)}/user/mo` : cost === 0 ? " — Free" : "";
+      return `<option value="${s.skuPartNumber}">${name}${costHint}</option>`;
+    }).join("");
 
     const unknown = _skus.filter(s => !SKU_NAMES[s.skuPartNumber]).length;
     metaTxt.textContent = `${_skus.length} license${_skus.length !== 1 ? "s" : ""} found in your tenant` +
       (unknown > 0 ? ` · ${unknown} shown with raw SKU name` : " · all names resolved");
 
-    select.disabled = false;
-    runBtn.disabled = false;
-
+    select.disabled = false; runBtn.disabled = false;
   } catch(e) {
     select.innerHTML    = `<option value="">Could not load — ${e.message}</option>`;
     metaTxt.textContent = "Failed to load licenses.";
@@ -349,7 +404,7 @@ async function loadSkus() {
   }
 }
 
-// ── Audit ─────────────────────────────────────────────────────────────────────
+// ── Phase ─────────────────────────────────────────────────────────────────────
 function setPhase(msg) {
   const line = document.getElementById("phaseLine");
   const btn  = document.getElementById("runBtn");
@@ -365,19 +420,22 @@ function setPhase(msg) {
   }
 }
 
-let allUsers = [], sortCol = "daysSinceSignIn", sortDir = -1;
+// ── Audit ─────────────────────────────────────────────────────────────────────
+let allUsers = [], sortCol = "daysSinceSignIn", sortDir = -1, _activeSku = "";
 
 async function runAudit() {
-  document.getElementById("errBanner").style.display  = "none";
-  document.getElementById("warnBanner").style.display = "none";
-  document.getElementById("statsRow").style.display   = "none";
-  document.getElementById("tableSection").innerHTML   = "";
-  allUsers = [];
+  document.getElementById("errBanner").style.display   = "none";
+  document.getElementById("warnBanner").style.display  = "none";
+  document.getElementById("statsRow").style.display    = "none";
+  document.getElementById("costHeadline").style.display= "none";
+  document.getElementById("tableSection").innerHTML    = "";
+  allUsers = []; _activeSku = "";
 
   const licSku = document.getElementById("licSelect").value;
   const days   = parseInt(document.getElementById("daysSelect").value);
   const cutoff = new Date(Date.now() - days * 86400000);
   if (!licSku) return;
+  _activeSku = licSku;
 
   try {
     setPhase("Fetching license counts…");
@@ -388,7 +446,7 @@ async function runAudit() {
       setPhase(null); return;
     }
 
-    renderStats(targetSkus, null, days);
+    renderStats(targetSkus, null, days, licSku);
     const targetSkuIds = targetSkus.map(s => s.skuId);
 
     setPhase("Fetching licensed users…");
@@ -423,10 +481,7 @@ async function runAudit() {
       const daysSince = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
       const matched   = (u.assignedLicenses||[])
         .filter(l => targetSkuIds.includes(l.skuId))
-        .map(l => {
-          const s = targetSkus.find(t => t.skuId === l.skuId);
-          return s ? getFriendlyName(s.skuPartNumber) : l.skuId;
-        });
+        .map(l => { const s = targetSkus.find(t => t.skuId === l.skuId); return s ? getFriendlyName(s.skuPartNumber) : l.skuId; });
 
       inactive.push({
         displayName:     u.displayName||"",
@@ -436,13 +491,15 @@ async function runAudit() {
         accountEnabled:  u.accountEnabled,
         lastSignIn:      last ? last.toISOString().slice(0,10) : null,
         daysSinceSignIn: daysSince,
-        licenses:        matched
+        licenses:        matched,
+        monthlyCost:     getCost(licSku),
       });
     }
 
     allUsers = inactive;
-    renderStats(targetSkus, inactive.length, days);
-    renderTable(inactive, days);
+    renderStats(targetSkus, inactive.length, days, licSku);
+    renderCostHeadline(inactive, licSku);
+    renderTable(inactive, days, licSku);
 
   } catch(e) {
     document.getElementById("errBanner").textContent   = e.message;
@@ -452,30 +509,68 @@ async function runAudit() {
   }
 }
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
-function renderStats(skus, inactiveCount, days) {
-  let total = 0, assigned = 0;
-  skus.forEach(s => {
-    total    += (s.prepaidUnits?.enabled) || 0;
-    assigned += s.consumedUnits || 0;
-  });
-  const pct = total > 0 ? Math.round((assigned / total) * 100) : 0;
-  let html = sc("blue","Total",total,null) +
-             sc("green","Assigned",assigned,pct+"% utilization") +
-             sc("gray","Available",total-assigned,null);
-  if (inactiveCount !== null && inactiveCount > 0)
-    html += sc("amber","Recoverable",inactiveCount,"inactive >"+days+"d");
-  const row = document.getElementById("statsRow");
-  row.innerHTML     = html;
-  row.style.display = "flex";
+// ── Cost headline ─────────────────────────────────────────────────────────────
+function renderCostHeadline(users, sku) {
+  if (!users.length) return;
+  const cost = getCost(sku);
+  if (cost === null || cost === 0) return; // free or unknown — no headline
+
+  const monthly  = cost * users.length;
+  const annual   = monthly * 12;
+  const el       = document.getElementById("costHeadline");
+  const licName  = getFriendlyName(sku);
+
+  document.getElementById("hlMonthly").textContent = formatCurrencyRound(monthly) + "/month";
+  document.getElementById("hlSub").textContent     = `${users.length} inactive ${licName} user${users.length!==1?"s":""} × ${formatCurrency(cost)}/user/mo`;
+  document.getElementById("hlAnnual").textContent  = formatCurrencyRound(annual) + "/year";
+
+  // Breakdown by account status
+  const disabled = users.filter(u => u.accountEnabled === false).length;
+  const active   = users.length - disabled;
+  document.getElementById("hlBreakdown").innerHTML =
+    `<div><strong>${active}</strong> active accounts (still enabled, not signing in)</div>` +
+    `<div><strong>${disabled}</strong> disabled accounts (license can be reclaimed immediately)</div>` +
+    `<div><strong>${formatCurrency(cost)}</strong> per user per month · <strong>${formatCurrency(cost * 12)}</strong> per user per year</div>`;
+
+  el.style.display = "block";
 }
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats(skus, inactiveCount, days, sku) {
+  let total = 0, assigned = 0;
+  skus.forEach(s => { total += (s.prepaidUnits?.enabled)||0; assigned += s.consumedUnits||0; });
+  const pct  = total > 0 ? Math.round((assigned/total)*100) : 0;
+  const cost = getCost(sku);
+  const hasCost = cost !== null && cost > 0;
+
+  const totalCostStr    = hasCost ? `${formatCurrencyRound(total * cost)}/mo total` : null;
+  const assignedCostStr = hasCost ? `${formatCurrencyRound(assigned * cost)}/mo spend` : `${pct}% utilization`;
+  const availCostStr    = hasCost ? `${formatCurrencyRound((total - assigned) * cost)}/mo unused` : null;
+
+  let html = sc("blue",  "Total licenses",  total,            totalCostStr) +
+             sc("green", "Assigned",        assigned,         assignedCostStr) +
+             sc("gray",  "Available",       total - assigned, availCostStr);
+
+  if (inactiveCount !== null && inactiveCount > 0) {
+    const recoverCostStr = hasCost
+      ? `${formatCurrencyRound(inactiveCount * cost)}/mo recoverable`
+      : `inactive >${days}d`;
+    html += sc("amber", "Recoverable", inactiveCount, recoverCostStr);
+  }
+
+  const row = document.getElementById("statsRow");
+  row.innerHTML = html; row.style.display = "flex";
+}
+
 function sc(c,l,v,s) {
   return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
-function renderTable(users, days) {
+function renderTable(users, days, sku) {
   const sec = document.getElementById("tableSection");
+  const hasCost = getCost(sku) !== null;
+
   if (!users.length) {
     sec.innerHTML = `<div class="card"><div class="empty-state">
       <div class="empty-icon">✅</div>
@@ -494,11 +589,8 @@ function renderTable(users, days) {
           </span>
         </span>
         <div class="tbl-actions">
-          <input type="search" placeholder="Filter…"
-            style="width:200px;font-size:12px;padding:5px 9px"
-            oninput="filterTbl(this.value)"/>
-          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px"
-            onclick="exportCsv()">Export CSV</button>
+          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportCsv()">Export CSV</button>
         </div>
       </div>
       <table>
@@ -508,9 +600,10 @@ function renderTable(users, days) {
           ${th("Last sign-in","lastSignIn")}
           ${th("Days inactive","daysSinceSignIn")}
           ${th("Account","accountEnabled")}
+          ${hasCost ? th("Monthly cost","monthlyCost") : ""}
           ${th("Licenses","licenses")}
         </tr></thead>
-        <tbody id="auditBody">${sorted.map(userRow).join("")}</tbody>
+        <tbody id="auditBody">${sorted.map(u => userRow(u, hasCost)).join("")}</tbody>
       </table>
     </div>`;
 }
@@ -521,7 +614,7 @@ function th(label, col) {
   return `<th onclick="sortBy('${col}')"${active}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
 }
 
-function userRow(u) {
+function userRow(u, hasCost) {
   const stale    = !u.daysSinceSignIn || u.daysSinceSignIn > 60;
   const init2    = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
   const lastSeen = u.lastSignIn
@@ -540,28 +633,34 @@ function userRow(u) {
   const pills = (u.licenses||[]).map(l=>`<span class="lic-pill">${l}</span>`).join("");
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
+  let costCell = "";
+  if (hasCost) {
+    const c = u.monthlyCost;
+    if (c === null)     costCell = `<td class="cost-cell no-cost">—</td>`;
+    else if (c === 0)   costCell = `<td class="cost-cell free-cost">Free</td>`;
+    else                costCell = `<td class="cost-cell has-cost">${formatCurrency(c)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span></td>`;
+  }
+
   return `<tr data-search="${search}">
     <td><div class="user-cell">
       <div class="avatar ${stale?"stale":"ok"}">${init2}</div>
-      <div>
-        <div class="user-name">${u.displayName||"Unknown"}</div>
-        <div class="user-upn">${u.upn}</div>
-      </div>
+      <div><div class="user-name">${u.displayName||"Unknown"}</div><div class="user-upn">${u.upn}</div></div>
     </div></td>
     <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
     <td style="color:${stale?"var(--red)":"var(--muted)"};font-size:12px">${lastSeen}</td>
     <td><span class="${ageCls}">${ageLabel}</span></td>
     <td>${acct}</td>
+    ${costCell}
     <td>${pills}</td>
   </tr>`;
 }
 
 function sortBy(col) {
-  sortDir = sortCol===col ? sortDir*-1 : -1;
-  sortCol = col;
+  sortDir = sortCol===col ? sortDir*-1 : -1; sortCol=col;
   const b = document.getElementById("auditBody");
   if (b) {
-    b.innerHTML = sortUsers(allUsers).map(userRow).join("");
+    const hasCost = getCost(_activeSku) !== null;
+    b.innerHTML = sortUsers(allUsers).map(u => userRow(u, hasCost)).join("");
     filterTbl(document.querySelector('input[type="search"]')?.value||"");
   }
 }
@@ -569,13 +668,9 @@ function sortBy(col) {
 function sortUsers(users) {
   return [...users].sort((a,b) => {
     let av=a[sortCol], bv=b[sortCol];
-    if (sortCol==="daysSinceSignIn") {
-      av = av===null ? 999999 : av;
-      bv = bv===null ? 999999 : bv;
-      return sortDir*(bv-av);
-    }
-    if (sortCol==="accountEnabled")
-      return sortDir*((a.accountEnabled===false?0:1)-(b.accountEnabled===false?0:1));
+    if (sortCol==="daysSinceSignIn") { av=av===null?999999:av; bv=bv===null?999999:bv; return sortDir*(bv-av); }
+    if (sortCol==="monthlyCost")     { av=av===null?-1:av;     bv=bv===null?-1:bv;     return sortDir*(bv-av); }
+    if (sortCol==="accountEnabled")  return sortDir*((a.accountEnabled===false?0:1)-(b.accountEnabled===false?0:1));
     return sortDir*(av||"").toString().toLowerCase().localeCompare((bv||"").toString().toLowerCase());
   });
 }
@@ -589,18 +684,27 @@ function filterTbl(q) {
 
 function exportCsv() {
   if (!allUsers.length) return;
+  const hasCost = getCost(_activeSku) !== null;
   ITTools.csv.download(
     "M365_License_Audit_" + new Date().toISOString().slice(0,10) + ".csv",
-    allUsers.map(u => ({
-      "Display Name":  u.displayName,
-      "UPN":           u.upn,
-      "Department":    u.department,
-      "Job Title":     u.jobTitle,
-      "Account":       u.accountEnabled===false ? "Disabled" : "Active",
-      "Last Sign-In":  u.lastSignIn || "Never",
-      "Days Inactive": u.daysSinceSignIn !== null ? u.daysSinceSignIn : "Never",
-      "Licenses":      (u.licenses||[]).join("; ")
-    }))
+    allUsers.map(u => {
+      const row = {
+        "Display Name":  u.displayName,
+        "UPN":           u.upn,
+        "Department":    u.department,
+        "Job Title":     u.jobTitle,
+        "Account":       u.accountEnabled===false ? "Disabled" : "Active",
+        "Last Sign-In":  u.lastSignIn || "Never",
+        "Days Inactive": u.daysSinceSignIn !== null ? u.daysSinceSignIn : "Never",
+        "Licenses":      (u.licenses||[]).join("; "),
+      };
+      if (hasCost) {
+        const c = u.monthlyCost;
+        row["Monthly Cost"] = c === null ? "" : c === 0 ? "Free" : formatCurrency(c);
+        row["Annual Cost"]  = c === null ? "" : c === 0 ? "Free" : formatCurrency(c * 12);
+      }
+      return row;
+    })
   );
 }
 
