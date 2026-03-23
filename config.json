@@ -1,0 +1,48 @@
+{
+  "tools": [
+    {
+      "id": "license-audit",
+      "name": "License Audit",
+      "description": "Identify inactive M365 license holders. Find users who haven't signed in recently and surface recoverable seats.",
+      "icon": "📊",
+      "status": "live",
+      "path": "tools/license-audit/",
+      "permissions": ["User.Read.All", "AuditLog.Read.All"],
+      "accent": "#1a56db",
+      "iconBg": "#e8f0fe"
+    },
+    {
+      "id": "group-import",
+      "name": "Group Import",
+      "description": "Bulk-add users to an Entra ID security group from a CSV. Dry-run preview, full audit log, and CSV export.",
+      "icon": "👥",
+      "status": "live",
+      "path": "tools/group-import/",
+      "permissions": ["Group.ReadWrite.All", "GroupMember.ReadWrite.All"],
+      "accent": "#047857",
+      "iconBg": "#d1fae5"
+    },
+    {
+      "id": "mfa-status",
+      "name": "MFA Status Report",
+      "description": "Audit MFA registration status across your tenant. Surface users with weak or missing authentication methods.",
+      "icon": "🔑",
+      "status": "coming-soon",
+      "path": "",
+      "permissions": ["UserAuthMethod.Read.All"],
+      "accent": "#92400e",
+      "iconBg": "#fef3c7"
+    },
+    {
+      "id": "guest-audit",
+      "name": "Guest Access Audit",
+      "description": "Review all B2B guest accounts in your tenant — last sign-in, group memberships, and licence assignments.",
+      "icon": "🛡️",
+      "status": "coming-soon",
+      "path": "",
+      "permissions": ["User.Read.All", "Directory.Read.All"],
+      "accent": "#5b21b6",
+      "iconBg": "#ede9fe"
+    }
+  ]
+}
