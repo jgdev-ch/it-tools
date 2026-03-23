@@ -13,6 +13,27 @@
   .page-header p  { font-size: 13px; color: var(--muted); }
   .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
   .controls .field { flex: 1 1 180px; margin-bottom: 0; }
+
+  /* SKU dropdown loading state */
+  .sku-loading {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted); margin-top: 5px;
+  }
+  .sku-count {
+    font-size: 11px; color: var(--muted2); margin-top: 4px;
+  }
+  select:disabled {
+    opacity: .6; cursor: not-allowed;
+  }
+
+  /* Unavailable SKU indicator */
+  .sku-unavailable {
+    font-size: 11px; color: var(--amber);
+    background: var(--amber-light); border: 1px solid var(--amber-border);
+    border-radius: var(--radius-sm); padding: 6px 10px; margin-top: 6px;
+    display: none;
+  }
+
   .lic-pill { display:inline-block; background:var(--blue-light); color:var(--blue-dark); border-radius:4px; padding:2px 7px; font-size:11px; margin:1px; }
   .age-never    { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
   .age-critical { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
@@ -71,13 +92,17 @@
       <div class="controls">
         <div class="field">
           <label class="field-label">License type</label>
-          <select id="licSelect">
-            <option value="POWER_BI_PRO">Power BI Pro</option>
-            <option value="Microsoft_Copilot_for_Microsoft_365">Copilot for M365</option>
-            <option value="ENTERPRISEPREMIUM">Microsoft 365 E5</option>
-            <option value="ENTERPRISEPACK">Microsoft 365 E3</option>
-            <option value="SPE_E3">Microsoft 365 Business Standard</option>
+          <select id="licSelect" disabled>
+            <option value="">Loading licenses from your tenant…</option>
           </select>
+          <div class="sku-loading" id="skuLoading">
+            <div class="spinner"></div>
+            <span>Fetching licenses…</span>
+          </div>
+          <div class="sku-count" id="skuCount"></div>
+          <div class="sku-unavailable" id="skuUnavailable">
+            ⚠ This license was not found in your tenant.
+          </div>
         </div>
         <div class="field">
           <label class="field-label">Inactivity threshold</label>
@@ -89,7 +114,7 @@
             <option value="365">365 days</option>
           </select>
         </div>
-        <button class="btn btn-primary" id="runBtn" onclick="runAudit()">Run Audit</button>
+        <button class="btn btn-primary" id="runBtn" onclick="runAudit()" disabled>Run Audit</button>
       </div>
       <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
     </div>
@@ -104,6 +129,90 @@
 <script>
 const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All"];
 
+// ── Friendly name map ────────────────────────────────────────
+// Maps Graph SKU part numbers to human-readable display names.
+// Add new entries here as you encounter unknown SKUs in your tenant.
+const SKU_NAMES = {
+  // Microsoft 365
+  "O365_BUSINESS_ESSENTIALS":              "Microsoft 365 Business Basic",
+  "O365_BUSINESS_PREMIUM":                 "Microsoft 365 Business Standard",
+  "SPE_E3":                                "Microsoft 365 E3",
+  "SPE_E5":                                "Microsoft 365 E5",
+  "SPE_F1":                                "Microsoft 365 F1",
+  "SPE_F3":                                "Microsoft 365 F3",
+  "Microsoft_365_Copilot":                 "Microsoft 365 Copilot",
+  "Microsoft_Copilot_for_Microsoft_365":   "Copilot for Microsoft 365",
+
+  // Office 365
+  "ENTERPRISEPACK":                        "Office 365 E3",
+  "ENTERPRISEPREMIUM":                     "Office 365 E5",
+  "STANDARDPACK":                          "Office 365 E1",
+  "DESKLESSPACK":                          "Office 365 F3",
+  "O365_BUSINESS":                         "Microsoft 365 Apps for Business",
+  "OFFICESUBSCRIPTION":                    "Microsoft 365 Apps for Enterprise",
+
+  // Exchange
+  "EXCHANGESTANDARD":                      "Exchange Online Plan 1",
+  "EXCHANGEENTERPRISE":                    "Exchange Online Plan 2",
+  "EXCHANGE_S_DESKLESS":                   "Exchange Online Kiosk",
+  "EXCHANGEESSENTIALS":                    "Exchange Online Essentials",
+  "EXCHANGEARCHIVE_ADDON":                 "Exchange Online Archiving",
+
+  // Teams
+  "TEAMS_EXPLORATORY":                     "Microsoft Teams Exploratory",
+  "MCOSTANDARD":                           "Skype for Business Online Plan 2",
+  "MCOTEAMS_ESSENTIALS":                   "Microsoft Teams Essentials",
+  "Teams_Phone_Standard":                  "Microsoft Teams Phone Standard",
+  "MCOMEETADV":                            "Microsoft 365 Audio Conferencing",
+
+  // Power Platform
+  "POWER_BI_STANDARD":                     "Power BI (free)",
+  "POWER_BI_PRO":                          "Power BI Pro",
+  "POWER_BI_PREMIUM_PER_USER":             "Power BI Premium Per User",
+  "POWERAPPS_PER_USER":                    "Power Apps Per User Plan",
+  "FLOW_PER_USER":                         "Power Automate Per User Plan",
+  "POWERAPPS_VIRAL":                       "Microsoft Power Apps Plan 2 Trial",
+
+  // Security & Compliance
+  "EMS":                                   "Enterprise Mobility + Security E3",
+  "EMSPREMIUM":                            "Enterprise Mobility + Security E5",
+  "AAD_PREMIUM":                           "Microsoft Entra ID P1",
+  "AAD_PREMIUM_P2":                        "Microsoft Entra ID P2",
+  "INTUNE_A":                              "Microsoft Intune Plan 1",
+  "INTUNE_A_D":                            "Microsoft Intune Plan 1 for Education",
+  "ATP_ENTERPRISE":                        "Microsoft Defender for Office 365 Plan 1",
+  "THREAT_INTELLIGENCE":                   "Microsoft Defender for Office 365 Plan 2",
+  "IDENTITY_THREAT_PROTECTION":            "Microsoft 365 E5 Security",
+  "INFORMATION_PROTECTION_COMPLIANCE":     "Microsoft 365 E5 Compliance",
+  "M365_SECURITY_COMPLIANCE":              "Microsoft 365 E5 Security + Compliance",
+
+  // Dynamics 365
+  "DYN365_ENTERPRISE_PLAN1":               "Dynamics 365 Customer Engagement Plan",
+  "DYN365_ENTERPRISE_SALES":               "Dynamics 365 Sales Enterprise",
+  "DYN365_ENTERPRISE_CUSTOMER_SERVICE":    "Dynamics 365 Customer Service Enterprise",
+  "DYN365_FINANCIALS_BUSINESS_SKU":        "Dynamics 365 Business Central Essentials",
+
+  // Project & Visio
+  "PROJECTPROFESSIONAL":                   "Project Plan 3",
+  "PROJECTPREMIUM":                        "Project Plan 5",
+  "VISIOCLIENT":                           "Visio Plan 2",
+  "VISIOONLINE_PLAN1":                     "Visio Plan 1",
+
+  // Developer / Other
+  "DEVELOPERPACK":                         "Office 365 E3 Developer",
+  "DEVELOPERPACK_E5":                      "Microsoft 365 E5 Developer",
+  "WINDOWS_STORE":                         "Windows Store for Business",
+  "RIGHTSMANAGEMENT":                      "Azure Information Protection Plan 1",
+  "RIGHTSMANAGEMENT_ADHOC":                "Rights Management Adhoc",
+  "CRMSTANDARD":                           "Microsoft Dynamics CRM Online",
+  "STREAM":                                "Microsoft Stream Plan 2",
+};
+
+function getFriendlyName(skuPartNumber) {
+  return SKU_NAMES[skuPartNumber] || skuPartNumber;
+}
+
+// ── Init ─────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "License Audit", hubRelPath: "../../" });
@@ -111,10 +220,11 @@ async function init() {
 
   await ITTools.auth.init({
     scopes: TOOL_SCOPES,
-    onSignIn: acct => {
+    onSignIn: async acct => {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
+      await loadSkus();
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
@@ -130,19 +240,68 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
+    await loadSkus();
   } catch(e) {
     const el = document.getElementById("authErr");
-    el.textContent   = e.message;
-    el.style.display = "block";
+    el.textContent = e.message; el.style.display = "block";
   }
 }
 
 function toggleUri() {
   const b = document.getElementById("uriBox");
-  b.textContent   = ITTools.auth.redirectUri();
+  b.textContent = ITTools.auth.redirectUri();
   b.style.display = b.style.display === "none" ? "block" : "none";
 }
 
+// ── Live SKU loader ──────────────────────────────────────────
+let _skus = []; // full sku list cached after first load
+
+async function loadSkus() {
+  const select   = document.getElementById("licSelect");
+  const loading  = document.getElementById("skuLoading");
+  const countEl  = document.getElementById("skuCount");
+  const runBtn   = document.getElementById("runBtn");
+
+  loading.style.display = "flex";
+  select.disabled       = true;
+  runBtn.disabled       = true;
+
+  try {
+    const skus = await ITTools.graph.getAll("/subscribedSkus");
+
+    // Sort: first by friendly name, unknowns (raw SKU names) at the bottom
+    _skus = skus.sort((a, b) => {
+      const aName = getFriendlyName(a.skuPartNumber);
+      const bName = getFriendlyName(b.skuPartNumber);
+      const aKnown = aName !== a.skuPartNumber;
+      const bKnown = bName !== b.skuPartNumber;
+      if (aKnown && !bKnown) return -1;
+      if (!aKnown && bKnown) return 1;
+      return aName.localeCompare(bName);
+    });
+
+    select.innerHTML = _skus.map(s => {
+      const name = getFriendlyName(s.skuPartNumber);
+      return `<option value="${s.skuPartNumber}">${name}</option>`;
+    }).join("");
+
+    const known   = _skus.filter(s => SKU_NAMES[s.skuPartNumber]).length;
+    const unknown = _skus.length - known;
+    countEl.textContent = `${_skus.length} license${_skus.length !== 1 ? "s" : ""} found in your tenant` +
+      (unknown > 0 ? ` · ${unknown} shown with raw SKU name` : "");
+
+    select.disabled  = false;
+    runBtn.disabled  = false;
+
+  } catch(e) {
+    select.innerHTML = `<option value="">Could not load licenses — ${e.message}</option>`;
+    countEl.textContent = "";
+  } finally {
+    loading.style.display = "none";
+  }
+}
+
+// ── Audit ─────────────────────────────────────────────────────
 function setPhase(msg) {
   const line = document.getElementById("phaseLine");
   const btn  = document.getElementById("runBtn");
@@ -161,20 +320,26 @@ function setPhase(msg) {
 let allUsers = [], sortCol = "daysSinceSignIn", sortDir = -1;
 
 async function runAudit() {
-  document.getElementById("errBanner").style.display = "none";
-  document.getElementById("statsRow").style.display  = "none";
-  document.getElementById("tableSection").innerHTML  = "";
+  document.getElementById("errBanner").style.display  = "none";
+  document.getElementById("statsRow").style.display   = "none";
+  document.getElementById("tableSection").innerHTML   = "";
+  document.getElementById("skuUnavailable").style.display = "none";
   allUsers = [];
 
   const licSku = document.getElementById("licSelect").value;
   const days   = parseInt(document.getElementById("daysSelect").value);
   const cutoff = new Date(Date.now() - days * 86400000);
 
+  if (!licSku) return;
+
   try {
     setPhase("Fetching license counts…");
-    const skus       = await ITTools.graph.getAll("/subscribedSkus");
-    const targetSkus = skus.filter(s => s.skuPartNumber === licSku);
-    if (!targetSkus.length) throw new Error("License '" + licSku + "' not found. Available: " + skus.map(s => s.skuPartNumber).join(", "));
+    const targetSkus = _skus.filter(s => s.skuPartNumber === licSku);
+
+    if (!targetSkus.length) {
+      document.getElementById("skuUnavailable").style.display = "block";
+      setPhase(null); return;
+    }
 
     renderStats(targetSkus, null, days);
     const targetSkuIds = targetSkus.map(s => s.skuId);
@@ -186,12 +351,17 @@ async function runAudit() {
     let licensedUsers;
     try {
       licensedUsers = await ITTools.graph.getAll(
-        "https://graph.microsoft.com/v1.0/users?$filter=" + filter + "&$select=" + fields + "&$count=true&$top=999"
+        "https://graph.microsoft.com/v1.0/users?$filter=" + filter +
+        "&$select=" + fields + "&$count=true&$top=999"
       );
     } catch (_) {
-      setPhase("Fallback: loading all users (large tenant)…");
-      const all = await ITTools.graph.getAll("https://graph.microsoft.com/v1.0/users?$select=" + fields + "&$top=999");
-      licensedUsers = all.filter(u => (u.assignedLicenses||[]).some(l => targetSkuIds.includes(l.skuId)));
+      setPhase("Fallback: loading all users…");
+      const all = await ITTools.graph.getAll(
+        "https://graph.microsoft.com/v1.0/users?$select=" + fields + "&$top=999"
+      );
+      licensedUsers = all.filter(u =>
+        (u.assignedLicenses||[]).some(l => targetSkuIds.includes(l.skuId))
+      );
     }
 
     setPhase("Analysing " + licensedUsers.length + " users…");
@@ -202,22 +372,31 @@ async function runAudit() {
       const d2   = si.lastNonInteractiveSignInDateTime  ? new Date(si.lastNonInteractiveSignInDateTime)  : null;
       const last = d1 && d2 ? (d1 > d2 ? d1 : d2) : (d1 || d2 || null);
       if (last && last >= cutoff) continue;
+
       const daysSince = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
       const matched   = (u.assignedLicenses||[])
         .filter(l => targetSkuIds.includes(l.skuId))
-        .map(l => { const s = targetSkus.find(t => t.skuId === l.skuId); return s ? s.skuPartNumber : l.skuId; });
+        .map(l => {
+          const s = targetSkus.find(t => t.skuId === l.skuId);
+          return s ? getFriendlyName(s.skuPartNumber) : l.skuId;
+        });
+
       inactive.push({
-        displayName: u.displayName||"", upn: u.userPrincipalName||"",
-        department: u.department||"", jobTitle: u.jobTitle||"",
-        accountEnabled: u.accountEnabled,
-        lastSignIn: last ? last.toISOString().slice(0,10) : null,
-        daysSinceSignIn: daysSince, licenses: matched
+        displayName:     u.displayName||"",
+        upn:             u.userPrincipalName||"",
+        department:      u.department||"",
+        jobTitle:        u.jobTitle||"",
+        accountEnabled:  u.accountEnabled,
+        lastSignIn:      last ? last.toISOString().slice(0,10) : null,
+        daysSinceSignIn: daysSince,
+        licenses:        matched
       });
     }
 
     allUsers = inactive;
     renderStats(targetSkus, inactive.length, days);
     renderTable(inactive, days);
+
   } catch(e) {
     document.getElementById("errBanner").textContent   = e.message;
     document.getElementById("errBanner").style.display = "block";
@@ -226,12 +405,20 @@ async function runAudit() {
   }
 }
 
+// ── Stats ─────────────────────────────────────────────────────
 function renderStats(skus, inactiveCount, days) {
   let total = 0, assigned = 0;
-  skus.forEach(s => { total += (s.prepaidUnits?.enabled)||0; assigned += s.consumedUnits||0; });
-  const pct = total > 0 ? Math.round((assigned/total)*100) : 0;
-  let html = sc("blue","Total",total,null) + sc("green","Assigned",assigned,pct+"% utilization") + sc("gray","Available",total-assigned,null);
-  if (inactiveCount !== null && inactiveCount > 0) html += sc("amber","Recoverable",inactiveCount,"inactive >"+days+"d");
+  skus.forEach(s => {
+    total    += (s.prepaidUnits?.enabled) || 0;
+    assigned += s.consumedUnits || 0;
+  });
+  const pct = total > 0 ? Math.round((assigned / total) * 100) : 0;
+  let html = sc("blue","Total",total,null) +
+             sc("green","Assigned",assigned, pct + "% utilization") +
+             sc("gray","Available", total - assigned, null);
+  if (inactiveCount !== null && inactiveCount > 0)
+    html += sc("amber","Recoverable", inactiveCount, "inactive >" + days + "d");
+
   const row = document.getElementById("statsRow");
   row.innerHTML     = html;
   row.style.display = "flex";
@@ -240,17 +427,24 @@ function sc(c,l,v,s) {
   return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
 }
 
+// ── Table ─────────────────────────────────────────────────────
 function renderTable(users, days) {
   const sec = document.getElementById("tableSection");
   if (!users.length) {
-    sec.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No inactive users</div><p class="empty-sub">All licensed users signed in within ${days} days.</p></div></div>`;
+    sec.innerHTML = `<div class="card"><div class="empty-state">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">No inactive users</div>
+      <p class="empty-sub">All licensed users signed in within ${days} days.</p>
+    </div></div>`;
     return;
   }
   const sorted = sortUsers(users);
   sec.innerHTML = `
     <div class="tbl-wrap">
       <div class="tbl-toolbar">
-        <span class="tbl-title">Inactive holders <span class="status-pill pill-skipped" style="margin-left:6px">${users.length} user${users.length!==1?"s":""}</span></span>
+        <span class="tbl-title">Inactive holders
+          <span class="status-pill pill-skipped" style="margin-left:6px">${users.length} user${users.length!==1?"s":""}</span>
+        </span>
         <div class="tbl-actions">
           <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
           <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportCsv()">Export CSV</button>
@@ -258,8 +452,12 @@ function renderTable(users, days) {
       </div>
       <table>
         <thead><tr>
-          ${th("User","displayName")}${th("Department","department")}${th("Last sign-in","lastSignIn")}
-          ${th("Days inactive","daysSinceSignIn")}${th("Account","accountEnabled")}${th("Licenses","licenses")}
+          ${th("User","displayName")}
+          ${th("Department","department")}
+          ${th("Last sign-in","lastSignIn")}
+          ${th("Days inactive","daysSinceSignIn")}
+          ${th("Account","accountEnabled")}
+          ${th("Licenses","licenses")}
         </tr></thead>
         <tbody id="auditBody">${sorted.map(userRow).join("")}</tbody>
       </table>
@@ -273,21 +471,24 @@ function th(label, col) {
 }
 
 function userRow(u) {
-  const stale = !u.daysSinceSignIn || u.daysSinceSignIn > 60;
-  const init2 = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+  const stale  = !u.daysSinceSignIn || u.daysSinceSignIn > 60;
+  const init2  = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
   const lastSeen = u.lastSignIn
     ? new Date(u.lastSignIn).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})
     : "Never";
+
   let ageCls, ageLabel;
   if (!u.daysSinceSignIn)           { ageCls="age-never";    ageLabel="Never"; }
   else if (u.daysSinceSignIn > 90)  { ageCls="age-critical"; ageLabel=u.daysSinceSignIn+"d"; }
   else if (u.daysSinceSignIn > 60)  { ageCls="age-warning";  ageLabel=u.daysSinceSignIn+"d"; }
   else                              { ageCls="age-ok";       ageLabel=u.daysSinceSignIn+"d"; }
+
   const acct  = u.accountEnabled===false
     ? `<span class="status-pill pill-disabled">Disabled</span>`
     : `<span class="status-pill pill-active">Active</span>`;
   const pills = (u.licenses||[]).map(l=>`<span class="lic-pill">${l}</span>`).join("");
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
+
   return `<tr data-search="${search}">
     <td><div class="user-cell">
       <div class="avatar ${stale?"stale":"ok"}">${init2}</div>
@@ -305,29 +506,46 @@ function sortBy(col) {
   sortDir = sortCol === col ? sortDir * -1 : -1;
   sortCol = col;
   const b = document.getElementById("auditBody");
-  if (b) { b.innerHTML = sortUsers(allUsers).map(userRow).join(""); filterTbl(document.querySelector('input[type="search"]')?.value||""); }
+  if (b) {
+    b.innerHTML = sortUsers(allUsers).map(userRow).join("");
+    filterTbl(document.querySelector('input[type="search"]')?.value||"");
+  }
 }
+
 function sortUsers(users) {
   return [...users].sort((a,b) => {
     let av=a[sortCol], bv=b[sortCol];
-    if (sortCol==="daysSinceSignIn") { av=av===null?999999:av; bv=bv===null?999999:bv; return sortDir*(bv-av); }
-    if (sortCol==="accountEnabled")  return sortDir*((a.accountEnabled===false?0:1)-(b.accountEnabled===false?0:1));
+    if (sortCol==="daysSinceSignIn") {
+      av = av===null ? 999999 : av;
+      bv = bv===null ? 999999 : bv;
+      return sortDir*(bv-av);
+    }
+    if (sortCol==="accountEnabled")
+      return sortDir*((a.accountEnabled===false?0:1)-(b.accountEnabled===false?0:1));
     return sortDir*(av||"").toString().toLowerCase().localeCompare((bv||"").toString().toLowerCase());
   });
 }
+
 function filterTbl(q) {
   q = q.toLowerCase();
-  document.querySelectorAll("#auditBody tr").forEach(tr => { tr.style.display = tr.dataset.search.includes(q) ? "" : "none"; });
+  document.querySelectorAll("#auditBody tr").forEach(tr => {
+    tr.style.display = tr.dataset.search.includes(q) ? "" : "none";
+  });
 }
+
 function exportCsv() {
   if (!allUsers.length) return;
-  ITTools.csv.download("M365_License_Audit_"+new Date().toISOString().slice(0,10)+".csv",
+  ITTools.csv.download(
+    "M365_License_Audit_" + new Date().toISOString().slice(0,10) + ".csv",
     allUsers.map(u => ({
-      "Display Name": u.displayName, "UPN": u.upn, "Department": u.department,
-      "Job Title": u.jobTitle, "Account": u.accountEnabled===false?"Disabled":"Active",
-      "Last Sign-In": u.lastSignIn||"Never",
-      "Days Inactive": u.daysSinceSignIn!==null?u.daysSinceSignIn:"Never",
-      "Licenses": (u.licenses||[]).join("; ")
+      "Display Name":  u.displayName,
+      "UPN":           u.upn,
+      "Department":    u.department,
+      "Job Title":     u.jobTitle,
+      "Account":       u.accountEnabled===false ? "Disabled" : "Active",
+      "Last Sign-In":  u.lastSignIn || "Never",
+      "Days Inactive": u.daysSinceSignIn !== null ? u.daysSinceSignIn : "Never",
+      "Licenses":      (u.licenses||[]).join("; ")
     }))
   );
 }
