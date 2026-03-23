@@ -126,99 +126,140 @@ const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All"];
 // To add a new SKU: "SKU_PART_NUMBER": "Friendly Display Name"
 const SKU_NAMES = {
   // ── Microsoft 365 suites ──
-  "O365_BUSINESS_ESSENTIALS":              "Microsoft 365 Business Basic",
-  "O365_BUSINESS_PREMIUM":                 "Microsoft 365 Business Standard",
-  "O365_BUSINESS":                         "Microsoft 365 Apps for Business",
-  "SPE_E3":                                "Microsoft 365 E3",
-  "SPE_E5":                                "Microsoft 365 E5",
-  "SPE_F1":                                "Microsoft 365 F1",
-  "SPE_F3":                                "Microsoft 365 F3",
-  "Microsoft_365_Copilot":                 "Microsoft 365 Copilot",
-  "Microsoft_Copilot_for_Microsoft_365":   "Copilot for Microsoft 365",
-  "OFFICESUBSCRIPTION":                    "Microsoft 365 Apps for Enterprise",
+  "O365_BUSINESS_ESSENTIALS":                          "Microsoft 365 Business Basic",
+  "O365_BUSINESS_PREMIUM":                             "Microsoft 365 Business Standard",
+  "O365_BUSINESS":                                     "Microsoft 365 Apps for Business",
+  "SPE_E3":                                            "Microsoft 365 E3",
+  "SPE_E5":                                            "Microsoft 365 E5",
+  "SPE_F1":                                            "Microsoft 365 F3",  // F1 SKU was rebranded to F3
+  "SPE_F3":                                            "Microsoft 365 F3",
+  "Microsoft_365_Copilot":                             "Microsoft 365 Copilot",
+  "Microsoft_Copilot_for_Microsoft_365":               "Copilot for Microsoft 365",
+  "OFFICESUBSCRIPTION":                                "Microsoft 365 Apps for Enterprise",
 
   // ── Office 365 ──
-  "ENTERPRISEPACK":                        "Office 365 E3",
-  "ENTERPRISEPREMIUM":                     "Office 365 E5",
-  "STANDARDPACK":                          "Office 365 E1",
-  "DESKLESSPACK":                          "Office 365 F3",
+  "ENTERPRISEPACK":                                    "Office 365 E3",
+  "ENTERPRISEPREMIUM":                                 "Office 365 E5",
+  "STANDARDPACK":                                      "Office 365 E1",
+  "DESKLESSPACK":                                      "Office 365 F3",
 
   // ── Exchange ──
-  "EXCHANGESTANDARD":                      "Exchange Online Plan 1",
-  "EXCHANGEENTERPRISE":                    "Exchange Online Plan 2",
-  "EXCHANGE_S_DESKLESS":                   "Exchange Online Kiosk",
-  "EXCHANGEESSENTIALS":                    "Exchange Online Essentials",
-  "EXCHANGEARCHIVE_ADDON":                 "Exchange Online Archiving for Exchange Online",
+  "EXCHANGESTANDARD":                                  "Exchange Online Plan 1",
+  "EXCHANGEENTERPRISE":                                "Exchange Online Plan 2",
+  "EXCHANGE_S_DESKLESS":                               "Exchange Online Kiosk",
+  "EXCHANGEESSENTIALS":                                "Exchange Online Essentials",
+  "EXCHANGEARCHIVE_ADDON":                             "Exchange Online Archiving for Exchange Online",
 
   // ── Teams & Calling ──
-  "TEAMS_EXPLORATORY":                     "Microsoft Teams Exploratory",
-  "MCOTEAMS_ESSENTIALS":                   "Microsoft Teams Essentials",
-  "MSTEAMS_PREMIUM":                       "Microsoft Teams Premium",
-  "MSTEAMS_PREMIUM_DEPT":                  "Teams Premium (for Departments)",
-  "MTR_PREM":                              "Microsoft Teams Rooms Pro",
-  "MCOMEETADV":                            "Microsoft Teams Audio Conferencing",
-  "MCOMEETACPEA":                          "Microsoft Teams Audio Conferencing (dial-out US/CAN)",
-  "MCOPSTN1":                              "Microsoft Teams Domestic Calling Plan",
-  "MCOPSTN2":                              "Microsoft Teams International Calling Plan",
-  "MCOPSTNC":                              "Communications Credits",
-  "MCOPSTN_5":                             "Communications Credits",
-  "PHONESYSTEM_VIRTUALUSER":               "Microsoft Teams Phone Resource Account",
-  "Teams_Phone_with_Calling_Plan":         "Teams Phone with Calling Plan (US)",
-  "MCOPSTN_1_5":                           "Teams Phone with Calling Plan (country zone 1 - US)",
-  "MCOSTANDARD":                           "Skype for Business Online Plan 2",
+  "TEAMS_EXPLORATORY":                                 "Microsoft Teams Exploratory",
+  "MCOTEAMS_ESSENTIALS":                               "Microsoft Teams Essentials",
+  "MSTEAMS_PREMIUM":                                   "Microsoft Teams Premium",
+  "Microsoft_Teams_Premium":                           "Microsoft Teams Premium",
+  "MSTEAMS_PREMIUM_DEPT":                              "Teams Premium (for Departments)",
+  "Teams_Premium_(for_Departments)":                   "Teams Premium (for Departments)",
+  "MTR_PREM":                                          "Microsoft Teams Rooms Pro",
+  "Microsoft_Teams_Rooms_Pro":                         "Microsoft Teams Rooms Pro",
+  "MCOMEETADV":                                        "Microsoft Teams Audio Conferencing",
+  "MCOMEETACPEA":                                      "Microsoft Teams Audio Conferencing (dial-out US/CAN)",
+  "Microsoft_Teams_Audio_Conferencing_select_dial_out":"Microsoft Teams Audio Conferencing (Select Dial-Out)",
+  "MCOPSTN1":                                          "Microsoft Teams Domestic Calling Plan",
+  "MCOPSTN2":                                          "Microsoft Teams International Calling Plan",
+  "MCOPSTNC":                                          "Communications Credits",
+  "MCOPSTN_5":                                         "Communications Credits",
+  "PHONESYSTEM_VIRTUALUSER":                           "Microsoft Teams Phone Resource Account",
+  "Teams_Phone_with_Calling_Plan":                     "Teams Phone with Calling Plan (US)",
+  "MCOPSTN_1_5":                                       "Teams Phone with Calling Plan (country zone 1 - US)",
+  "MCOSTANDARD":                                       "Skype for Business Online Plan 2",
+
+  // ── Power BI ──
+  "POWER_BI_STANDARD":                                 "Power BI (Free)",
+  "POWER_BI_PRO":                                      "Power BI Pro",
+  "POWER_BI_PRO_DEPT":                                 "Power BI Pro (Departmental)",
+  "PBI_PREMIUM_PER_USER":                              "Power BI Premium Per User",
+  "POWER_BI_PREMIUM_PER_USER":                         "Power BI Premium Per User",
+  "PBI_PREMIUM_PER_USER_ADDON":                        "Power BI Premium Per User Add-On",
+  "POWER_BI_PREMIUM_PER_USER_ADDON":                   "Power BI Premium Per User Add-On",
 
   // ── Power Platform ──
-  "POWER_BI_STANDARD":                     "Power BI (Free)",
-  "POWER_BI_PRO":                          "Power BI Pro",
-  "POWER_BI_PREMIUM_PER_USER":             "Power BI Premium Per User",
-  "POWER_BI_PREMIUM_PER_USER_ADDON":       "Power BI Premium Per User Add-On",
-  "POWERAPPS_PER_USER":                    "Power Apps Per User Plan",
-  "POWERAPPS_VIRAL":                       "Microsoft Power Apps Plan 2 Trial",
-  "POWERAPPS_DEV":                         "Microsoft Power Apps for Developer",
-  "FLOW_FREE":                             "Microsoft Power Automate Free",
-  "FLOW_PER_USER":                         "Power Automate Premium",
-  "POWERAUTOMATE_ATTENDED_RPA":            "Power Automate Premium",
-  "POWERPAGES_VIRAL":                      "Power Pages vTrial for Makers",
+  "POWERAPPS_PER_USER":                                "Power Apps Per User Plan",
+  "POWERAPPS_VIRAL":                                   "Microsoft Power Apps Plan 2 Trial",
+  "POWERAPPS_DEV":                                     "Microsoft Power Apps for Developer",
+  "FLOW_FREE":                                         "Microsoft Power Automate Free",
+  "FLOW_PER_USER":                                     "Power Automate Premium",
+  "POWERAUTOMATE_ATTENDED_RPA":                        "Power Automate Premium",
+  "Power_Pages_vTrial_for_Makers":                     "Power Pages vTrial for Makers",
+  "POWERPAGES_VIRAL":                                  "Power Pages vTrial for Makers",
 
   // ── Copilot Studio ──
-  "COPILOTSTUDIO":                         "Microsoft Copilot Studio User License",
-  "COPILOTSTUDIO_VIRAL":                   "Microsoft Copilot Studio Viral Trial",
-  "POWERVIRTUALAGENTS_VIRAL":              "Microsoft Copilot Studio Viral Trial",
+  "COPILOTSTUDIO":                                     "Microsoft Copilot Studio User License",
+  "VIRTUAL_AGENT_USL":                                 "Microsoft Copilot Studio User License",
+  "CCIBOTS_PRIVPREV_VIRAL":                            "Microsoft Copilot Studio (Private Preview)",
+  "COPILOTSTUDIO_VIRAL":                               "Microsoft Copilot Studio Viral Trial",
+  "POWERVIRTUALAGENTS_VIRAL":                          "Microsoft Copilot Studio Viral Trial",
+  "Power_Virtual_Agents":                              "Microsoft Copilot Studio",
 
   // ── Fabric & Analytics ──
-  "FABRIC_FREE":                           "Microsoft Fabric (Free)",
-  "STREAM":                                "Microsoft Stream Plan 2",
-  "STREAM_STORAGE":                        "Microsoft Stream Storage Add-On",
-  "STREAM_TRIAL":                          "Microsoft Stream Trial",
+  "FABRIC_FREE":                                       "Microsoft Fabric (Free)",
+  "STREAM":                                            "Microsoft Stream Plan 2",
+  "STREAM_STORAGE":                                    "Microsoft Stream Storage Add-On",
+  "STREAM_TRIAL":                                      "Microsoft Stream Trial",
 
   // ── Security & Compliance ──
-  "EMS":                                   "Enterprise Mobility + Security E3",
-  "EMSPREMIUM":                            "Enterprise Mobility + Security E5",
-  "AAD_PREMIUM":                           "Microsoft Entra ID P1",
-  "AAD_PREMIUM_P2":                        "Microsoft Entra ID P2",
-  "INTUNE_A":                              "Microsoft Intune Plan 1",
-  "ATP_ENTERPRISE":                        "Microsoft Defender for Office 365 Plan 1",
-  "THREAT_INTELLIGENCE":                   "Microsoft Defender for Office 365 Plan 2",
-  "IDENTITY_THREAT_PROTECTION":            "Microsoft 365 E5 Security",
-  "INFORMATION_PROTECTION_COMPLIANCE":     "Microsoft 365 E5 Compliance",
+  "EMS":                                               "Enterprise Mobility + Security E3",
+  "EMSPREMIUM":                                        "Enterprise Mobility + Security E5",
+  "AAD_PREMIUM":                                       "Microsoft Entra ID P1",
+  "AAD_PREMIUM_P2":                                    "Microsoft Entra ID P2",
+  "INTUNE_A":                                          "Microsoft Intune Plan 1",
+  "ATP_ENTERPRISE":                                    "Microsoft Defender for Office 365 Plan 1",
+  "THREAT_INTELLIGENCE":                               "Microsoft Defender for Office 365 Plan 2",
+  "IDENTITY_THREAT_PROTECTION":                        "Microsoft 365 E5 Security",
+  "INFORMATION_PROTECTION_COMPLIANCE":                 "Microsoft 365 E5 Compliance",
+  "RIGHTSMANAGEMENT":                                  "Azure Information Protection Plan 1",
+  "RMSBASIC":                                          "Rights Management Basic",
 
   // ── Project & Visio ──
-  "PROJECTPROFESSIONAL":                   "Project Plan 3",
-  "PROJECTPREMIUM":                        "Project Plan 5",
-  "VISIOCLIENT":                           "Visio Plan 2",
-  "VISIOONLINE_PLAN1":                     "Visio Plan 1",
+  "PROJECTPROFESSIONAL":                               "Project Plan 3",
+  "PROJECTPREMIUM":                                    "Project Plan 5",
+  "VISIOCLIENT":                                       "Visio Plan 2",
+  "VISIO_PLAN2_DEPT":                                  "Visio Plan 2 (Departmental)",
+  "VISIOONLINE_PLAN1":                                 "Visio Plan 1",
 
   // ── Other ──
-  "MBS_BUSINESS_ESSENTIALS":              "Microsoft Business Center",
-  "Dynamics_365_Hiring":                   "Dynamics 365 Talent",
-  "DEVELOPERPACK":                         "Office 365 E3 Developer",
-  "DEVELOPERPACK_E5":                      "Microsoft 365 E5 Developer",
-  "RIGHTSMANAGEMENT":                      "Azure Information Protection Plan 1",
-  "WINDOWS_STORE":                         "Windows Store for Business",
+  "MBS_BUSINESS_ESSENTIALS":                           "Microsoft Business Center",
+  "MICROSOFT_BUSINESS_CENTER":                         "Microsoft Business Center",
+  "SPZA_IW":                                           "App Connect IW",
+  "WINDOWS_STORE":                                     "Windows Store for Business",
+  "Dynamics_365_Hiring":                               "Dynamics 365 Talent",
+  "DEVELOPERPACK":                                     "Office 365 E3 Developer",
+  "DEVELOPERPACK_E5":                                  "Microsoft 365 E5 Developer",
 };
 
 function getFriendlyName(sku) {
   return SKU_NAMES[sku] || sku;
+}
+
+// ── Graph retry wrapper ───────────────────────────────────────────────────────
+// Automatically retries on 429 (rate limit) with exponential backoff.
+async function graphWithRetry(fn, maxRetries = 5) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch(e) {
+      attempt++;
+      const isRateLimit = e.message && (
+        e.message.includes("429") ||
+        e.message.includes("Rate limited") ||
+        e.message.includes("Too Many Requests") ||
+        e.message.includes("503") ||
+        e.message.includes("temporarily unavailable")
+      );
+      if (!isRateLimit || attempt > maxRetries) throw e;
+      const waitSec = Math.min(60, Math.pow(2, attempt));
+      setPhase(`Rate limited by Graph — retrying in ${waitSec}s (attempt ${attempt}/${maxRetries})…`);
+      await new Promise(r => setTimeout(r, waitSec * 1000));
+    }
+  }
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -277,7 +318,7 @@ async function loadSkus() {
   runBtn.disabled       = true;
 
   try {
-    const skus = await ITTools.graph.getAll("/subscribedSkus");
+    const skus = await graphWithRetry(() => ITTools.graph.getAll("/subscribedSkus"));
 
     _skus = skus.sort((a, b) => {
       const aName  = getFriendlyName(a.skuPartNumber);
@@ -356,15 +397,15 @@ async function runAudit() {
 
     let licensedUsers;
     try {
-      licensedUsers = await ITTools.graph.getAll(
+      licensedUsers = await graphWithRetry(() => ITTools.graph.getAll(
         "https://graph.microsoft.com/v1.0/users?$filter=" + filter +
         "&$select=" + fields + "&$count=true&$top=999"
-      );
+      ));
     } catch (_) {
       setPhase("Fallback: loading all users…");
-      const all = await ITTools.graph.getAll(
+      const all = await graphWithRetry(() => ITTools.graph.getAll(
         "https://graph.microsoft.com/v1.0/users?$select=" + fields + "&$top=999"
-      );
+      ));
       licensedUsers = all.filter(u =>
         (u.assignedLicenses||[]).some(l => targetSkuIds.includes(l.skuId))
       );
