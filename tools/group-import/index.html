@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Group Import — IT Tools</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<style>
+  .app-body    { display:flex; min-height:calc(100vh - 56px); }
+  .sidebar     { width:240px; background:var(--surface); border-right:1px solid var(--border); padding:1.5rem 1rem; flex-shrink:0; position:sticky; top:56px; height:calc(100vh - 56px); overflow-y:auto; }
+  .sidebar-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted2); margin-bottom:.75rem; padding-left:4px; }
+  .step-item   { display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border-radius:6px; margin-bottom:2px; cursor:pointer; transition:background .12s; }
+  .step-item:hover { background:var(--surface3); }
+  .step-item.active { background:var(--blue-light); }
+  .step-bullet { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-top:1px; border:1.5px solid var(--border-mid); color:var(--muted); background:var(--surface2); transition:all .15s; }
+  .step-item.active .step-bullet { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .step-item.done .step-bullet   { background:var(--green-light); border-color:var(--green-border); color:var(--green); font-size:0; }
+  .step-item.done .step-bullet::after { content:"✓"; font-size:11px; font-weight:700; }
+  .step-title  { font-size:13px; font-weight:600; color:var(--text); }
+  .step-item.active .step-title { color:var(--blue-dark); }
+  .step-sub    { font-size:11px; color:var(--muted); margin-top:1px; line-height:1.4; }
+  .sidebar-divider { height:1px; background:var(--border); margin:1rem 0; }
+  .sidebar-tip { background:var(--surface3); border-radius:6px; padding:10px 12px; font-size:11px; color:var(--muted); line-height:1.5; }
+  .sidebar-tip strong { display:block; font-size:11px; color:var(--text); margin-bottom:4px; }
+
+  .main-content { flex:1; padding:1.5rem; max-width:720px; }
+  .section      { display:none; }
+  .section.active { display:block; }
+  .section-hdr  { margin-bottom:1.5rem; }
+  .section-hdr h2 { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .section-hdr p  { font-size:13px; color:var(--muted); line-height:1.6; }
+
+  .file-loaded { display:flex; align-items:center; gap:10px; background:var(--green-light); border:1px solid var(--green-border); border-radius:6px; padding:10px 12px; margin-top:10px; }
+  .file-loaded-name  { font-size:13px; font-weight:600; color:var(--green); flex:1; }
+  .file-loaded-count { font-size:11px; color:var(--muted); }
+  .file-loaded-clear { background:none; border:none; cursor:pointer; color:var(--muted2); font-size:14px; padding:0 2px; }
+
+  .col-pills { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .col-pill  { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1.5px solid var(--border); background:var(--surface2); cursor:pointer; color:var(--muted); transition:all .12s; }
+  .col-pill:hover    { border-color:var(--blue-mid); color:var(--blue-mid); background:var(--blue-light); }
+  .col-pill.selected { border-color:var(--blue); background:var(--blue-light); color:var(--blue-dark); }
+  .col-pill.auto::after { content:" ✦"; font-size:10px; }
+
+  .preview-list { max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; }
+  .preview-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--border); font-size:12px; }
+  .preview-item:last-child { border-bottom:none; }
+  .dot-upn  { width:6px; height:6px; border-radius:50%; background:var(--blue); flex-shrink:0; }
+  .dot-mail { width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0; }
+
+  .group-ok { background:var(--green-light); border:1px solid var(--green-border); border-radius:6px; padding:10px 12px; margin-top:8px; display:none; }
+  .group-ok-name { font-size:13px; font-weight:700; color:var(--green); }
+  .group-ok-id   { font-size:11px; color:var(--muted); font-family:'Cascadia Code','Consolas',monospace; margin-top:2px; }
+
+  .checkbox-group { display:flex; flex-direction:column; gap:8px; }
+
+  .run-summary { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px; }
+  .run-summary-item span:first-child { color:var(--muted); font-size:11px; display:block; margin-bottom:2px; }
+  .run-summary-item span:last-child  { font-weight:600; }
+
+  #authScreen { display:flex; }
+
+  @media (max-width:640px) { .sidebar { display:none; } .main-content { padding:1rem; } }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="width:44px;height:44px;background:var(--green-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem">
+      <svg viewBox="0 0 23 23" width="20" height="20" fill="none">
+        <rect x="1"  y="1"  width="10" height="10" fill="#f25022"/>
+        <rect x="12" y="1"  width="10" height="10" fill="#7fba00"/>
+        <rect x="1"  y="12" width="10" height="10" fill="#00a4ef"/>
+        <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+      </svg>
+    </div>
+    <h1>Group Import</h1>
+    <p>Sign in with your M365 admin account to bulk-add users to an Entra ID security group from a CSV.</p>
+    <button class="btn-ms" onclick="doSignIn()">
+      <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authErr"></div>
+    <p class="auth-note">Requires <strong>User.Read.All</strong>, <strong>Group.ReadWrite.All</strong>, <strong>GroupMember.ReadWrite.All</strong>, and <strong>Directory.Read.All</strong>.</p>
+    <button class="redirect-toggle" onclick="toggleUri()">Show redirect URI for app registration</button>
+    <div class="redirect-box" id="uriBox"></div>
+  </div>
+</div>
+
+<div id="appScreen" style="display:none">
+  <div class="app-body">
+
+    <nav class="sidebar">
+      <div class="sidebar-lbl">Import Steps</div>
+      <div class="step-item active" id="nav1" onclick="gotoStep(1)">
+        <div class="step-bullet" id="bul1">1</div>
+        <div><div class="step-title">Upload CSV</div><div class="step-sub" id="sub1">Choose file &amp; column</div></div>
+      </div>
+      <div class="step-item" id="nav2" onclick="gotoStep(2)">
+        <div class="step-bullet" id="bul2">2</div>
+        <div><div class="step-title">Target Group</div><div class="step-sub" id="sub2">Find the Entra group</div></div>
+      </div>
+      <div class="step-item" id="nav3" onclick="gotoStep(3)">
+        <div class="step-bullet" id="bul3">3</div>
+        <div><div class="step-title">Run Import</div><div class="step-sub" id="sub3">Dry run, then go live</div></div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-tip">
+        <strong>How it works</strong>
+        Upload a CSV of email addresses or UPNs. The tool resolves each user via Microsoft Graph, checks existing membership, then adds them with a full audit log.
+      </div>
+    </nav>
+
+    <main class="main-content">
+
+      <!-- STEP 1 -->
+      <div class="section active" id="step1">
+        <div class="section-hdr">
+          <h2>Upload your CSV</h2>
+          <p>Drop a CSV containing the users you want to import. Identifiers are normalised and deduplicated automatically.</p>
+        </div>
+        <div class="banner error" id="s1Err"></div>
+        <div class="card">
+          <div class="card-title">Source file</div>
+          <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+            <div style="font-size:28px;margin-bottom:8px">📄</div>
+            <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p>
+            <p style="font-size:11px;color:var(--muted2);margin-top:4px">.csv files only</p>
+            <input type="file" id="fileIn" accept=".csv" onchange="handleFile(event)"/>
+          </div>
+          <div class="file-loaded" id="fileLoaded" style="display:none">
+            <span style="font-size:16px">✅</span>
+            <span class="file-loaded-name" id="fileName"></span>
+            <span class="file-loaded-count" id="fileCount"></span>
+            <button class="file-loaded-clear" onclick="clearFile()">✕</button>
+          </div>
+        </div>
+
+        <div class="card" id="colCard" style="display:none">
+          <div class="card-title">Identifier column</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Select the column with email addresses or UPNs. Auto-detected columns are marked ✦.</p>
+          <div class="col-pills" id="colPills"></div>
+          <div id="previewWrap" style="display:none;margin-top:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Preview — first 5 values</div>
+            <div class="preview-list" id="previewList"></div>
+          </div>
+        </div>
+
+        <div class="card" id="optCard" style="display:none">
+          <div class="card-title">Normalisation options</div>
+          <div class="checkbox-group">
+            <label class="checkbox-label"><input type="checkbox" id="chkLower" checked/> Force identifiers to lowercase</label>
+            <label class="checkbox-label"><input type="checkbox" id="chkTrim"  checked/> Trim leading/trailing whitespace</label>
+            <label class="checkbox-label"><input type="checkbox" id="chkDedup" checked/> Remove duplicate identifiers</label>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="s1Btn" onclick="s1Next()" disabled>Continue to Group →</button>
+          <span id="s1Msg" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="section" id="step2">
+        <div class="section-hdr">
+          <h2>Target group</h2>
+          <p>Enter the display name or object ID of the Entra ID security group to add users to.</p>
+        </div>
+        <div class="banner error" id="s2Err"></div>
+        <div class="card">
+          <div class="card-title">Find group</div>
+          <div class="field">
+            <label class="field-label">Group name or GUID</label>
+            <div class="input-row">
+              <input type="text" id="groupIn" placeholder="e.g. IT-Security-Team or 00000000-0000-…" onkeydown="if(event.key==='Enter')lookupGroup()"/>
+              <button class="btn btn-secondary" onclick="lookupGroup()" id="lookupBtn" style="white-space:nowrap">Look up</button>
+            </div>
+          </div>
+          <div class="group-ok" id="groupOk">
+            <div class="group-ok-name" id="groupOkName"></div>
+            <div class="group-ok-id"   id="groupOkId"></div>
+          </div>
+          <div class="phase-line" id="lookupPhase"><div class="spinner"></div><span>Searching…</span></div>
+        </div>
+
+        <div class="card" id="resolveCard" style="display:none">
+          <div class="card-title">Resolution settings</div>
+          <div class="field">
+            <label class="field-label">Resolve users by</label>
+            <select id="resolveBy">
+              <option value="Auto">Auto — try UPN first, then email</option>
+              <option value="UPN">UPN only</option>
+              <option value="Mail">Email (mail attribute) only</option>
+            </select>
+            <div class="field-hint">Auto works for most tenants. Use a specific mode if your CSV contains only one identifier type.</div>
+          </div>
+          <div class="checkbox-group" style="margin-top:12px">
+            <label class="checkbox-label"><input type="checkbox" id="chkGuests"/>   Include guest (B2B) accounts</label>
+            <label class="checkbox-label"><input type="checkbox" id="chkSkipEx"/>   Skip existing-membership pre-check (faster for large groups)</label>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="gotoStep(1)">← Back</button>
+          <button class="btn btn-primary" id="s2Btn" onclick="s2Next()" disabled>Continue to Run →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="section" id="step3">
+        <div class="section-hdr">
+          <h2>Run import</h2>
+          <p>Dry run first to preview changes, then go live when you're confident.</p>
+        </div>
+
+        <div class="stats-row" id="runStats" style="display:none"></div>
+
+        <div class="card">
+          <div class="card-title">Import summary</div>
+          <div class="run-summary">
+            <div class="run-summary-item"><span>CSV file</span><span id="sumFile">—</span></div>
+            <div class="run-summary-item"><span>Identifiers</span><span id="sumCount">—</span></div>
+            <div class="run-summary-item"><span>Target group</span><span id="sumGroup" style="color:var(--blue-dark)">—</span></div>
+            <div class="run-summary-item"><span>Resolve by</span><span id="sumResolve">—</span></div>
+          </div>
+        </div>
+
+        <div class="banner error" id="s3Err"></div>
+
+        <div class="card" id="progCard" style="display:none">
+          <div class="progress-wrap">
+            <div class="progress-meta"><span id="progLabel">Processing…</span><span id="progPct">0%</span></div>
+            <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost"    onclick="gotoStep(2)">← Back</button>
+          <button class="btn btn-secondary" id="btnDry"  onclick="runImport(true)" >▷ Dry Run</button>
+          <button class="btn btn-success"   id="btnLive" onclick="runImport(false)" disabled>▶ Live Run</button>
+        </div>
+
+        <div id="resultsWrap" style="display:none;margin-top:1.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:15px;font-weight:700" id="resTitle"></div>
+            <div style="display:flex;gap:8px">
+              <input type="search" id="resSearch" placeholder="Filter…" style="width:170px;font-size:12px;padding:5px 9px" oninput="filterRes(this.value)"/>
+              <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportLog()">Export CSV</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th>Status</th><th>Identifier</th><th>Display Name</th><th>Message</th><th>Time</th>
+              </tr></thead>
+              <tbody id="resBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="resEmpty" style="display:none">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-title">No matching results</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="../../shared/auth.js"></script>
+<script>
+const TOOL_SCOPES = ["User.Read.All","Group.ReadWrite.All","GroupMember.ReadWrite.All","Directory.Read.All"];
+
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "Group Import", hubRelPath: "../../" });
+  ITTools.ui.syncThemeIcon();
+
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: acct => {
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+    }
+  });
+}
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent = e.message; el.style.display = "block";
+  }
+}
+
+function toggleUri() {
+  const b = document.getElementById("uriBox");
+  b.textContent = ITTools.auth.redirectUri();
+  b.style.display = b.style.display === "none" ? "block" : "none";
+}
+
+// ── State ────────────────────────────────────────────────────
+const st = { csvName:"", identifiers:[], groupId:"", groupName:"", dryDone:false, lastLog:[] };
+
+// ── Step navigation ───────────────────────────────────────────
+function gotoStep(n) {
+  if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
+  if (n >= 3 && !st.groupId)            { showErr("s2Err","Look up a group first.");  return; }
+  [1,2,3].forEach(i => {
+    document.getElementById("step"+i).classList.toggle("active", i===n);
+    document.getElementById("nav"+i).classList.toggle("active", i===n);
+  });
+  if (n===3) updateSummary();
+}
+function markDone(n) {
+  document.getElementById("nav"+n).classList.remove("active");
+  document.getElementById("nav"+n).classList.add("done");
+}
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.className = "banner error"; el.style.display = "block";
+}
+
+// ── Step 1: CSV ────────────────────────────────────────────────
+function dragOver(e)  { e.preventDefault(); document.getElementById("fileDrop").classList.add("drag-over"); }
+function dragLeave()  { document.getElementById("fileDrop").classList.remove("drag-over"); }
+function dropFile(e)  { e.preventDefault(); dragLeave(); loadFile(e.dataTransfer.files[0]); }
+function handleFile(e){ loadFile(e.target.files[0]); }
+
+function clearFile() {
+  st.csvName = ""; st.identifiers = [];
+  ["fileLoaded","colCard","optCard"].forEach(id => document.getElementById(id).style.display="none");
+  document.getElementById("fileDrop").style.display = "block";
+  document.getElementById("s1Btn").disabled = true;
+  document.getElementById("s1Msg").textContent = "";
+  document.getElementById("fileIn").value = "";
+  document.getElementById("s1Err").style.display = "none";
+}
+
+function loadFile(file) {
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith(".csv")) { showErr("s1Err","Please upload a .csv file."); return; }
+  const reader = new FileReader();
+  reader.onload = e => parseAndRender(file.name, e.target.result);
+  reader.readAsText(file);
+}
+
+let _parsed = null;
+function parseAndRender(name, text) {
+  try { _parsed = ITTools.csv.parse(text); } catch(e) { showErr("s1Err", e.message); return; }
+  st.csvName = name;
+  document.getElementById("s1Err").style.display = "none";
+  document.getElementById("fileLoaded").style.display = "flex";
+  document.getElementById("fileDrop").style.display   = "none";
+  document.getElementById("fileName").textContent  = name;
+  document.getElementById("fileCount").textContent = _parsed.rows.length + " rows";
+  document.getElementById("colCard").style.display = "block";
+  document.getElementById("optCard").style.display = "block";
+  renderColPills(_parsed.headers, _parsed.rows);
+  updateS1();
+}
+
+function renderColPills(headers, rows) {
+  const auto = ITTools.csv.detectEmailColumn(headers, rows);
+  document.getElementById("colPills").innerHTML = headers.map(h =>
+    `<div class="col-pill${h===auto?" auto":""}" data-col="${h}" onclick="selectCol('${h}')">${h}</div>`
+  ).join("");
+  selectCol(auto);
+}
+
+let _selCol = "";
+function selectCol(col) {
+  _selCol = col;
+  document.querySelectorAll(".col-pill").forEach(p => p.classList.toggle("selected", p.dataset.col===col));
+  if (!_parsed) return;
+  const preview = _parsed.rows.slice(0,5).map(r => r[col]||"").filter(v=>v);
+  document.getElementById("previewList").innerHTML = preview.map(v =>
+    `<div class="preview-item"><div class="${v.includes("@")?"dot-upn":"dot-mail"}"></div><span class="mono text-xs">${v}</span></div>`
+  ).join("");
+  document.getElementById("previewWrap").style.display = preview.length ? "block" : "none";
+  updateS1();
+}
+
+function getPrimed() {
+  if (!_parsed || !_selCol) return [];
+  let vals = _parsed.rows.map(r => r[_selCol]||"").filter(v=>v);
+  if (document.getElementById("chkTrim").checked)  vals = vals.map(v=>v.trim());
+  if (document.getElementById("chkLower").checked) vals = vals.map(v=>v.toLowerCase());
+  if (document.getElementById("chkDedup").checked) vals = [...new Set(vals)];
+  return vals.filter(v=>v);
+}
+
+function updateS1() {
+  const count = getPrimed().length;
+  document.getElementById("s1Btn").disabled = count === 0;
+  document.getElementById("s1Msg").textContent = count > 0 ? count + " identifiers ready" : "";
+}
+
+function s1Next() {
+  st.identifiers = getPrimed();
+  if (!st.identifiers.length) { showErr("s1Err","No identifiers found."); return; }
+  markDone(1);
+  document.getElementById("sub1").textContent = st.identifiers.length + " identifiers ready";
+  gotoStep(2);
+}
+
+// ── Step 2: Group ──────────────────────────────────────────────
+async function lookupGroup() {
+  const input = document.getElementById("groupIn").value.trim();
+  if (!input) { showErr("s2Err","Enter a group name or GUID."); return; }
+  document.getElementById("s2Err").style.display = "none";
+  document.getElementById("lookupBtn").disabled   = true;
+  document.getElementById("lookupPhase").classList.add("show");
+  document.getElementById("groupOk").style.display    = "none";
+  document.getElementById("resolveCard").style.display = "none";
+  document.getElementById("s2Btn").disabled            = true;
+
+  try {
+    let group;
+    if (/^[0-9a-f-]{36}$/i.test(input)) {
+      group = await ITTools.graph.get(`/groups/${input}`);
+    } else {
+      const escaped = input.replace(/'/g,"''");
+      const res = await ITTools.graph.get(`/groups?$filter=displayName eq '${encodeURIComponent(escaped)}'&$count=true&$top=5`);
+      if (!res.value?.length) throw new Error(`No group found named "${input}".`);
+      group = res.value[0];
+    }
+    st.groupId   = group.id;
+    st.groupName = group.displayName;
+    document.getElementById("groupOkName").textContent  = group.displayName;
+    document.getElementById("groupOkId").textContent    = group.id;
+    document.getElementById("groupOk").style.display    = "block";
+    document.getElementById("resolveCard").style.display = "block";
+    document.getElementById("s2Btn").disabled            = false;
+  } catch(e) {
+    showErr("s2Err", e.message);
+    st.groupId = "";
+  } finally {
+    document.getElementById("lookupBtn").disabled = false;
+    document.getElementById("lookupPhase").classList.remove("show");
+  }
+}
+
+function s2Next() {
+  if (!st.groupId) { showErr("s2Err","Look up a group first."); return; }
+  markDone(2);
+  document.getElementById("sub2").textContent = st.groupName;
+  gotoStep(3);
+}
+
+// ── Step 3: Run ────────────────────────────────────────────────
+function updateSummary() {
+  document.getElementById("sumFile").textContent    = st.csvName || "—";
+  document.getElementById("sumCount").textContent   = st.identifiers.length + " users";
+  document.getElementById("sumGroup").textContent   = st.groupName || "—";
+  document.getElementById("sumResolve").textContent = document.getElementById("resolveBy")?.value || "Auto";
+}
+
+function setProgress(curr, total, label) {
+  const pct = total > 0 ? Math.round((curr/total)*100) : 0;
+  document.getElementById("progFill").style.width       = pct + "%";
+  document.getElementById("progPct").textContent        = pct + "%";
+  document.getElementById("progLabel").textContent      = label || `Processing ${curr} / ${total}`;
+}
+
+async function runImport(isDry) {
+  document.getElementById("s3Err").style.display = "none";
+  if (!st.identifiers.length) { showErr("s3Err","No identifiers — go back to Step 1."); return; }
+  if (!st.groupId)             { showErr("s3Err","No group — go back to Step 2.");       return; }
+  if (!isDry && !st.dryDone && !confirm("You haven't completed a dry run. Proceed with live import?")) return;
+
+  const btnDry  = document.getElementById("btnDry");
+  const btnLive = document.getElementById("btnLive");
+  btnDry.disabled = btnLive.disabled = true;
+  document.getElementById("progCard").style.display   = "block";
+  document.getElementById("progFill").className       = "progress-fill";
+  document.getElementById("resultsWrap").style.display = "none";
+  setProgress(0, st.identifiers.length, "Connecting…");
+
+  // Pre-load existing members
+  const existing = {};
+  if (!document.getElementById("chkSkipEx").checked) {
+    setProgress(0, st.identifiers.length, "Loading existing members…");
+    try {
+      let next = `/groups/${st.groupId}/members?$select=id&$top=999`;
+      while (next) {
+        const page = await ITTools.graph.get(next.startsWith("http") ? next : "https://graph.microsoft.com/v1.0"+next);
+        (page.value||[]).forEach(m => existing[m.id]=true);
+        next = page["@odata.nextLink"]||null;
+      }
+    } catch(e) { showErr("s3Err","Could not load existing members: "+e.message); }
+  }
+
+  const resolveBy = document.getElementById("resolveBy").value;
+  const incGuests = document.getElementById("chkGuests").checked;
+  const log = [];
+
+  for (let i = 0; i < st.identifiers.length; i++) {
+    const ident = st.identifiers[i];
+    setProgress(i+1, st.identifiers.length, `(${i+1}/${st.identifiers.length}) ${ident}`);
+
+    let user = null;
+    try {
+      if (resolveBy==="UPN"||resolveBy==="Auto") {
+        const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(ident)}?$select=id,displayName,userPrincipalName,userType`,
+          { headers: { Authorization: "Bearer "+(await ITTools.auth.getToken()) } });
+        if (r.ok) user = await r.json();
+      }
+      if (!user&&(resolveBy==="Mail"||resolveBy==="Auto")) {
+        const escaped = ident.replace(/'/g,"''");
+        const r = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(escaped)}'&$select=id,displayName,userPrincipalName,userType`);
+        if (r.value?.length) user = r.value[0];
+      }
+    } catch(_) {}
+
+    const entry = { timestamp:new Date().toISOString().slice(0,19).replace("T"," "), identifier:ident, displayName:"", action:"", message:"" };
+
+    if (!user)                                    { entry.action="NotFound"; entry.message="Could not resolve via UPN or email"; log.push(entry); continue; }
+    entry.displayName = user.displayName||"";
+    if (!incGuests&&user.userType==="Guest")      { entry.action="Skipped"; entry.message="Guest account (enable 'Include guests' to allow)"; log.push(entry); continue; }
+    if (existing[user.id])                        { entry.action="Skipped"; entry.message="Already a member"; log.push(entry); continue; }
+
+    if (isDry) {
+      entry.action="WouldAdd"; entry.message="Dry run — no change made";
+    } else {
+      try {
+        await ITTools.graph.post(`/groups/${st.groupId}/members/$ref`, { "@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${user.id}` });
+        existing[user.id]=true; entry.action="Added"; entry.message="Success";
+      } catch(e) { entry.action="Error"; entry.message=e.message; }
+      await new Promise(r=>setTimeout(r,150));
+    }
+    log.push(entry);
+  }
+
+  st.lastLog = log;
+  if (isDry) { st.dryDone=true; btnLive.disabled=false; }
+  btnDry.disabled = false;
+
+  setProgress(st.identifiers.length, st.identifiers.length, "Complete");
+  document.getElementById("progFill").classList.add("done");
+  renderRunStats(log, isDry);
+  renderLog(log, isDry);
+  markDone(3);
+}
+
+function renderRunStats(log, isDry) {
+  const added    = log.filter(r=>r.action==="Added"||r.action==="WouldAdd").length;
+  const skipped  = log.filter(r=>r.action==="Skipped").length;
+  const notFound = log.filter(r=>r.action==="NotFound").length;
+  const errors   = log.filter(r=>r.action==="Error").length;
+  const row = document.getElementById("runStats");
+  row.style.display = "flex";
+  row.innerHTML =
+    sc("blue","Total",log.length) +
+    sc(isDry?"blue":"green", isDry?"Would Add":"Added", added) +
+    sc("amber","Skipped",skipped) +
+    (notFound>0?sc("red","Not Found",notFound):"") +
+    (errors>0?sc("red","Errors",errors):"");
+}
+function sc(c,l,v) { return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div></div>`; }
+
+function renderLog(log, isDry) {
+  document.getElementById("resTitle").textContent = isDry ? "Dry run preview" : "Import results";
+  const pillMap = { Added:"pill-added", WouldAdd:"pill-wouldadd", Skipped:"pill-skipped", Error:"pill-error", NotFound:"pill-notfound" };
+  document.getElementById("resBody").innerHTML = log.map(r =>
+    `<tr data-search="${(r.identifier+" "+r.displayName).toLowerCase()}">
+      <td><span class="status-pill ${pillMap[r.action]||""}">${r.action}</span></td>
+      <td class="mono text-xs">${r.identifier}</td>
+      <td>${r.displayName||"—"}</td>
+      <td class="muted text-xs">${r.message}</td>
+      <td class="muted text-xs" style="white-space:nowrap">${r.timestamp}</td>
+    </tr>`
+  ).join("");
+  document.getElementById("resultsWrap").style.display = "block";
+  document.getElementById("resEmpty").style.display    = "none";
+}
+
+function filterRes(q) {
+  q = q.toLowerCase(); let vis = 0;
+  document.querySelectorAll("#resBody tr").forEach(tr => { const show=tr.dataset.search.includes(q); tr.style.display=show?"":"none"; if(show)vis++; });
+  document.getElementById("resEmpty").style.display = vis===0?"block":"none";
+}
+
+function exportLog() {
+  if (!st.lastLog.length) return;
+  ITTools.csv.download("GroupImport_"+new Date().toISOString().slice(0,10)+".csv",
+    st.lastLog.map(r=>({ Status:r.action, Identifier:r.identifier, "Display Name":r.displayName, Message:r.message, Timestamp:r.timestamp }))
+  );
+}
+
+init();
+</script>
+</body>
+</html>

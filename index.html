@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IT Tools — M365 Admin Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #f0f4f9;
+  --surface:    #ffffff;
+  --surface2:   #f8fafc;
+  --border:     #dde3ec;
+  --text:       #1a1f36;
+  --muted:      #6b7280;
+  --muted2:     #9ca3af;
+  --blue:       #1a56db;
+  --blue-light: #e8f0fe;
+  --blue-dark:  #1239a3;
+  --blue-mid:   #4285f4;
+  --green:      #047857;
+  --green-light:#d1fae5;
+  --amber:      #92400e;
+  --amber-light:#fef3c7;
+}
+
+[data-theme="dark"] {
+  --bg:         #0f1117;
+  --surface:    #1a1d27;
+  --surface2:   #21242f;
+  --border:     #2d3148;
+  --text:       #e2e8f0;
+  --muted:      #94a3b8;
+  --muted2:     #64748b;
+  --blue:       #4a90d9;
+  --blue-light: #1e2d4a;
+  --blue-dark:  #7ab3e8;
+  --blue-mid:   #5a9fd4;
+  --green:      #34d399;
+  --green-light:#052e1c;
+  --amber:      #fbbf24;
+  --amber-light:#2d1e04;
+}
+
+body {
+  font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background .2s, color .2s;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky; top: 0; z-index: 100;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-icon {
+  width: 30px; height: 30px; border-radius: 7px;
+  background: var(--blue-light);
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-name { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.brand-tag  {
+  font-size: 10px; font-weight: 500; color: var(--blue-mid);
+  background: var(--blue-light); padding: 2px 8px; border-radius: 10px;
+}
+
+.btn-icon {
+  width: 32px; height: 32px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); transition: all .12s;
+}
+.btn-icon:hover { background: var(--surface2); color: var(--text); }
+.btn-icon svg { width: 15px; height: 15px; }
+
+/* ── HERO ── */
+.hero {
+  max-width: 860px; margin: 0 auto;
+  padding: 4rem 1.5rem 2.5rem;
+  text-align: center;
+}
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--blue-mid); background: var(--blue-light);
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 1.25rem;
+}
+.hero h1 {
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 700; letter-spacing: -.02em;
+  line-height: 1.2; margin-bottom: .75rem;
+}
+.hero h1 span { color: var(--blue-mid); }
+.hero p {
+  font-size: 16px; color: var(--muted); line-height: 1.7;
+  max-width: 520px; margin: 0 auto 2rem;
+}
+.hero-meta {
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+  flex-wrap: wrap;
+}
+.meta-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted2);
+}
+.meta-dot { width: 6px; height: 6px; border-radius: 50%; }
+.meta-dot.green  { background: var(--green); }
+.meta-dot.blue   { background: var(--blue-mid); }
+.meta-dot.amber  { background: var(--amber); }
+
+/* ── GRID ── */
+.tools-section {
+  max-width: 860px; margin: 0 auto; padding: 0 1.5rem 4rem;
+}
+.section-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted2); margin-bottom: 1rem; padding-left: 2px;
+}
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 2.5rem;
+}
+
+/* ── TOOL CARD ── */
+.tool-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+  position: relative;
+  overflow: hidden;
+}
+.tool-card::before {
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--card-accent, var(--blue));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .2s ease;
+}
+.tool-card:hover {
+  border-color: var(--border-mid, #c8d0dc);
+  box-shadow: 0 4px 20px rgba(0,0,0,.07);
+  transform: translateY(-1px);
+}
+.tool-card:hover::before { transform: scaleX(1); }
+
+.tool-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.tool-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  background: var(--icon-bg, var(--blue-light));
+}
+.tool-status {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  padding: 3px 8px; border-radius: 10px;
+}
+.status-live   { background: var(--green-light); color: var(--green); }
+.status-coming { background: var(--amber-light); color: var(--amber); }
+.status-wip    { background: var(--blue-light);  color: var(--blue-dark); }
+
+.tool-name { font-size: 15px; font-weight: 700; margin-bottom: 5px; letter-spacing: -.01em; }
+.tool-desc { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+
+.tool-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tag {
+  font-size: 10px; font-weight: 600; color: var(--muted2);
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 2px 7px; border-radius: 4px;
+  font-family: 'DM Mono', 'Consolas', monospace;
+}
+
+.tool-card.disabled { cursor: default; opacity: .6; }
+.tool-card.disabled:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.tool-card.disabled:hover::before { transform: scaleX(0); }
+
+/* ── FOOTER ── */
+.hub-footer {
+  border-top: 1px solid var(--border);
+  padding: 1.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 860px; margin: 0 auto;
+  font-size: 12px; color: var(--muted2);
+  flex-wrap: wrap; gap: 10px;
+}
+.footer-links { display: flex; gap: 16px; }
+.footer-links a { color: var(--muted2); text-decoration: none; }
+.footer-links a:hover { color: var(--blue-mid); }
+
+/* ── BORDER MID for dark mode ── */
+[data-theme="dark"] { --border-mid: #3d4260; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 23 23" width="18" height="18" fill="none">
+        <rect x="1"  y="1"  width="10" height="10" fill="#f25022"/>
+        <rect x="12" y="1"  width="10" height="10" fill="#7fba00"/>
+        <rect x="1"  y="12" width="10" height="10" fill="#00a4ef"/>
+        <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+      </svg>
+    </div>
+    <span class="brand-name">IT Tools</span>
+    <span class="brand-tag">M365 Admin Hub</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn-icon" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+    </button>
+    <a href="https://github.com/jgdev-ch/it-tools" target="_blank" class="btn-icon" title="GitHub repository" style="text-decoration:none">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+      </svg>
+    </a>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">
+    <svg viewBox="0 0 23 23" width="12" height="12" fill="none">
+      <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+      <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+      <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+      <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+    </svg>
+    Microsoft 365 · Entra ID · Graph API
+  </div>
+  <h1>Admin tools that <span>just work</span><br>in the browser</h1>
+  <p>Browser-based M365 admin utilities. Sign in with your work account — no scripts to install, no permissions to juggle.</p>
+  <div class="hero-meta">
+    <div class="meta-item"><div class="meta-dot green"></div>No installation required</div>
+    <div class="meta-item"><div class="meta-dot blue"></div>Microsoft Graph API</div>
+    <div class="meta-item"><div class="meta-dot amber"></div>Credentials never stored</div>
+  </div>
+</div>
+
+<!-- TOOLS -->
+<div class="tools-section">
+
+  <div class="section-label">Available tools</div>
+  <div class="tools-grid">
+
+    <!-- License Audit -->
+    <a class="tool-card" href="tools/license-audit/" style="--card-accent:#1a56db; --icon-bg:#e8f0fe;">
+      <div class="tool-card-header">
+        <div class="tool-icon">📊</div>
+        <span class="tool-status status-live">Live</span>
+      </div>
+      <div class="tool-name">License Audit</div>
+      <div class="tool-desc">Identify inactive M365 license holders. Find users who haven't signed in recently and surface recoverable seats.</div>
+      <div class="tool-tags">
+        <span class="tag">User.Read.All</span>
+        <span class="tag">AuditLog.Read.All</span>
+      </div>
+    </a>
+
+    <!-- Group Import -->
+    <a class="tool-card" href="tools/group-import/" style="--card-accent:#047857; --icon-bg:#d1fae5;">
+      <div class="tool-card-header">
+        <div class="tool-icon">👥</div>
+        <span class="tool-status status-live">Live</span>
+      </div>
+      <div class="tool-name">Group Import</div>
+      <div class="tool-desc">Bulk-add users to an Entra ID security group from a CSV. Dry-run preview, full audit log, and CSV export.</div>
+      <div class="tool-tags">
+        <span class="tag">Group.ReadWrite.All</span>
+        <span class="tag">GroupMember.ReadWrite.All</span>
+      </div>
+    </a>
+
+    <!-- Placeholder: Coming Soon -->
+    <div class="tool-card disabled" style="--card-accent:#92400e; --icon-bg:#fef3c7;">
+      <div class="tool-card-header">
+        <div class="tool-icon">🔑</div>
+        <span class="tool-status status-coming">Coming soon</span>
+      </div>
+      <div class="tool-name">MFA Status Report</div>
+      <div class="tool-desc">Audit MFA registration status across your tenant. Surface users with weak or missing authentication methods.</div>
+      <div class="tool-tags">
+        <span class="tag">UserAuthMethod.Read.All</span>
+      </div>
+    </div>
+
+    <!-- Placeholder: Coming Soon -->
+    <div class="tool-card disabled" style="--card-accent:#5b21b6; --icon-bg:#ede9fe;">
+      <div class="tool-card-header">
+        <div class="tool-icon">🛡️</div>
+        <span class="tool-status status-coming">Coming soon</span>
+      </div>
+      <div class="tool-name">Guest Access Audit</div>
+      <div class="tool-desc">Review all B2B guest accounts in your tenant — last sign-in, group memberships, and licence assignments.</div>
+      <div class="tool-tags">
+        <span class="tag">User.Read.All</span>
+        <span class="tag">Directory.Read.All</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-label">Setup</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;font-size:13px;line-height:1.7;color:var(--muted)">
+    <p style="margin-bottom:.75rem">All tools share a single <strong style="color:var(--text)">Entra ID app registration</strong>. Add the following redirect URI to your app under <em>Authentication → Single-page application</em>:</p>
+    <div style="font-family:'DM Mono','Consolas',monospace;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);word-break:break-all" id="baseUri"></div>
+    <p style="margin-top:.75rem">Each tool will automatically use its own sub-path as the redirect URI. You only need one registration for the whole hub.</p>
+  </div>
+</div>
+
+<footer class="hub-footer">
+  <span>Built by Josh Garrett · <a href="https://github.com/jgdev-ch/it-tools" style="color:var(--muted2)">github.com/jgdev-ch/it-tools</a></span>
+  <div class="footer-links">
+    <a href="https://learn.microsoft.com/en-us/graph/overview" target="_blank">Graph API docs</a>
+    <a href="https://portal.azure.com" target="_blank">Entra admin</a>
+    <a href="https://github.com/jgdev-ch/it-tools/issues" target="_blank">Report an issue</a>
+  </div>
+</footer>
+
+<script>
+  function initTheme() {
+    const saved = localStorage.getItem("it-tools-theme") ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    applyTheme(saved);
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem("it-tools-theme", t);
+    syncIcon(t);
+  }
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute("data-theme");
+    applyTheme(cur === "dark" ? "light" : "dark");
+  }
+  function syncIcon(t) {
+    const icon = document.getElementById("themeIcon");
+    if (t === "dark") {
+      icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" fill="none"/>`;
+    } else {
+      icon.innerHTML = `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
+    }
+  }
+
+  // Show base URI for app registration
+  document.getElementById("baseUri").textContent = window.location.origin + "/it-tools/";
+
+  initTheme();
+</script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>License Audit — IT Tools</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<style>
+  .shell { max-width: 960px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .page-header { margin-bottom: 1.5rem; }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-header p  { font-size: 13px; color: var(--muted); }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .controls .field { flex: 1 1 180px; margin-bottom: 0; }
+  .lic-pill { display:inline-block; background:var(--blue-light); color:var(--blue-dark); border-radius:4px; padding:2px 7px; font-size:11px; margin:1px; }
+  .age-never    { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .age-critical { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .age-warning  { background:var(--amber-light); color:var(--amber); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .age-ok       { background:var(--green-light); color:var(--green); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .user-cell { display:flex; align-items:center; gap:10px; }
+  .avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .avatar.stale { background:var(--red-light); color:var(--red); }
+  .avatar.ok    { background:var(--blue-light); color:var(--blue-dark); }
+  .user-name { font-size:13px; font-weight:600; }
+  .user-upn  { font-size:11px; color:var(--muted); }
+  #authScreen { display:flex; }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem">
+      <svg viewBox="0 0 23 23" width="20" height="20" fill="none">
+        <rect x="1"  y="1"  width="10" height="10" fill="#f25022"/>
+        <rect x="12" y="1"  width="10" height="10" fill="#7fba00"/>
+        <rect x="1"  y="12" width="10" height="10" fill="#00a4ef"/>
+        <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+      </svg>
+    </div>
+    <h1>License Audit</h1>
+    <p>Sign in with your Microsoft 365 admin account to audit license assignments and identify inactive users.</p>
+    <button class="btn-ms" onclick="doSignIn()">
+      <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authErr"></div>
+    <p class="auth-note">Requires <strong>User.Read.All</strong>, <strong>Directory.Read.All</strong>, and <strong>AuditLog.Read.All</strong>.</p>
+    <button class="redirect-toggle" onclick="toggleUri()">Show redirect URI for app registration</button>
+    <div class="redirect-box" id="uriBox"></div>
+  </div>
+</div>
+
+<div id="appScreen" style="display:none">
+  <div class="shell">
+    <div class="page-header">
+      <h1>License Audit</h1>
+      <p>Identify inactive M365 license holders and surface recoverable seats.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Configure audit</div>
+      <div class="controls">
+        <div class="field">
+          <label class="field-label">License type</label>
+          <select id="licSelect">
+            <option value="POWER_BI_PRO">Power BI Pro</option>
+            <option value="Microsoft_Copilot_for_Microsoft_365">Copilot for M365</option>
+            <option value="ENTERPRISEPREMIUM">Microsoft 365 E5</option>
+            <option value="ENTERPRISEPACK">Microsoft 365 E3</option>
+            <option value="SPE_E3">Microsoft 365 Business Standard</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Inactivity threshold</label>
+          <select id="daysSelect">
+            <option value="30">30 days</option>
+            <option value="60">60 days</option>
+            <option value="90" selected>90 days</option>
+            <option value="180">180 days</option>
+            <option value="365">365 days</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="runBtn" onclick="runAudit()">Run Audit</button>
+      </div>
+      <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
+    </div>
+
+    <div class="banner error" id="errBanner"></div>
+    <div class="stats-row" id="statsRow" style="display:none"></div>
+    <div id="tableSection"></div>
+  </div>
+</div>
+
+<script src="../../shared/auth.js"></script>
+<script>
+const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All"];
+
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "License Audit", hubRelPath: "../../" });
+  ITTools.ui.syncThemeIcon();
+
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: acct => {
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+    }
+  });
+}
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent   = e.message;
+    el.style.display = "block";
+  }
+}
+
+function toggleUri() {
+  const b = document.getElementById("uriBox");
+  b.textContent   = ITTools.auth.redirectUri();
+  b.style.display = b.style.display === "none" ? "block" : "none";
+}
+
+function setPhase(msg) {
+  const line = document.getElementById("phaseLine");
+  const btn  = document.getElementById("runBtn");
+  if (msg) {
+    line.classList.add("show");
+    document.getElementById("phaseText").textContent = msg;
+    btn.disabled    = true;
+    btn.textContent = "Running…";
+  } else {
+    line.classList.remove("show");
+    btn.disabled    = false;
+    btn.textContent = "Run Audit";
+  }
+}
+
+let allUsers = [], sortCol = "daysSinceSignIn", sortDir = -1;
+
+async function runAudit() {
+  document.getElementById("errBanner").style.display = "none";
+  document.getElementById("statsRow").style.display  = "none";
+  document.getElementById("tableSection").innerHTML  = "";
+  allUsers = [];
+
+  const licSku = document.getElementById("licSelect").value;
+  const days   = parseInt(document.getElementById("daysSelect").value);
+  const cutoff = new Date(Date.now() - days * 86400000);
+
+  try {
+    setPhase("Fetching license counts…");
+    const skus       = await ITTools.graph.getAll("/subscribedSkus");
+    const targetSkus = skus.filter(s => s.skuPartNumber === licSku);
+    if (!targetSkus.length) throw new Error("License '" + licSku + "' not found. Available: " + skus.map(s => s.skuPartNumber).join(", "));
+
+    renderStats(targetSkus, null, days);
+    const targetSkuIds = targetSkus.map(s => s.skuId);
+
+    setPhase("Fetching licensed users…");
+    const fields = "id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,signInActivity";
+    const filter = encodeURIComponent("assignedLicenses/any(x:x/skuId eq '" + targetSkuIds[0] + "')");
+
+    let licensedUsers;
+    try {
+      licensedUsers = await ITTools.graph.getAll(
+        "https://graph.microsoft.com/v1.0/users?$filter=" + filter + "&$select=" + fields + "&$count=true&$top=999"
+      );
+    } catch (_) {
+      setPhase("Fallback: loading all users (large tenant)…");
+      const all = await ITTools.graph.getAll("https://graph.microsoft.com/v1.0/users?$select=" + fields + "&$top=999");
+      licensedUsers = all.filter(u => (u.assignedLicenses||[]).some(l => targetSkuIds.includes(l.skuId)));
+    }
+
+    setPhase("Analysing " + licensedUsers.length + " users…");
+    const inactive = [];
+    for (const u of licensedUsers) {
+      const si   = u.signInActivity || {};
+      const d1   = si.lastSignInDateTime               ? new Date(si.lastSignInDateTime)               : null;
+      const d2   = si.lastNonInteractiveSignInDateTime  ? new Date(si.lastNonInteractiveSignInDateTime)  : null;
+      const last = d1 && d2 ? (d1 > d2 ? d1 : d2) : (d1 || d2 || null);
+      if (last && last >= cutoff) continue;
+      const daysSince = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
+      const matched   = (u.assignedLicenses||[])
+        .filter(l => targetSkuIds.includes(l.skuId))
+        .map(l => { const s = targetSkus.find(t => t.skuId === l.skuId); return s ? s.skuPartNumber : l.skuId; });
+      inactive.push({
+        displayName: u.displayName||"", upn: u.userPrincipalName||"",
+        department: u.department||"", jobTitle: u.jobTitle||"",
+        accountEnabled: u.accountEnabled,
+        lastSignIn: last ? last.toISOString().slice(0,10) : null,
+        daysSinceSignIn: daysSince, licenses: matched
+      });
+    }
+
+    allUsers = inactive;
+    renderStats(targetSkus, inactive.length, days);
+    renderTable(inactive, days);
+  } catch(e) {
+    document.getElementById("errBanner").textContent   = e.message;
+    document.getElementById("errBanner").style.display = "block";
+  } finally {
+    setPhase(null);
+  }
+}
+
+function renderStats(skus, inactiveCount, days) {
+  let total = 0, assigned = 0;
+  skus.forEach(s => { total += (s.prepaidUnits?.enabled)||0; assigned += s.consumedUnits||0; });
+  const pct = total > 0 ? Math.round((assigned/total)*100) : 0;
+  let html = sc("blue","Total",total,null) + sc("green","Assigned",assigned,pct+"% utilization") + sc("gray","Available",total-assigned,null);
+  if (inactiveCount !== null && inactiveCount > 0) html += sc("amber","Recoverable",inactiveCount,"inactive >"+days+"d");
+  const row = document.getElementById("statsRow");
+  row.innerHTML     = html;
+  row.style.display = "flex";
+}
+function sc(c,l,v,s) {
+  return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
+}
+
+function renderTable(users, days) {
+  const sec = document.getElementById("tableSection");
+  if (!users.length) {
+    sec.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No inactive users</div><p class="empty-sub">All licensed users signed in within ${days} days.</p></div></div>`;
+    return;
+  }
+  const sorted = sortUsers(users);
+  sec.innerHTML = `
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <span class="tbl-title">Inactive holders <span class="status-pill pill-skipped" style="margin-left:6px">${users.length} user${users.length!==1?"s":""}</span></span>
+        <div class="tbl-actions">
+          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportCsv()">Export CSV</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr>
+          ${th("User","displayName")}${th("Department","department")}${th("Last sign-in","lastSignIn")}
+          ${th("Days inactive","daysSinceSignIn")}${th("Account","accountEnabled")}${th("Licenses","licenses")}
+        </tr></thead>
+        <tbody id="auditBody">${sorted.map(userRow).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
+function th(label, col) {
+  const active = sortCol === col ? " style='background:var(--surface3)'" : "";
+  const arrow  = sortCol === col ? (sortDir === -1 ? " ↓" : " ↑") : " ↕";
+  return `<th onclick="sortBy('${col}')"${active}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
+}
+
+function userRow(u) {
+  const stale = !u.daysSinceSignIn || u.daysSinceSignIn > 60;
+  const init2 = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+  const lastSeen = u.lastSignIn
+    ? new Date(u.lastSignIn).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})
+    : "Never";
+  let ageCls, ageLabel;
+  if (!u.daysSinceSignIn)           { ageCls="age-never";    ageLabel="Never"; }
+  else if (u.daysSinceSignIn > 90)  { ageCls="age-critical"; ageLabel=u.daysSinceSignIn+"d"; }
+  else if (u.daysSinceSignIn > 60)  { ageCls="age-warning";  ageLabel=u.daysSinceSignIn+"d"; }
+  else                              { ageCls="age-ok";       ageLabel=u.daysSinceSignIn+"d"; }
+  const acct  = u.accountEnabled===false
+    ? `<span class="status-pill pill-disabled">Disabled</span>`
+    : `<span class="status-pill pill-active">Active</span>`;
+  const pills = (u.licenses||[]).map(l=>`<span class="lic-pill">${l}</span>`).join("");
+  const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
+  return `<tr data-search="${search}">
+    <td><div class="user-cell">
+      <div class="avatar ${stale?"stale":"ok"}">${init2}</div>
+      <div><div class="user-name">${u.displayName||"Unknown"}</div><div class="user-upn">${u.upn}</div></div>
+    </div></td>
+    <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
+    <td style="color:${stale?"var(--red)":"var(--muted)"};font-size:12px">${lastSeen}</td>
+    <td><span class="${ageCls}">${ageLabel}</span></td>
+    <td>${acct}</td>
+    <td>${pills}</td>
+  </tr>`;
+}
+
+function sortBy(col) {
+  sortDir = sortCol === col ? sortDir * -1 : -1;
+  sortCol = col;
+  const b = document.getElementById("auditBody");
+  if (b) { b.innerHTML = sortUsers(allUsers).map(userRow).join(""); filterTbl(document.querySelector('input[type="search"]')?.value||""); }
+}
+function sortUsers(users) {
+  return [...users].sort((a,b) => {
+    let av=a[sortCol], bv=b[sortCol];
+    if (sortCol==="daysSinceSignIn") { av=av===null?999999:av; bv=bv===null?999999:bv; return sortDir*(bv-av); }
+    if (sortCol==="accountEnabled")  return sortDir*((a.accountEnabled===false?0:1)-(b.accountEnabled===false?0:1));
+    return sortDir*(av||"").toString().toLowerCase().localeCompare((bv||"").toString().toLowerCase());
+  });
+}
+function filterTbl(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("#auditBody tr").forEach(tr => { tr.style.display = tr.dataset.search.includes(q) ? "" : "none"; });
+}
+function exportCsv() {
+  if (!allUsers.length) return;
+  ITTools.csv.download("M365_License_Audit_"+new Date().toISOString().slice(0,10)+".csv",
+    allUsers.map(u => ({
+      "Display Name": u.displayName, "UPN": u.upn, "Department": u.department,
+      "Job Title": u.jobTitle, "Account": u.accountEnabled===false?"Disabled":"Active",
+      "Last Sign-In": u.lastSignIn||"Never",
+      "Days Inactive": u.daysSinceSignIn!==null?u.daysSinceSignIn:"Never",
+      "Licenses": (u.licenses||[]).join("; ")
+    }))
+  );
+}
+
+init();
+</script>
+</body>
+</html>
