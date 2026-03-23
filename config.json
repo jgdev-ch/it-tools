@@ -5,7 +5,7 @@
       "name": "License Audit",
       "description": "Identify inactive M365 license holders. Find users who haven't signed in recently and surface recoverable seats.",
       "icon": "📊",
-      "status": "in-development",
+      "status": "beta",
       "path": "tools/license-audit/",
       "permissions": ["User.Read.All", "AuditLog.Read.All"],
       "accent": "#1a56db",
