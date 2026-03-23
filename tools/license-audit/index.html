@@ -11,40 +11,30 @@
   .page-header { margin-bottom: 1.5rem; }
   .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-header p  { font-size: 13px; color: var(--muted); }
-  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
-  .controls .field { flex: 1 1 180px; margin-bottom: 0; }
 
-  /* SKU dropdown loading state */
-  .sku-loading {
+  /* Controls — all items baseline-aligned, helper text lives below the whole row */
+  .controls-row {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  }
+  .controls-row .field { flex: 1 1 180px; margin-bottom: 0; }
+  .controls-meta {
+    font-size: 11px; color: var(--muted2); margin-top: 8px; min-height: 16px;
     display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: var(--muted); margin-top: 5px;
-  }
-  .sku-count {
-    font-size: 11px; color: var(--muted2); margin-top: 4px;
-  }
-  select:disabled {
-    opacity: .6; cursor: not-allowed;
   }
 
-  /* Unavailable SKU indicator */
-  .sku-unavailable {
-    font-size: 11px; color: var(--amber);
-    background: var(--amber-light); border: 1px solid var(--amber-border);
-    border-radius: var(--radius-sm); padding: 6px 10px; margin-top: 6px;
-    display: none;
-  }
+  select:disabled { opacity: .6; cursor: not-allowed; }
 
   .lic-pill { display:inline-block; background:var(--blue-light); color:var(--blue-dark); border-radius:4px; padding:2px 7px; font-size:11px; margin:1px; }
   .age-never    { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
   .age-critical { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
   .age-warning  { background:var(--amber-light); color:var(--amber); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
   .age-ok       { background:var(--green-light); color:var(--green); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
-  .user-cell { display:flex; align-items:center; gap:10px; }
-  .avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
-  .avatar.stale { background:var(--red-light); color:var(--red); }
+  .user-cell  { display:flex; align-items:center; gap:10px; }
+  .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .avatar.stale { background:var(--red-light);  color:var(--red); }
   .avatar.ok    { background:var(--blue-light); color:var(--blue-dark); }
-  .user-name { font-size:13px; font-weight:600; }
-  .user-upn  { font-size:11px; color:var(--muted); }
+  .user-name  { font-size:13px; font-weight:600; }
+  .user-upn   { font-size:11px; color:var(--muted); }
   #authScreen { display:flex; }
 </style>
 </head>
@@ -89,20 +79,14 @@
 
     <div class="card">
       <div class="card-title">Configure audit</div>
-      <div class="controls">
+
+      <!-- Controls row — all items align to bottom edge -->
+      <div class="controls-row">
         <div class="field">
           <label class="field-label">License type</label>
           <select id="licSelect" disabled>
             <option value="">Loading licenses from your tenant…</option>
           </select>
-          <div class="sku-loading" id="skuLoading">
-            <div class="spinner"></div>
-            <span>Fetching licenses…</span>
-          </div>
-          <div class="sku-count" id="skuCount"></div>
-          <div class="sku-unavailable" id="skuUnavailable">
-            ⚠ This license was not found in your tenant.
-          </div>
         </div>
         <div class="field">
           <label class="field-label">Inactivity threshold</label>
@@ -116,11 +100,19 @@
         </div>
         <button class="btn btn-primary" id="runBtn" onclick="runAudit()" disabled>Run Audit</button>
       </div>
+
+      <!-- Helper text below the entire row — never affects alignment -->
+      <div class="controls-meta" id="skuMeta">
+        <div class="spinner" id="skuSpinner"></div>
+        <span id="skuMetaText">Fetching licenses from your tenant…</span>
+      </div>
+
       <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
     </div>
 
-    <div class="banner error" id="errBanner"></div>
-    <div class="stats-row" id="statsRow" style="display:none"></div>
+    <div class="banner error"  id="errBanner"></div>
+    <div class="banner warn"   id="warnBanner"></div>
+    <div class="stats-row"     id="statsRow"   style="display:none"></div>
     <div id="tableSection"></div>
   </div>
 </div>
@@ -129,90 +121,107 @@
 <script>
 const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All"];
 
-// ── Friendly name map ────────────────────────────────────────
-// Maps Graph SKU part numbers to human-readable display names.
-// Add new entries here as you encounter unknown SKUs in your tenant.
+// ── Friendly name map ────────────────────────────────────────────────────────
+// Covers all licenses found in tenant as of Mar 2026 + common extras.
+// To add a new SKU: "SKU_PART_NUMBER": "Friendly Display Name"
 const SKU_NAMES = {
-  // Microsoft 365
+  // ── Microsoft 365 suites ──
   "O365_BUSINESS_ESSENTIALS":              "Microsoft 365 Business Basic",
   "O365_BUSINESS_PREMIUM":                 "Microsoft 365 Business Standard",
+  "O365_BUSINESS":                         "Microsoft 365 Apps for Business",
   "SPE_E3":                                "Microsoft 365 E3",
   "SPE_E5":                                "Microsoft 365 E5",
   "SPE_F1":                                "Microsoft 365 F1",
   "SPE_F3":                                "Microsoft 365 F3",
   "Microsoft_365_Copilot":                 "Microsoft 365 Copilot",
   "Microsoft_Copilot_for_Microsoft_365":   "Copilot for Microsoft 365",
+  "OFFICESUBSCRIPTION":                    "Microsoft 365 Apps for Enterprise",
 
-  // Office 365
+  // ── Office 365 ──
   "ENTERPRISEPACK":                        "Office 365 E3",
   "ENTERPRISEPREMIUM":                     "Office 365 E5",
   "STANDARDPACK":                          "Office 365 E1",
   "DESKLESSPACK":                          "Office 365 F3",
-  "O365_BUSINESS":                         "Microsoft 365 Apps for Business",
-  "OFFICESUBSCRIPTION":                    "Microsoft 365 Apps for Enterprise",
 
-  // Exchange
+  // ── Exchange ──
   "EXCHANGESTANDARD":                      "Exchange Online Plan 1",
   "EXCHANGEENTERPRISE":                    "Exchange Online Plan 2",
   "EXCHANGE_S_DESKLESS":                   "Exchange Online Kiosk",
   "EXCHANGEESSENTIALS":                    "Exchange Online Essentials",
-  "EXCHANGEARCHIVE_ADDON":                 "Exchange Online Archiving",
+  "EXCHANGEARCHIVE_ADDON":                 "Exchange Online Archiving for Exchange Online",
 
-  // Teams
+  // ── Teams & Calling ──
   "TEAMS_EXPLORATORY":                     "Microsoft Teams Exploratory",
-  "MCOSTANDARD":                           "Skype for Business Online Plan 2",
   "MCOTEAMS_ESSENTIALS":                   "Microsoft Teams Essentials",
-  "Teams_Phone_Standard":                  "Microsoft Teams Phone Standard",
-  "MCOMEETADV":                            "Microsoft 365 Audio Conferencing",
+  "MSTEAMS_PREMIUM":                       "Microsoft Teams Premium",
+  "MSTEAMS_PREMIUM_DEPT":                  "Teams Premium (for Departments)",
+  "MTR_PREM":                              "Microsoft Teams Rooms Pro",
+  "MCOMEETADV":                            "Microsoft Teams Audio Conferencing",
+  "MCOMEETACPEA":                          "Microsoft Teams Audio Conferencing (dial-out US/CAN)",
+  "MCOPSTN1":                              "Microsoft Teams Domestic Calling Plan",
+  "MCOPSTN2":                              "Microsoft Teams International Calling Plan",
+  "MCOPSTNC":                              "Communications Credits",
+  "MCOPSTN_5":                             "Communications Credits",
+  "PHONESYSTEM_VIRTUALUSER":               "Microsoft Teams Phone Resource Account",
+  "Teams_Phone_with_Calling_Plan":         "Teams Phone with Calling Plan (US)",
+  "MCOPSTN_1_5":                           "Teams Phone with Calling Plan (country zone 1 - US)",
+  "MCOSTANDARD":                           "Skype for Business Online Plan 2",
 
-  // Power Platform
-  "POWER_BI_STANDARD":                     "Power BI (free)",
+  // ── Power Platform ──
+  "POWER_BI_STANDARD":                     "Power BI (Free)",
   "POWER_BI_PRO":                          "Power BI Pro",
   "POWER_BI_PREMIUM_PER_USER":             "Power BI Premium Per User",
+  "POWER_BI_PREMIUM_PER_USER_ADDON":       "Power BI Premium Per User Add-On",
   "POWERAPPS_PER_USER":                    "Power Apps Per User Plan",
-  "FLOW_PER_USER":                         "Power Automate Per User Plan",
   "POWERAPPS_VIRAL":                       "Microsoft Power Apps Plan 2 Trial",
+  "POWERAPPS_DEV":                         "Microsoft Power Apps for Developer",
+  "FLOW_FREE":                             "Microsoft Power Automate Free",
+  "FLOW_PER_USER":                         "Power Automate Premium",
+  "POWERAUTOMATE_ATTENDED_RPA":            "Power Automate Premium",
+  "POWERPAGES_VIRAL":                      "Power Pages vTrial for Makers",
 
-  // Security & Compliance
+  // ── Copilot Studio ──
+  "COPILOTSTUDIO":                         "Microsoft Copilot Studio User License",
+  "COPILOTSTUDIO_VIRAL":                   "Microsoft Copilot Studio Viral Trial",
+  "POWERVIRTUALAGENTS_VIRAL":              "Microsoft Copilot Studio Viral Trial",
+
+  // ── Fabric & Analytics ──
+  "FABRIC_FREE":                           "Microsoft Fabric (Free)",
+  "STREAM":                                "Microsoft Stream Plan 2",
+  "STREAM_STORAGE":                        "Microsoft Stream Storage Add-On",
+  "STREAM_TRIAL":                          "Microsoft Stream Trial",
+
+  // ── Security & Compliance ──
   "EMS":                                   "Enterprise Mobility + Security E3",
   "EMSPREMIUM":                            "Enterprise Mobility + Security E5",
   "AAD_PREMIUM":                           "Microsoft Entra ID P1",
   "AAD_PREMIUM_P2":                        "Microsoft Entra ID P2",
   "INTUNE_A":                              "Microsoft Intune Plan 1",
-  "INTUNE_A_D":                            "Microsoft Intune Plan 1 for Education",
   "ATP_ENTERPRISE":                        "Microsoft Defender for Office 365 Plan 1",
   "THREAT_INTELLIGENCE":                   "Microsoft Defender for Office 365 Plan 2",
   "IDENTITY_THREAT_PROTECTION":            "Microsoft 365 E5 Security",
   "INFORMATION_PROTECTION_COMPLIANCE":     "Microsoft 365 E5 Compliance",
-  "M365_SECURITY_COMPLIANCE":              "Microsoft 365 E5 Security + Compliance",
 
-  // Dynamics 365
-  "DYN365_ENTERPRISE_PLAN1":               "Dynamics 365 Customer Engagement Plan",
-  "DYN365_ENTERPRISE_SALES":               "Dynamics 365 Sales Enterprise",
-  "DYN365_ENTERPRISE_CUSTOMER_SERVICE":    "Dynamics 365 Customer Service Enterprise",
-  "DYN365_FINANCIALS_BUSINESS_SKU":        "Dynamics 365 Business Central Essentials",
-
-  // Project & Visio
+  // ── Project & Visio ──
   "PROJECTPROFESSIONAL":                   "Project Plan 3",
   "PROJECTPREMIUM":                        "Project Plan 5",
   "VISIOCLIENT":                           "Visio Plan 2",
   "VISIOONLINE_PLAN1":                     "Visio Plan 1",
 
-  // Developer / Other
+  // ── Other ──
+  "MBS_BUSINESS_ESSENTIALS":              "Microsoft Business Center",
+  "Dynamics_365_Hiring":                   "Dynamics 365 Talent",
   "DEVELOPERPACK":                         "Office 365 E3 Developer",
   "DEVELOPERPACK_E5":                      "Microsoft 365 E5 Developer",
-  "WINDOWS_STORE":                         "Windows Store for Business",
   "RIGHTSMANAGEMENT":                      "Azure Information Protection Plan 1",
-  "RIGHTSMANAGEMENT_ADHOC":                "Rights Management Adhoc",
-  "CRMSTANDARD":                           "Microsoft Dynamics CRM Online",
-  "STREAM":                                "Microsoft Stream Plan 2",
+  "WINDOWS_STORE":                         "Windows Store for Business",
 };
 
-function getFriendlyName(skuPartNumber) {
-  return SKU_NAMES[skuPartNumber] || skuPartNumber;
+function getFriendlyName(sku) {
+  return SKU_NAMES[sku] || sku;
 }
 
-// ── Init ─────────────────────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "License Audit", hubRelPath: "../../" });
@@ -249,30 +258,30 @@ async function doSignIn() {
 
 function toggleUri() {
   const b = document.getElementById("uriBox");
-  b.textContent = ITTools.auth.redirectUri();
+  b.textContent   = ITTools.auth.redirectUri();
   b.style.display = b.style.display === "none" ? "block" : "none";
 }
 
-// ── Live SKU loader ──────────────────────────────────────────
-let _skus = []; // full sku list cached after first load
+// ── Live SKU loader ───────────────────────────────────────────────────────────
+let _skus = [];
 
 async function loadSkus() {
-  const select   = document.getElementById("licSelect");
-  const loading  = document.getElementById("skuLoading");
-  const countEl  = document.getElementById("skuCount");
-  const runBtn   = document.getElementById("runBtn");
+  const select  = document.getElementById("licSelect");
+  const spinner = document.getElementById("skuSpinner");
+  const metaTxt = document.getElementById("skuMetaText");
+  const runBtn  = document.getElementById("runBtn");
 
-  loading.style.display = "flex";
+  spinner.style.display = "block";
+  metaTxt.textContent   = "Fetching licenses from your tenant…";
   select.disabled       = true;
   runBtn.disabled       = true;
 
   try {
     const skus = await ITTools.graph.getAll("/subscribedSkus");
 
-    // Sort: first by friendly name, unknowns (raw SKU names) at the bottom
     _skus = skus.sort((a, b) => {
-      const aName = getFriendlyName(a.skuPartNumber);
-      const bName = getFriendlyName(b.skuPartNumber);
+      const aName  = getFriendlyName(a.skuPartNumber);
+      const bName  = getFriendlyName(b.skuPartNumber);
       const aKnown = aName !== a.skuPartNumber;
       const bKnown = bName !== b.skuPartNumber;
       if (aKnown && !bKnown) return -1;
@@ -280,28 +289,26 @@ async function loadSkus() {
       return aName.localeCompare(bName);
     });
 
-    select.innerHTML = _skus.map(s => {
-      const name = getFriendlyName(s.skuPartNumber);
-      return `<option value="${s.skuPartNumber}">${name}</option>`;
-    }).join("");
+    select.innerHTML = _skus.map(s =>
+      `<option value="${s.skuPartNumber}">${getFriendlyName(s.skuPartNumber)}</option>`
+    ).join("");
 
-    const known   = _skus.filter(s => SKU_NAMES[s.skuPartNumber]).length;
-    const unknown = _skus.length - known;
-    countEl.textContent = `${_skus.length} license${_skus.length !== 1 ? "s" : ""} found in your tenant` +
-      (unknown > 0 ? ` · ${unknown} shown with raw SKU name` : "");
+    const unknown = _skus.filter(s => !SKU_NAMES[s.skuPartNumber]).length;
+    metaTxt.textContent = `${_skus.length} license${_skus.length !== 1 ? "s" : ""} found in your tenant` +
+      (unknown > 0 ? ` · ${unknown} shown with raw SKU name` : " · all names resolved");
 
-    select.disabled  = false;
-    runBtn.disabled  = false;
+    select.disabled = false;
+    runBtn.disabled = false;
 
   } catch(e) {
-    select.innerHTML = `<option value="">Could not load licenses — ${e.message}</option>`;
-    countEl.textContent = "";
+    select.innerHTML    = `<option value="">Could not load — ${e.message}</option>`;
+    metaTxt.textContent = "Failed to load licenses.";
   } finally {
-    loading.style.display = "none";
+    spinner.style.display = "none";
   }
 }
 
-// ── Audit ─────────────────────────────────────────────────────
+// ── Audit ─────────────────────────────────────────────────────────────────────
 function setPhase(msg) {
   const line = document.getElementById("phaseLine");
   const btn  = document.getElementById("runBtn");
@@ -321,23 +328,22 @@ let allUsers = [], sortCol = "daysSinceSignIn", sortDir = -1;
 
 async function runAudit() {
   document.getElementById("errBanner").style.display  = "none";
+  document.getElementById("warnBanner").style.display = "none";
   document.getElementById("statsRow").style.display   = "none";
   document.getElementById("tableSection").innerHTML   = "";
-  document.getElementById("skuUnavailable").style.display = "none";
   allUsers = [];
 
   const licSku = document.getElementById("licSelect").value;
   const days   = parseInt(document.getElementById("daysSelect").value);
   const cutoff = new Date(Date.now() - days * 86400000);
-
   if (!licSku) return;
 
   try {
     setPhase("Fetching license counts…");
     const targetSkus = _skus.filter(s => s.skuPartNumber === licSku);
-
     if (!targetSkus.length) {
-      document.getElementById("skuUnavailable").style.display = "block";
+      document.getElementById("warnBanner").textContent   = "This license was not found in your tenant.";
+      document.getElementById("warnBanner").style.display = "block";
       setPhase(null); return;
     }
 
@@ -405,7 +411,7 @@ async function runAudit() {
   }
 }
 
-// ── Stats ─────────────────────────────────────────────────────
+// ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats(skus, inactiveCount, days) {
   let total = 0, assigned = 0;
   skus.forEach(s => {
@@ -414,11 +420,10 @@ function renderStats(skus, inactiveCount, days) {
   });
   const pct = total > 0 ? Math.round((assigned / total) * 100) : 0;
   let html = sc("blue","Total",total,null) +
-             sc("green","Assigned",assigned, pct + "% utilization") +
-             sc("gray","Available", total - assigned, null);
+             sc("green","Assigned",assigned,pct+"% utilization") +
+             sc("gray","Available",total-assigned,null);
   if (inactiveCount !== null && inactiveCount > 0)
-    html += sc("amber","Recoverable", inactiveCount, "inactive >" + days + "d");
-
+    html += sc("amber","Recoverable",inactiveCount,"inactive >"+days+"d");
   const row = document.getElementById("statsRow");
   row.innerHTML     = html;
   row.style.display = "flex";
@@ -427,7 +432,7 @@ function sc(c,l,v,s) {
   return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
 }
 
-// ── Table ─────────────────────────────────────────────────────
+// ── Table ─────────────────────────────────────────────────────────────────────
 function renderTable(users, days) {
   const sec = document.getElementById("tableSection");
   if (!users.length) {
@@ -443,11 +448,16 @@ function renderTable(users, days) {
     <div class="tbl-wrap">
       <div class="tbl-toolbar">
         <span class="tbl-title">Inactive holders
-          <span class="status-pill pill-skipped" style="margin-left:6px">${users.length} user${users.length!==1?"s":""}</span>
+          <span class="status-pill pill-skipped" style="margin-left:6px">
+            ${users.length} user${users.length!==1?"s":""}
+          </span>
         </span>
         <div class="tbl-actions">
-          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
-          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportCsv()">Export CSV</button>
+          <input type="search" placeholder="Filter…"
+            style="width:200px;font-size:12px;padding:5px 9px"
+            oninput="filterTbl(this.value)"/>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px"
+            onclick="exportCsv()">Export CSV</button>
         </div>
       </div>
       <table>
@@ -465,14 +475,14 @@ function renderTable(users, days) {
 }
 
 function th(label, col) {
-  const active = sortCol === col ? " style='background:var(--surface3)'" : "";
-  const arrow  = sortCol === col ? (sortDir === -1 ? " ↓" : " ↑") : " ↕";
+  const active = sortCol===col ? " style='background:var(--surface3)'" : "";
+  const arrow  = sortCol===col ? (sortDir===-1 ? " ↓" : " ↑") : " ↕";
   return `<th onclick="sortBy('${col}')"${active}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
 }
 
 function userRow(u) {
-  const stale  = !u.daysSinceSignIn || u.daysSinceSignIn > 60;
-  const init2  = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+  const stale    = !u.daysSinceSignIn || u.daysSinceSignIn > 60;
+  const init2    = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
   const lastSeen = u.lastSignIn
     ? new Date(u.lastSignIn).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})
     : "Never";
@@ -492,7 +502,10 @@ function userRow(u) {
   return `<tr data-search="${search}">
     <td><div class="user-cell">
       <div class="avatar ${stale?"stale":"ok"}">${init2}</div>
-      <div><div class="user-name">${u.displayName||"Unknown"}</div><div class="user-upn">${u.upn}</div></div>
+      <div>
+        <div class="user-name">${u.displayName||"Unknown"}</div>
+        <div class="user-upn">${u.upn}</div>
+      </div>
     </div></td>
     <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
     <td style="color:${stale?"var(--red)":"var(--muted)"};font-size:12px">${lastSeen}</td>
@@ -503,7 +516,7 @@ function userRow(u) {
 }
 
 function sortBy(col) {
-  sortDir = sortCol === col ? sortDir * -1 : -1;
+  sortDir = sortCol===col ? sortDir*-1 : -1;
   sortCol = col;
   const b = document.getElementById("auditBody");
   if (b) {
