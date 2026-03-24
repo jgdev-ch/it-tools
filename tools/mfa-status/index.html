@@ -46,6 +46,21 @@
   .filter-actions { display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap; }
   .filter-note { font-size:11px; color:var(--muted2); }
 
+  /* ── Scan warning + cancel ── */
+  .scan-warning {
+    background: var(--amber-light); border: 1px solid var(--amber-border);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 13px; color: var(--amber); margin-top: 10px; display: none; line-height: 1.5;
+  }
+  .btn-cancel {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: transparent; color: var(--red); border: 1.5px solid var(--red-border);
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: all .12s; display: none; align-items: center; gap: 6px;
+  }
+  .btn-cancel:hover { background: var(--red-light); }
+  .btn-cancel.show  { display: inline-flex; }
+
   /* ── MFA pills in table ── */
   .mfa-pill {
     display: inline-flex; align-items: center; gap: 3px;
@@ -126,7 +141,9 @@
           <input type="text" id="deptFilter" placeholder="Leave blank for all departments"/>
         </div>
         <button class="btn btn-primary" id="scanBtn" onclick="startScan()">Run Scan</button>
+        <button class="btn-cancel" id="cancelBtn" onclick="cancelScan()">✕ Cancel</button>
       </div>
+      <div class="scan-warning" id="scopeWarning"></div>
       <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
     </div>
 
@@ -253,9 +270,11 @@ function getMethodInfo(type) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let allUsers      = [];
-let flaggedMethods = new Set(); // methods user has selected as "weak"
+let allUsers       = [];
+let flaggedMethods = new Set();
 let sortCol = "riskLevel", sortDir = -1;
+let _cancelled     = false;  // scan cancel flag
+let _scanStartTime = 0;      // for ETA calculation
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -317,32 +336,47 @@ async function graphWithRetry(fn, maxRetries = 5) {
 
 // ── Phase ─────────────────────────────────────────────────────────────────────
 function setPhase(msg) {
-  const line = document.getElementById("phaseLine");
-  const btn  = document.getElementById("scanBtn");
+  const line   = document.getElementById("phaseLine");
+  const btn    = document.getElementById("scanBtn");
+  const cancel = document.getElementById("cancelBtn");
   if (msg) {
     line.classList.add("show");
     document.getElementById("phaseText").textContent = msg;
     btn.disabled    = true;
     btn.textContent = "Scanning…";
+    cancel.classList.add("show");
   } else {
     line.classList.remove("show");
     btn.disabled    = false;
     btn.textContent = "Run Scan";
+    cancel.classList.remove("show");
   }
+}
+
+// ── Cancel ────────────────────────────────────────────────────────────────────
+function cancelScan() {
+  _cancelled = true;
+  setPhase(null);
+  const warn = document.getElementById("infoBanner");
+  warn.textContent   = "⚠ Scan cancelled — partial results shown below.";
+  warn.className     = "banner warn";
+  warn.style.display = "block";
 }
 
 // ── Scan ──────────────────────────────────────────────────────────────────────
 async function startScan() {
-  document.getElementById("errBanner").style.display  = "none";
-  document.getElementById("infoBanner").style.display = "none";
-  document.getElementById("statsRow").style.display   = "none";
-  document.getElementById("riskCard").style.display   = "none";
-  document.getElementById("filterCard").style.display = "none";
-  document.getElementById("tableSection").innerHTML   = "";
+  document.getElementById("errBanner").style.display   = "none";
+  document.getElementById("infoBanner").style.display  = "none";
+  document.getElementById("scopeWarning").style.display= "none";
+  document.getElementById("statsRow").style.display    = "none";
+  document.getElementById("riskCard").style.display    = "none";
+  document.getElementById("filterCard").style.display  = "none";
+  document.getElementById("tableSection").innerHTML    = "";
   allUsers = []; flaggedMethods = new Set();
+  _cancelled = false; _scanStartTime = Date.now();
 
-  const scope  = document.getElementById("scopeSelect").value;
-  const dept   = document.getElementById("deptFilter").value.trim();
+  const scope = document.getElementById("scopeSelect").value;
+  const dept  = document.getElementById("deptFilter").value.trim();
 
   try {
     // 1. Fetch users
@@ -370,6 +404,14 @@ async function startScan() {
       setPhase(null); return;
     }
 
+    // Show scope warning for large scans
+    if (users.length > 5000) {
+      const estMins = Math.ceil(users.length / 300); // ~300 users/min at batch of 5
+      const warn = document.getElementById("scopeWarning");
+      warn.innerHTML = `⚠ <strong>${users.length.toLocaleString()} users found.</strong> This scan will take approximately ${estMins}-${estMins + 2} minutes. Use the department filter or switch to "Licensed users only" to reduce scope, or click Cancel at any time to see partial results.`;
+      warn.style.display = "block";
+    }
+
     // 2. Fetch MFA methods per user (batched with progress)
     const results = [];
     const total   = users.length;
@@ -385,14 +427,21 @@ async function startScan() {
           </div>
           <div class="progress-track"><div class="progress-fill" id="scanFill"></div></div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">
-          This may take a minute for large tenants. Each user requires an individual Graph call.
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span style="font-size:11px;color:var(--muted)" id="scanEta">Calculating time remaining…</span>
+          <span style="font-size:11px;color:var(--muted2)">Click Cancel above to stop and see partial results</span>
         </div>
       </div>`;
 
     // Process in batches of 5 concurrent to avoid throttling
     const BATCH = 5;
     for (let i = 0; i < users.length; i += BATCH) {
+      // Check cancel flag before each batch
+      if (_cancelled) {
+        // Process whatever we have so far and show partial results
+        break;
+      }
+
       const batch = users.slice(i, i + BATCH);
       const batchResults = await Promise.all(batch.map(async u => {
         try {
@@ -406,15 +455,28 @@ async function startScan() {
       }));
       results.push(...batchResults);
 
-      // Update progress
-      const done = Math.min(i + BATCH, total);
-      const pct  = Math.round((done / total) * 100);
-      const fill = document.getElementById("scanFill");
-      const lbl  = document.getElementById("scanLabel");
-      const pctEl= document.getElementById("scanPct");
-      if (fill) fill.style.width = pct + "%";
-      if (lbl)  lbl.textContent  = `Scanned ${done} of ${total} users…`;
-      if (pctEl)pctEl.textContent = pct + "%";
+      // Update progress + ETA
+      const done    = Math.min(i + BATCH, total);
+      const pct     = Math.round((done / total) * 100);
+      const elapsed = (Date.now() - _scanStartTime) / 1000; // seconds
+      const rate    = done / elapsed; // users per second
+      const remaining = rate > 0 ? Math.ceil((total - done) / rate) : null;
+
+      const fill  = document.getElementById("scanFill");
+      const lbl   = document.getElementById("scanLabel");
+      const pctEl = document.getElementById("scanPct");
+      const eta   = document.getElementById("scanEta");
+
+      if (fill)  fill.style.width  = pct + "%";
+      if (lbl)   lbl.textContent   = `Scanned ${done.toLocaleString()} of ${total.toLocaleString()} users`;
+      if (pctEl) pctEl.textContent = pct + "%";
+      if (eta && remaining !== null) {
+        if (remaining > 60) {
+          eta.textContent = `~${Math.ceil(remaining / 60)} min remaining`;
+        } else {
+          eta.textContent = `~${remaining}s remaining`;
+        }
+      }
     }
 
     // 3. Process results
