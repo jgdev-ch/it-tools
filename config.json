@@ -24,7 +24,7 @@
     },
     {
       "id": "mfa-status",
-      "name": "MFA Status Report",
+      "name": "beta",
       "description": "Audit MFA registration status across your tenant. Surface users with weak or missing authentication methods.",
       "icon": "🔑",
       "status": "coming-soon",
