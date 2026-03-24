@@ -381,21 +381,69 @@ async function startScan() {
   try {
     // 1. Fetch users
     setPhase("Fetching users…");
-    let userUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$filter=accountEnabled eq true&$top=999&$count=true";
-    if (scope === "licensed") userUrl += " and assignedLicenses/$count ne 0";
-    if (dept) userUrl = userUrl.replace("$filter=", `$filter=department eq '${dept.replace(/'/g,"''")}' and `);
 
     let users;
-    try {
-      users = await graphWithRetry(() => ITTools.graph.getAll(userUrl));
-    } catch(_) {
-      // fallback without filter
-      setPhase("Fallback: fetching all users…");
-      let fallbackUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$top=999";
-      users = await graphWithRetry(() => ITTools.graph.getAll(fallbackUrl));
-      users = users.filter(u => u.accountEnabled !== false && u.userType !== "Guest");
-      if (dept) users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
-      if (scope === "licensed") users = users.filter(u => u.assignedLicenses?.length > 0);
+
+    if (scope === "admins") {
+      // ── Admin scope: fetch via directory roles directly ──
+      // This is fast — only pulls actual role members, not all 17k users
+      setPhase("Fetching admin role members…");
+      try {
+        // Get all active directory roles
+        const roles = await graphWithRetry(() =>
+          ITTools.graph.getAll("https://graph.microsoft.com/v1.0/directoryRoles?$select=id,displayName")
+        );
+
+        // Fetch members of each role in parallel
+        const memberSets = await Promise.all(roles.map(role =>
+          graphWithRetry(() =>
+            ITTools.graph.getAll(
+              `https://graph.microsoft.com/v1.0/directoryRoles/${role.id}/members?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType`
+            )
+          ).catch(() => [])
+        ));
+
+        // Flatten, deduplicate by id, filter to enabled users only
+        const seen = new Set();
+        users = memberSets.flat().filter(u => {
+          if (!u.id || seen.has(u.id)) return false;
+          if (u.accountEnabled === false) return false;
+          if (u["@odata.type"] && !u["@odata.type"].includes("user")) return false;
+          seen.add(u.id);
+          return true;
+        });
+
+        setPhase(`Found ${users.length} admin account${users.length !== 1 ? "s" : ""} across ${roles.length} roles…`);
+      } catch(_) {
+        // Fallback to full user list filtered client-side
+        setPhase("Fallback: fetching all users for admin filter…");
+        const allUsers = await graphWithRetry(() =>
+          ITTools.graph.getAll("https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$top=999")
+        );
+        users = allUsers.filter(u => u.accountEnabled !== false && u.userType !== "Guest");
+      }
+
+    } else {
+      // ── All users or Licensed users scope ──
+      let userUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$filter=accountEnabled eq true&$top=999&$count=true";
+      if (scope === "licensed") userUrl += " and assignedLicenses/$count ne 0";
+      if (dept) userUrl = userUrl.replace("$filter=", `$filter=department eq '${dept.replace(/'/g,"''")}' and `);
+
+      try {
+        users = await graphWithRetry(() => ITTools.graph.getAll(userUrl));
+      } catch(_) {
+        setPhase("Fallback: fetching all users…");
+        let fallbackUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$top=999";
+        users = await graphWithRetry(() => ITTools.graph.getAll(fallbackUrl));
+        users = users.filter(u => u.accountEnabled !== false && u.userType !== "Guest");
+        if (dept)               users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
+        if (scope === "licensed") users = users.filter(u => u.assignedLicenses?.length > 0);
+      }
+    }
+
+    // Apply department filter for non-admin scopes
+    if (scope !== "admins" && dept) {
+      users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
     }
 
     if (!users.length) {
