@@ -7,102 +7,114 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
-  .shell { max-width: 980px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .shell { max-width: 1020px; margin: 0 auto; padding: 1.75rem 1.25rem; }
   .page-header { margin-bottom: 1.5rem; }
   .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-header p  { font-size: 13px; color: var(--muted); }
 
-  .controls-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-  .controls-row .field { flex:1 1 180px; margin-bottom:0; }
-  .controls-meta { font-size:11px; color:var(--muted2); margin-top:8px; min-height:16px; display:flex; align-items:center; gap:8px; }
-  /* ── Finance access indicator ── */
-  .finance-badge {
-    display: none; align-items: center; gap: 5px;
-    background: var(--amber-light); border: 1px solid var(--amber-border);
-    color: var(--amber); border-radius: 20px;
-    padding: 3px 10px; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .04em;
-  }
+  /* ── SKU loader ── */
+  .sku-meta { font-size: 11px; color: var(--muted); margin-top: 6px; min-height: 16px; }
 
-  /* ── Cost headline banner ── */
+  /* ── Cost headline ── */
   .cost-headline {
-    border-radius: var(--radius);
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1rem;
-    display: none;
-    background: linear-gradient(135deg, var(--amber-light) 0%, var(--surface) 100%);
-    border: 1.5px solid var(--amber-border);
+    background: var(--amber-light); border: 1.5px solid var(--amber-border);
+    border-radius: var(--radius); padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem; display: none;
   }
-  .cost-headline-top {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    flex-wrap: wrap; gap: 12px;
-  }
-  .cost-headline-label {
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .06em; color: var(--amber); margin-bottom: 6px;
-  }
-  .cost-headline-main {
-    font-size: 28px; font-weight: 700; color: var(--amber); line-height: 1;
-  }
-  .cost-headline-sub {
-    font-size: 13px; color: var(--muted); margin-top: 4px;
-  }
-  .cost-headline-annual {
-    text-align: right;
-  }
-  .cost-headline-annual .cost-headline-main {
-    font-size: 22px;
-  }
-  .cost-headline-breakdown {
-    display: flex; gap: 20px; flex-wrap: wrap;
-    margin-top: 14px; padding-top: 14px;
-    border-top: 1px solid var(--amber-border);
-    font-size: 12px; color: var(--muted);
-  }
-  .cost-breakdown-item strong { color: var(--text); }
+  .cost-headline-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .cost-big { font-size: 26px; font-weight: 800; color: var(--amber); }
+  .cost-sub { font-size: 13px; color: var(--amber); opacity: .85; }
+  .cost-detail { font-size: 12px; color: var(--amber); opacity: .8; line-height: 1.6; }
 
-  /* ── Extended stat cards ── */
-  .stat-cost {
-    font-size: 11px; font-weight: 600; margin-top: 4px; opacity: .85;
+  /* ── Remove button in table ── */
+  .btn-remove {
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--red-border);
+    color: var(--red); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all .12s;
+    white-space: nowrap;
+  }
+  .btn-remove:hover { background: var(--red-light); }
+  .btn-remove:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Removed badge ── */
+  .removed-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: var(--radius-sm);
+    background: var(--green-light); color: var(--green);
+    font-size: 11px; font-weight: 700;
   }
 
-  /* ── Cost column in table ── */
-  .cost-cell {
-    font-size: 12px; font-weight: 600; white-space: nowrap;
+  /* ── Confirmation modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
+    opacity: 0; pointer-events: none; transition: opacity .15s;
   }
-  .cost-cell.has-cost  { color: var(--amber); }
-  .cost-cell.free-cost { color: var(--muted2); font-weight: 400; }
-  .cost-cell.no-cost   { color: var(--muted2); font-weight: 400; }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 2rem; max-width: 440px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    transform: translateY(10px); transition: transform .15s;
+  }
+  .modal-overlay.show .modal-card { transform: translateY(0); }
+  .modal-icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    background: var(--red-light); display: flex; align-items: center;
+    justify-content: center; font-size: 20px; margin-bottom: 1rem;
+  }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .modal-body  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.25rem; }
+  .modal-user-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    margin-bottom: 1.25rem; font-size: 13px;
+  }
+  .modal-user-name { font-weight: 700; margin-bottom: 2px; }
+  .modal-user-upn  { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .modal-lic-pill  {
+    display: inline-block; background: var(--red-light); color: var(--red);
+    border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-modal-cancel {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--border);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; color: var(--muted); transition: all .12s;
+  }
+  .btn-modal-cancel:hover { background: var(--surface2); }
+  .btn-modal-confirm {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: var(--red); border: none; color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: background .12s;
+  }
+  .btn-modal-confirm:hover    { background: var(--red-dark, #7f1d1d); }
+  .btn-modal-confirm:disabled { opacity: .6; cursor: not-allowed; }
 
-  /* ── Table extras ── */
-  .lic-pill { display:inline-block; background:var(--blue-light); color:var(--blue-dark); border-radius:4px; padding:2px 7px; font-size:11px; margin:1px; }
-  .age-never    { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
-  .age-critical { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
-  .age-warning  { background:var(--amber-light); color:var(--amber); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
-  .age-ok       { background:var(--green-light); color:var(--green); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
-  .user-cell  { display:flex; align-items:center; gap:10px; }
-  .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
-  .avatar.stale { background:var(--red-light);  color:var(--red); }
-  .avatar.ok    { background:var(--blue-light); color:var(--blue-dark); }
-  .user-name { font-size:13px; font-weight:600; }
-  .user-upn  { font-size:11px; color:var(--muted); }
-  #authScreen { display:flex; }
+  /* ── Removal summary banner ── */
+  .removal-summary {
+    background: var(--green-light); border: 1px solid #6ee7b7;
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 13px; color: var(--green); margin-bottom: 1.25rem;
+    display: none; line-height: 1.5;
+  }
+  .removal-summary.show { display: block; }
+
+  #authScreen { display: flex; }
 </style>
 </head>
 <body>
 
 <div id="topbar"></div>
 
+<!-- Auth -->
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
-    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem">
-      <svg viewBox="0 0 23 23" width="20" height="20" fill="none">
-        <rect x="1"  y="1"  width="10" height="10" fill="#f25022"/>
-        <rect x="12" y="1"  width="10" height="10" fill="#7fba00"/>
-        <rect x="1"  y="12" width="10" height="10" fill="#00a4ef"/>
-        <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
-      </svg>
-    </div>
+    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:22px">📋</div>
     <h1>License Audit</h1>
     <p>Sign in with your Microsoft 365 admin account to audit license assignments and identify inactive users.</p>
     <button class="btn-ms" onclick="doSignIn()">
@@ -115,33 +127,33 @@
       Sign in with Microsoft
     </button>
     <div class="auth-error" id="authErr"></div>
-    <p class="auth-note">Requires <strong>User.Read.All</strong>, <strong>Directory.Read.All</strong>, and <strong>AuditLog.Read.All</strong>.</p>
+    <p class="auth-note">Requires <strong>User.Read.All</strong>, <strong>User.ReadWrite.All</strong>, <strong>Directory.Read.All</strong>, and <strong>AuditLog.Read.All</strong>.</p>
     <button class="redirect-toggle" onclick="toggleUri()">Show redirect URI for app registration</button>
     <div class="redirect-box" id="uriBox"></div>
   </div>
 </div>
 
+<!-- App -->
 <div id="appScreen" style="display:none">
   <div class="shell">
 
     <div class="page-header">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-        <h1 style="margin-bottom:0">License Audit</h1>
-        <span class="finance-badge" id="financeIndicator">💰 Finance View</span>
-      </div>
-      <p>Identify inactive M365 license holders and surface recoverable seats.</p>
+      <h1>License Audit</h1>
+      <p>Identify inactive M365 licence holders and recover unused seats. Remove licences directly without leaving the tool.</p>
     </div>
 
+    <!-- Configure -->
     <div class="card">
       <div class="card-title">Configure audit</div>
-      <div class="controls-row">
-        <div class="field">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+        <div class="field" style="flex:1 1 220px;margin-bottom:0">
           <label class="field-label">License type</label>
           <select id="licSelect" disabled>
-            <option value="">Loading licenses from your tenant…</option>
+            <option value="">Loading licences from tenant…</option>
           </select>
+          <div class="sku-meta" id="skuMeta"></div>
         </div>
-        <div class="field">
+        <div class="field" style="flex:0 1 180px;margin-bottom:0">
           <label class="field-label">Inactivity threshold</label>
           <select id="daysSelect">
             <option value="30">30 days</option>
@@ -153,152 +165,120 @@
         </div>
         <button class="btn btn-primary" id="runBtn" onclick="runAudit()" disabled>Run Audit</button>
       </div>
-      <div class="controls-meta" id="skuMeta">
-        <div class="spinner" id="skuSpinner"></div>
-        <span id="skuMetaText">Fetching licenses from your tenant…</span>
-      </div>
       <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
     </div>
 
     <div class="banner error" id="errBanner"></div>
-    <div class="banner warn"  id="warnBanner"></div>
 
-    <!-- Cost headline — shown when inactive users found and cost is known -->
-    <div class="cost-headline" id="costHeadline">
-      <div class="cost-headline-top">
-        <div>
-          <div class="cost-headline-label">💰 Recoverable spend</div>
-          <div class="cost-headline-main" id="hlMonthly"></div>
-          <div class="cost-headline-sub" id="hlSub"></div>
-        </div>
-        <div class="cost-headline-annual">
-          <div class="cost-headline-label">Annual projection</div>
-          <div class="cost-headline-main" id="hlAnnual"></div>
-          <div class="cost-headline-sub">if all inactive seats reclaimed</div>
-        </div>
-      </div>
-      <div class="cost-headline-breakdown" id="hlBreakdown"></div>
-    </div>
+    <!-- Cost headline -->
+    <div class="cost-headline" id="costHeadline"></div>
 
+    <!-- Removal summary -->
+    <div class="removal-summary" id="removalSummary"></div>
+
+    <!-- Stats -->
     <div class="stats-row" id="statsRow" style="display:none"></div>
+
+    <!-- Table -->
     <div id="tableSection"></div>
 
   </div>
 </div>
 
+<!-- Confirmation Modal -->
+<div class="modal-overlay" id="removeModal">
+  <div class="modal-card">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title">Remove licence?</div>
+    <div class="modal-body">
+      You are about to remove the following licence from this user. The user will lose access to the associated services immediately.
+    </div>
+    <div class="modal-user-card">
+      <div class="modal-user-name" id="modalUserName"></div>
+      <div class="modal-user-upn"  id="modalUserUpn"></div>
+      <span class="modal-lic-pill" id="modalLicName"></span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel"  onclick="closeModal()">Cancel</button>
+      <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="confirmRemoval()">Remove licence</button>
+    </div>
+  </div>
+</div>
+
 <script src="../../shared/auth.js"></script>
 <script>
-const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All","Group.Read.All"];
 
-// ── Friendly name map ─────────────────────────────────────────────────────────
+// ── Scopes — now includes User.ReadWrite.All for licence removal ──────────────
+const TOOL_SCOPES = [
+  "User.Read",
+  "User.Read.All",
+  "User.ReadWrite.All",
+  "Directory.Read.All",
+  "AuditLog.Read.All"
+];
+
+// ── SKU friendly names ────────────────────────────────────────────────────────
 const SKU_NAMES = {
+  "AAD_PREMIUM":                                       "Microsoft Entra ID P1",
+  "AAD_PREMIUM_P2":                                    "Microsoft Entra ID P2",
+  "ATP_ENTERPRISE":                                    "Microsoft Defender for Office 365 P1",
+  "COPILOTSTUDIO":                                     "Copilot Studio",
+  "DEVELOPERPACK":                                     "Office 365 E3 Developer",
+  "DEVELOPERPACK_E5":                                  "Microsoft 365 E5 Developer",
+  "DESKLESSPACK":                                      "Office 365 F1",
+  "EMS":                                               "Enterprise Mobility + Security E3",
+  "EMSPREMIUM":                                        "Enterprise Mobility + Security E5",
+  "ENTERPRISEPACK":                                    "Microsoft 365 E3",
+  "ENTERPRISEPREMIUM":                                 "Microsoft 365 E5",
+  "EXCHANGEENTERPRISE":                                "Exchange Online Plan 2",
+  "EXCHANGESTANDARD":                                  "Exchange Online Plan 1",
+  "EXCHANGEARCHIVE_ADDON":                             "Exchange Online Archiving",
+  "FLOW_PER_USER":                                     "Power Automate per user",
+  "IDENTITY_THREAT_PROTECTION":                        "Microsoft 365 E5 Security",
+  "INFORMATION_PROTECTION_COMPLIANCE":                 "Microsoft 365 E5 Compliance",
+  "INTUNE_A":                                          "Microsoft Intune Plan 1",
+  "INTUNE_A_D":                                        "Microsoft Intune Device",
+  "MCOPSTN1":                                          "Teams Phone with Calling Plan",
+  "MCOPSTN_1_5":                                       "Teams Phone with Calling Plan",
+  "MCOSTANDARD":                                       "Skype for Business Online Plan 2",
+  "Microsoft_365_Copilot":                             "Microsoft 365 Copilot",
+  "Microsoft_Copilot_for_Microsoft_365":               "Microsoft 365 Copilot",
+  "Microsoft_Teams_Premium":                           "Microsoft Teams Premium",
+  "MTR_PREM":                                          "Microsoft Teams Rooms Pro",
+  "MSTEAMS_PREMIUM":                                   "Microsoft Teams Premium",
+  "MSTEAMS_PREMIUM_DEPT":                              "Microsoft Teams Premium (Dept)",
   "O365_BUSINESS_ESSENTIALS":                          "Microsoft 365 Business Basic",
   "O365_BUSINESS_PREMIUM":                             "Microsoft 365 Business Standard",
-  "O365_BUSINESS":                                     "Microsoft 365 Apps for Business",
+  "OFFICESUBSCRIPTION":                                "Microsoft 365 Apps for Enterprise",
+  "PBI_PREMIUM_PER_USER":                              "Power BI Premium Per User",
+  "PBI_PREMIUM_PER_USER_ADDON":                        "Power BI Premium Per User Add-on",
+  "POWER_BI_PRO":                                      "Power BI Pro",
+  "POWER_BI_PRO_DEPT":                                 "Power BI Pro (Departmental)",
+  "POWER_BI_PREMIUM_PER_USER":                         "Power BI Premium Per User",
+  "POWER_BI_PREMIUM_PER_USER_ADDON":                   "Power BI Premium Per User Add-on",
+  "POWERAUTOMATE_ATTENDED_RPA":                        "Power Automate with Attended RPA",
+  "PROJECTPROFESSIONAL":                               "Project Plan 3",
+  "PROJECTPREMIUM":                                    "Project Plan 5",
+  "RIGHTSMANAGEMENT":                                  "Azure Information Protection P1",
+  "RMSBASIC":                                          "Rights Management Basic",
   "SPE_E3":                                            "Microsoft 365 E3",
   "SPE_E5":                                            "Microsoft 365 E5",
   "SPE_F1":                                            "Microsoft 365 F3",
   "SPE_F3":                                            "Microsoft 365 F3",
-  "Microsoft_365_Copilot":                             "Microsoft 365 Copilot",
-  "Microsoft_Copilot_for_Microsoft_365":               "Copilot for Microsoft 365",
-  "OFFICESUBSCRIPTION":                                "Microsoft 365 Apps for Enterprise",
-  "ENTERPRISEPACK":                                    "Office 365 E3",
-  "ENTERPRISEPREMIUM":                                 "Office 365 E5",
   "STANDARDPACK":                                      "Office 365 E1",
-  "DESKLESSPACK":                                      "Office 365 F3",
-  "EXCHANGESTANDARD":                                  "Exchange Online Plan 1",
-  "EXCHANGEENTERPRISE":                                "Exchange Online Plan 2",
-  "EXCHANGE_S_DESKLESS":                               "Exchange Online Kiosk",
-  "EXCHANGEESSENTIALS":                                "Exchange Online Essentials",
-  "EXCHANGEARCHIVE_ADDON":                             "Exchange Online Archiving for Exchange Online",
-  "TEAMS_EXPLORATORY":                                 "Microsoft Teams Exploratory",
-  "MCOTEAMS_ESSENTIALS":                               "Microsoft Teams Essentials",
-  "MSTEAMS_PREMIUM":                                   "Microsoft Teams Premium",
-  "Microsoft_Teams_Premium":                           "Microsoft Teams Premium",
-  "MSTEAMS_PREMIUM_DEPT":                              "Teams Premium (for Departments)",
-  "Teams_Premium_(for_Departments)":                   "Teams Premium (for Departments)",
-  "MTR_PREM":                                          "Microsoft Teams Rooms Pro",
-  "Microsoft_Teams_Rooms_Pro":                         "Microsoft Teams Rooms Pro",
-  "MCOMEETADV":                                        "Microsoft Teams Audio Conferencing",
-  "MCOMEETACPEA":                                      "Microsoft Teams Audio Conferencing (dial-out US/CAN)",
-  "Microsoft_Teams_Audio_Conferencing_select_dial_out":"Microsoft Teams Audio Conferencing (Select Dial-Out)",
-  "MCOPSTN1":                                          "Microsoft Teams Domestic Calling Plan",
-  "MCOPSTN2":                                          "Microsoft Teams International Calling Plan",
-  "MCOPSTNC":                                          "Communications Credits",
-  "MCOPSTN_5":                                         "Communications Credits",
-  "PHONESYSTEM_VIRTUALUSER":                           "Microsoft Teams Phone Resource Account",
-  "Teams_Phone_with_Calling_Plan":                     "Teams Phone with Calling Plan (US)",
-  "MCOPSTN_1_5":                                       "Teams Phone with Calling Plan (country zone 1 - US)",
-  "MCOSTANDARD":                                       "Skype for Business Online Plan 2",
-  "POWER_BI_STANDARD":                                 "Power BI (Free)",
-  "POWER_BI_PRO":                                      "Power BI Pro",
-  "POWER_BI_PRO_DEPT":                                 "Power BI Pro (Departmental)",
-  "PBI_PREMIUM_PER_USER":                              "Power BI Premium Per User",
-  "POWER_BI_PREMIUM_PER_USER":                         "Power BI Premium Per User",
-  "PBI_PREMIUM_PER_USER_ADDON":                        "Power BI Premium Per User Add-On",
-  "POWER_BI_PREMIUM_PER_USER_ADDON":                   "Power BI Premium Per User Add-On",
-  "POWERAPPS_PER_USER":                                "Power Apps Per User Plan",
-  "POWERAPPS_VIRAL":                                   "Microsoft Power Apps Plan 2 Trial",
-  "POWERAPPS_DEV":                                     "Microsoft Power Apps for Developer",
-  "FLOW_FREE":                                         "Microsoft Power Automate Free",
-  "FLOW_PER_USER":                                     "Power Automate Premium",
-  "POWERAUTOMATE_ATTENDED_RPA":                        "Power Automate Premium",
-  "Power_Pages_vTrial_for_Makers":                     "Power Pages vTrial for Makers",
-  "POWERPAGES_VIRAL":                                  "Power Pages vTrial for Makers",
-  "COPILOTSTUDIO":                                     "Microsoft Copilot Studio User License",
-  "VIRTUAL_AGENT_USL":                                 "Microsoft Copilot Studio User License",
-  "CCIBOTS_PRIVPREV_VIRAL":                            "Microsoft Copilot Studio (Private Preview)",
-  "COPILOTSTUDIO_VIRAL":                               "Microsoft Copilot Studio Viral Trial",
-  "POWERVIRTUALAGENTS_VIRAL":                          "Microsoft Copilot Studio Viral Trial",
-  "Power_Virtual_Agents":                              "Microsoft Copilot Studio",
-  "FABRIC_FREE":                                       "Microsoft Fabric (Free)",
-  "STREAM":                                            "Microsoft Stream Plan 2",
-  "STREAM_STORAGE":                                    "Microsoft Stream Storage Add-On",
-  "STREAM_TRIAL":                                      "Microsoft Stream Trial",
-  "EMS":                                               "Enterprise Mobility + Security E3",
-  "EMSPREMIUM":                                        "Enterprise Mobility + Security E5",
-  "AAD_PREMIUM":                                       "Microsoft Entra ID P1",
-  "AAD_PREMIUM_P2":                                    "Microsoft Entra ID P2",
-  "INTUNE_A":                                          "Microsoft Intune Plan 1",
-  "ATP_ENTERPRISE":                                    "Microsoft Defender for Office 365 Plan 1",
-  "THREAT_INTELLIGENCE":                               "Microsoft Defender for Office 365 Plan 2",
-  "IDENTITY_THREAT_PROTECTION":                        "Microsoft 365 E5 Security",
-  "INFORMATION_PROTECTION_COMPLIANCE":                 "Microsoft 365 E5 Compliance",
-  "RIGHTSMANAGEMENT":                                  "Azure Information Protection Plan 1",
-  "RMSBASIC":                                          "Rights Management Basic",
-  "PROJECTPROFESSIONAL":                               "Project Plan 3",
-  "PROJECTPREMIUM":                                    "Project Plan 5",
+  "Teams_Premium_(for_Departments)":                   "Microsoft Teams Premium (Dept)",
+  "Teams_Phone_with_Calling_Plan":                     "Teams Phone with Calling Plan",
+  "THREAT_INTELLIGENCE":                               "Microsoft Defender for Office 365 P2",
   "VISIOCLIENT":                                       "Visio Plan 2",
-  "VISIO_PLAN2_DEPT":                                  "Visio Plan 2 (Departmental)",
+  "VISIO_PLAN2_DEPT":                                  "Visio Plan 2 (Dept)",
   "VISIOONLINE_PLAN1":                                 "Visio Plan 1",
-  "MBS_BUSINESS_ESSENTIALS":                           "Microsoft Business Center",
-  "MICROSOFT_BUSINESS_CENTER":                         "Microsoft Business Center",
-  "SPZA_IW":                                           "App Connect IW",
+  "VIRTUAL_AGENT_USL":                                 "Copilot Studio",
   "WINDOWS_STORE":                                     "Windows Store for Business",
-  "DEVELOPERPACK":                                     "Office 365 E3 Developer",
-  "DEVELOPERPACK_E5":                                  "Microsoft 365 E5 Developer",
 };
 
 function getFriendlyName(sku) { return SKU_NAMES[sku] || sku; }
 
-// ── Finance access gate ───────────────────────────────────────────────────────
-// Members of this group see cost data. Everyone else sees operational data only.
-const FINANCE_GROUP = "SG-IT-Tools-Finance-View";
-let _hasFinanceAccess = false;
-
-async function checkFinanceAccess() {
-  try {
-    // Check if signed-in user is a member of the finance group
-    const escaped = FINANCE_GROUP.replace(/'/g, "''");
-    const res = await ITTools.graph.get(
-      `/me/memberOf?$filter=displayName eq '${encodeURIComponent(escaped)}'&$count=true&$select=displayName`
-    );
-    _hasFinanceAccess = (res.value?.length > 0);
-  } catch(_) {
-    // If check fails, default to no access — fail safe
-    _hasFinanceAccess = false;
-  }
-}
+// ── Cost data ─────────────────────────────────────────────────────────────────
 let _costData = { costs: {}, free_skus: [] };
 
 async function loadCosts() {
@@ -306,44 +286,29 @@ async function loadCosts() {
     const res = await fetch("../../costs.json?v=" + Date.now());
     _costData = await res.json();
   } catch(_) {
-    // costs.json not found — tool still works, just no cost data
     console.warn("costs.json not found — cost features disabled.");
   }
 }
 
 function getCost(skuPartNumber) {
   if (_costData.free_skus?.includes(skuPartNumber)) return 0;
-  return _costData.costs?.[skuPartNumber] ?? null; // null = unknown
+  return _costData.costs?.[skuPartNumber] ?? null;
 }
 
-function formatCurrency(val) {
-  return "$" + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatCurrency(n) {
+  return n === null ? "" :
+    n === 0 ? "Free" :
+    "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function formatCurrencyRound(val) {
-  return "$" + Math.round(val).toLocaleString("en-US");
-}
-
-// ── Graph retry wrapper ───────────────────────────────────────────────────────
-async function graphWithRetry(fn, maxRetries = 5) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await fn();
-    } catch(e) {
-      attempt++;
-      const isRateLimit = e.message && (
-        e.message.includes("429") || e.message.includes("Rate limited") ||
-        e.message.includes("Too Many Requests") || e.message.includes("503") ||
-        e.message.includes("temporarily unavailable")
-      );
-      if (!isRateLimit || attempt > maxRetries) throw e;
-      const waitSec = Math.min(60, Math.pow(2, attempt));
-      setPhase(`Rate limited by Graph — retrying in ${waitSec}s (attempt ${attempt}/${maxRetries})…`);
-      await new Promise(r => setTimeout(r, waitSec * 1000));
-    }
-  }
-}
+// ── State ─────────────────────────────────────────────────────────────────────
+let allUsers        = [];
+let sortCol         = "daysSinceSignIn";
+let sortDir         = -1;
+let _tenantSkus     = [];
+let _removedUserIds = new Set();  // track removals this session
+let _pendingRemoval = null;       // { userId, skuId, skuName, displayName, upn, rowEl }
+let _removalCount   = 0;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -357,12 +322,7 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
-      await Promise.all([checkFinanceAccess(), loadSkus(), loadCosts()]);
-      // Show subtle finance indicator if access granted
-      if (_hasFinanceAccess) {
-        const indicator = document.getElementById("financeIndicator");
-        if (indicator) indicator.style.display = "inline-flex";
-      }
+      await Promise.all([loadSkus(), loadCosts()]);
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
@@ -378,11 +338,7 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
-    await Promise.all([checkFinanceAccess(), loadSkus(), loadCosts()]);
-    if (_hasFinanceAccess) {
-      const indicator = document.getElementById("financeIndicator");
-      if (indicator) indicator.style.display = "inline-flex";
-    }
+    await Promise.all([loadSkus(), loadCosts()]);
   } catch(e) {
     const el = document.getElementById("authErr");
     el.textContent = e.message; el.style.display = "block";
@@ -395,51 +351,54 @@ function toggleUri() {
   b.style.display = b.style.display === "none" ? "block" : "none";
 }
 
-// ── SKU loader ────────────────────────────────────────────────────────────────
-let _skus = [];
-
+// ── Load SKUs from tenant ─────────────────────────────────────────────────────
 async function loadSkus() {
-  const select  = document.getElementById("licSelect");
-  const spinner = document.getElementById("skuSpinner");
-  const metaTxt = document.getElementById("skuMetaText");
-  const runBtn  = document.getElementById("runBtn");
-
-  spinner.style.display = "block";
-  metaTxt.textContent   = "Fetching licenses from your tenant…";
-  select.disabled = true; runBtn.disabled = true;
+  const sel  = document.getElementById("licSelect");
+  const meta = document.getElementById("skuMeta");
+  sel.innerHTML = "<option>Loading licences from tenant…</option>";
+  sel.disabled  = true;
+  document.getElementById("runBtn").disabled = true;
 
   try {
-    const skus = await graphWithRetry(() => ITTools.graph.getAll("/subscribedSkus"));
-    _skus = skus.sort((a, b) => {
-      const aName = getFriendlyName(a.skuPartNumber);
-      const bName = getFriendlyName(b.skuPartNumber);
-      const aKnown = aName !== a.skuPartNumber;
-      const bKnown = bName !== b.skuPartNumber;
-      if (aKnown && !bKnown) return -1;
-      if (!aKnown && bKnown) return 1;
-      return aName.localeCompare(bName);
-    });
+    const skus = await ITTools.graph.getAll("https://graph.microsoft.com/v1.0/subscribedSkus");
+    _tenantSkus = skus
+      .filter(s => s.capabilityStatus !== "Deleted" && s.consumedUnits > 0)
+      .sort((a, b) => getFriendlyName(a.skuPartNumber).localeCompare(getFriendlyName(b.skuPartNumber)));
 
-    select.innerHTML = _skus.map(s => {
-      const name = getFriendlyName(s.skuPartNumber);
-      const cost = getCost(s.skuPartNumber);
-      // Only show cost hints to finance group members
-      const costHint = _hasFinanceAccess
-        ? (cost > 0 ? ` — ${formatCurrency(cost)}/user/mo` : cost === 0 ? " — Free" : "")
-        : "";
-      return `<option value="${s.skuPartNumber}">${name}${costHint}</option>`;
-    }).join("");
+    sel.innerHTML = _tenantSkus.map(s =>
+      `<option value="${s.skuPartNumber}" data-skuid="${s.skuId}">
+        ${getFriendlyName(s.skuPartNumber)} — ${s.consumedUnits} assigned
+      </option>`
+    ).join("");
 
-    const unknown = _skus.filter(s => !SKU_NAMES[s.skuPartNumber]).length;
-    metaTxt.textContent = `${_skus.length} license${_skus.length !== 1 ? "s" : ""} found in your tenant` +
-      (unknown > 0 ? ` · ${unknown} shown with raw SKU name` : " · all names resolved");
+    const rawCount = _tenantSkus.filter(s => !SKU_NAMES[s.skuPartNumber]).length;
+    meta.textContent = rawCount > 0
+      ? `${_tenantSkus.length} licences found · ${rawCount} shown with raw SKU name`
+      : `${_tenantSkus.length} licences found · all names resolved`;
 
-    select.disabled = false; runBtn.disabled = false;
+    sel.disabled = false;
+    document.getElementById("runBtn").disabled = false;
   } catch(e) {
-    select.innerHTML    = `<option value="">Could not load — ${e.message}</option>`;
-    metaTxt.textContent = "Failed to load licenses.";
-  } finally {
-    spinner.style.display = "none";
+    sel.innerHTML = "<option>Failed to load — check permissions</option>";
+    meta.textContent = e.message;
+  }
+}
+
+// ── Graph helpers ─────────────────────────────────────────────────────────────
+async function graphWithRetry(fn, maxRetries = 6) {
+  let attempt = 0;
+  while (true) {
+    try { return await fn(); }
+    catch(e) {
+      attempt++;
+      const isRate = e.message && (
+        e.message.includes("429") || e.message.includes("Too Many Requests") || e.message.includes("503")
+      );
+      if (!isRate || attempt > maxRetries) throw e;
+      const wait = Math.min(60, Math.pow(2, attempt));
+      setPhase(`Rate limited — retrying in ${wait}s…`);
+      await new Promise(r => setTimeout(r, wait * 1000));
+    }
   }
 }
 
@@ -460,85 +419,92 @@ function setPhase(msg) {
 }
 
 // ── Audit ─────────────────────────────────────────────────────────────────────
-let allUsers = [], sortCol = "daysSinceSignIn", sortDir = -1, _activeSku = "";
-
 async function runAudit() {
-  document.getElementById("errBanner").style.display   = "none";
-  document.getElementById("warnBanner").style.display  = "none";
-  document.getElementById("statsRow").style.display    = "none";
-  document.getElementById("costHeadline").style.display= "none";
-  document.getElementById("tableSection").innerHTML    = "";
-  allUsers = []; _activeSku = "";
+  document.getElementById("errBanner").style.display    = "none";
+  document.getElementById("costHeadline").style.display = "none";
+  document.getElementById("statsRow").style.display     = "none";
+  document.getElementById("tableSection").innerHTML     = "";
+  document.getElementById("removalSummary").classList.remove("show");
+  allUsers = []; _removedUserIds = new Set(); _removalCount = 0;
 
   const licSku = document.getElementById("licSelect").value;
   const days   = parseInt(document.getElementById("daysSelect").value);
   const cutoff = new Date(Date.now() - days * 86400000);
-  if (!licSku) return;
-  _activeSku = licSku;
+
+  const selOpt    = document.getElementById("licSelect").selectedOptions[0];
+  const skuId     = selOpt?.dataset?.skuid;
+  const skuName   = getFriendlyName(licSku);
+  const costPerUser = getCost(licSku);
 
   try {
-    setPhase("Fetching license counts…");
-    const targetSkus = _skus.filter(s => s.skuPartNumber === licSku);
+    setPhase("Fetching licence data…");
+    const skus = await graphWithRetry(() =>
+      ITTools.graph.getAll("https://graph.microsoft.com/v1.0/subscribedSkus")
+    );
+    const targetSkus = skus.filter(s => s.skuPartNumber === licSku);
     if (!targetSkus.length) {
-      document.getElementById("warnBanner").textContent   = "This license was not found in your tenant.";
-      document.getElementById("warnBanner").style.display = "block";
-      setPhase(null); return;
+      const found = skus.map(s => getFriendlyName(s.skuPartNumber)).join(", ");
+      throw new Error(`Licence '${licSku}' not found. Available: ${found}`);
     }
-
-    renderStats(targetSkus, null, days, licSku);
     const targetSkuIds = targetSkus.map(s => s.skuId);
 
+    renderStats(targetSkus, null, days, licSku, null);
+
     setPhase("Fetching licensed users…");
-    const fields = "id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,signInActivity";
-    const filter = encodeURIComponent("assignedLicenses/any(x:x/skuId eq '" + targetSkuIds[0] + "')");
+    const fields  = "id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,signInActivity";
+    const filter  = encodeURIComponent(`assignedLicenses/any(x:x/skuId eq '${targetSkuIds[0]}')`);
+    const userUrl = `https://graph.microsoft.com/v1.0/users?$filter=${filter}&$select=${fields}&$count=true&$top=999`;
 
     let licensedUsers;
     try {
-      licensedUsers = await graphWithRetry(() => ITTools.graph.getAll(
-        "https://graph.microsoft.com/v1.0/users?$filter=" + filter +
-        "&$select=" + fields + "&$count=true&$top=999"
-      ));
-    } catch (_) {
-      setPhase("Fallback: loading all users…");
-      const all = await graphWithRetry(() => ITTools.graph.getAll(
-        "https://graph.microsoft.com/v1.0/users?$select=" + fields + "&$top=999"
-      ));
+      licensedUsers = await graphWithRetry(() => ITTools.graph.getAll(userUrl));
+    } catch(_) {
+      setPhase("Fallback: fetching all users…");
+      const all = await graphWithRetry(() =>
+        ITTools.graph.getAll(`https://graph.microsoft.com/v1.0/users?$select=${fields}&$top=999`)
+      );
       licensedUsers = all.filter(u =>
         (u.assignedLicenses||[]).some(l => targetSkuIds.includes(l.skuId))
       );
     }
 
-    setPhase("Analysing " + licensedUsers.length + " users…");
+    setPhase(`Analysing ${licensedUsers.length} licensed users…`);
+
     const inactive = [];
     for (const u of licensedUsers) {
       const si   = u.signInActivity || {};
-      const d1   = si.lastSignInDateTime               ? new Date(si.lastSignInDateTime)               : null;
-      const d2   = si.lastNonInteractiveSignInDateTime  ? new Date(si.lastNonInteractiveSignInDateTime)  : null;
+      const d1   = si.lastSignInDateTime              ? new Date(si.lastSignInDateTime)              : null;
+      const d2   = si.lastNonInteractiveSignInDateTime ? new Date(si.lastNonInteractiveSignInDateTime) : null;
       const last = d1 && d2 ? (d1 > d2 ? d1 : d2) : (d1 || d2 || null);
+
       if (last && last >= cutoff) continue;
 
       const daysSince = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
       const matched   = (u.assignedLicenses||[])
         .filter(l => targetSkuIds.includes(l.skuId))
-        .map(l => { const s = targetSkus.find(t => t.skuId === l.skuId); return s ? getFriendlyName(s.skuPartNumber) : l.skuId; });
+        .map(l => { const s = targetSkus.find(t => t.skuId === l.skuId); return s ? s.skuPartNumber : l.skuId; });
 
       inactive.push({
-        displayName:     u.displayName||"",
-        upn:             u.userPrincipalName||"",
-        department:      u.department||"",
-        jobTitle:        u.jobTitle||"",
-        accountEnabled:  u.accountEnabled,
-        lastSignIn:      last ? last.toISOString().slice(0,10) : null,
+        id:             u.id,
+        displayName:    u.displayName    || "",
+        upn:            u.userPrincipalName || "",
+        department:     u.department     || "",
+        jobTitle:       u.jobTitle       || "",
+        accountEnabled: u.accountEnabled,
+        lastSignIn:     last ? last.toISOString().slice(0,10) : null,
         daysSinceSignIn: daysSince,
-        licenses:        matched,
-        monthlyCost:     getCost(licSku),
+        licenses:       matched,
+        skuId:          targetSkuIds[0],
+        skuPartNumber:  licSku,
+        monthlyCost:    costPerUser,
+        removed:        false,
       });
     }
 
     allUsers = inactive;
-    renderStats(targetSkus, inactive.length, days, licSku);
-    if (_hasFinanceAccess) renderCostHeadline(inactive, licSku);
-    renderTable(inactive, days, licSku);
+    renderStats(targetSkus, inactive.length, days, licSku, costPerUser);
+    renderCostHeadline(inactive, licSku, skuName, costPerUser, days, targetSkus);
+    renderTable(inactive, skuName, costPerUser);
 
   } catch(e) {
     document.getElementById("errBanner").textContent   = e.message;
@@ -549,56 +515,54 @@ async function runAudit() {
 }
 
 // ── Cost headline ─────────────────────────────────────────────────────────────
-function renderCostHeadline(users, sku) {
-  if (!users.length) return;
-  const cost = getCost(sku);
-  if (cost === null || cost === 0) return; // free or unknown — no headline
-
-  const monthly  = cost * users.length;
+function renderCostHeadline(users, licSku, skuName, costPerUser, days, targetSkus) {
+  const el = document.getElementById("costHeadline");
+  if (costPerUser === null || costPerUser === 0 || !users.length) {
+    el.style.display = "none"; return;
+  }
+  const activeInactive  = users.filter(u => u.accountEnabled !== false).length;
+  const disabledInactive = users.filter(u => u.accountEnabled === false).length;
+  const monthly  = costPerUser * users.length;
   const annual   = monthly * 12;
-  const el       = document.getElementById("costHeadline");
-  const licName  = getFriendlyName(sku);
 
-  document.getElementById("hlMonthly").textContent = formatCurrencyRound(monthly) + "/month";
-  document.getElementById("hlSub").textContent     = `${users.length} inactive ${licName} user${users.length!==1?"s":""} × ${formatCurrency(cost)}/user/mo`;
-  document.getElementById("hlAnnual").textContent  = formatCurrencyRound(annual) + "/year";
-
-  // Breakdown by account status
-  const disabled = users.filter(u => u.accountEnabled === false).length;
-  const active   = users.length - disabled;
-  document.getElementById("hlBreakdown").innerHTML =
-    `<div><strong>${active}</strong> active accounts (still enabled, not signing in)</div>` +
-    `<div><strong>${disabled}</strong> disabled accounts (license can be reclaimed immediately)</div>` +
-    `<div><strong>${formatCurrency(cost)}</strong> per user per month · <strong>${formatCurrency(cost * 12)}</strong> per user per year</div>`;
-
+  el.innerHTML = `
+    <div class="cost-headline-top">
+      <span class="cost-big">${formatCurrency(monthly)}<span style="font-size:14px;font-weight:600">/mo</span></span>
+      <span class="cost-sub">· ${formatCurrency(annual)}/yr recoverable</span>
+    </div>
+    <div class="cost-detail">
+      ${users.length} inactive ${skuName} users × ${formatCurrency(costPerUser)}/user/mo
+      ${activeInactive > 0 ? `· ${activeInactive} active account${activeInactive!==1?"s":""} not signing in` : ""}
+      ${disabledInactive > 0 ? `· ${disabledInactive} disabled account${disabledInactive!==1?"s":""} still licensed` : ""}
+    </div>`;
   el.style.display = "block";
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
-function renderStats(skus, inactiveCount, days, sku) {
+function renderStats(skus, inactiveCount, days, licSku, costPerUser) {
   let total = 0, assigned = 0;
-  skus.forEach(s => { total += (s.prepaidUnits?.enabled)||0; assigned += s.consumedUnits||0; });
-  const pct  = total > 0 ? Math.round((assigned/total)*100) : 0;
-  const cost = getCost(sku);
-  const hasCost = _hasFinanceAccess && cost !== null && cost > 0;
+  skus.forEach(s => {
+    total    += s.prepaidUnits?.enabled || 0;
+    assigned += s.consumedUnits || 0;
+  });
+  const pct = total > 0 ? Math.round((assigned/total)*100) : 0;
 
-  const totalCostStr    = hasCost ? `${formatCurrencyRound(total * cost)}/mo total` : null;
-  const assignedCostStr = hasCost ? `${formatCurrencyRound(assigned * cost)}/mo spend` : `${pct}% utilization`;
-  const availCostStr    = hasCost ? `${formatCurrencyRound((total - assigned) * cost)}/mo unused` : null;
-
-  let html = sc("blue",  "Total licenses",  total,            totalCostStr) +
-             sc("green", "Assigned",        assigned,         assignedCostStr) +
-             sc("gray",  "Available",       total - assigned, availCostStr);
+  let html =
+    sc("blue",  "Total licences",  total,             null) +
+    sc("green", "Assigned",         assigned,          pct + "% utilisation") +
+    sc("gray",  "Available",         total - assigned,  null);
 
   if (inactiveCount !== null && inactiveCount > 0) {
-    const recoverCostStr = hasCost
-      ? `${formatCurrencyRound(inactiveCount * cost)}/mo recoverable`
-      : `inactive >${days}d`;
-    html += sc("amber", "Recoverable", inactiveCount, recoverCostStr);
+    html += sc("amber", "Recoverable", inactiveCount, `inactive >${days}d`);
+    if (costPerUser !== null && costPerUser > 0) {
+      const recoverMonthly = costPerUser * inactiveCount;
+      html += sc("amber", "Monthly saving", formatCurrency(recoverMonthly), formatCurrency(recoverMonthly*12) + "/yr");
+    }
   }
 
   const row = document.getElementById("statsRow");
-  row.innerHTML = html; row.style.display = "flex";
+  row.innerHTML     = html;
+  row.style.display = "flex";
 }
 
 function sc(c,l,v,s) {
@@ -606,41 +570,41 @@ function sc(c,l,v,s) {
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
-function renderTable(users, days, sku) {
+function renderTable(users, skuName, costPerUser) {
   const sec = document.getElementById("tableSection");
-  const hasCost = _hasFinanceAccess && getCost(sku) !== null;
+  const hasCost = costPerUser !== null;
 
   if (!users.length) {
-    sec.innerHTML = `<div class="card"><div class="empty-state">
+    sec.innerHTML = `<div class="tbl-wrap"><div class="empty-state">
       <div class="empty-icon">✅</div>
-      <div class="empty-title">No inactive users</div>
-      <p class="empty-sub">All licensed users signed in within ${days} days.</p>
+      <div class="empty-title">No inactive users found</div>
+      <p style="font-size:13px">All licensed users have signed in within the selected threshold.</p>
     </div></div>`;
     return;
   }
+
   const sorted = sortUsers(users);
   sec.innerHTML = `
     <div class="tbl-wrap">
       <div class="tbl-toolbar">
-        <span class="tbl-title">Inactive holders
-          <span class="status-pill pill-skipped" style="margin-left:6px">
-            ${users.length} user${users.length!==1?"s":""}
-          </span>
+        <span class="tbl-title">Inactive licence holders
+          <span class="status-pill pill-skipped" style="margin-left:6px">${users.length} users</span>
         </span>
         <div class="tbl-actions">
-          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
+          <input type="search" placeholder="Filter by name, email or dept…"
+            style="width:220px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
           <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportCsv()">Export CSV</button>
         </div>
       </div>
       <table>
         <thead><tr>
-          ${th("User","displayName")}
-          ${th("Department","department")}
-          ${th("Last sign-in","lastSignIn")}
-          ${th("Days inactive","daysSinceSignIn")}
-          ${th("Account","accountEnabled")}
-          ${hasCost ? th("Monthly cost","monthlyCost") : ""}
-          ${th("Licenses","licenses")}
+          ${th("User",          "displayName")}
+          ${th("Department",    "department")}
+          ${th("Last sign-in",  "lastSignIn")}
+          ${th("Days inactive", "daysSinceSignIn")}
+          ${th("Account",       "accountEnabled")}
+          ${hasCost ? th("Monthly cost", "monthlyCost") : ""}
+          <th>Action</th>
         </tr></thead>
         <tbody id="auditBody">${sorted.map(u => userRow(u, hasCost)).join("")}</tbody>
       </table>
@@ -655,97 +619,215 @@ function th(label, col) {
 
 function userRow(u, hasCost) {
   const stale    = !u.daysSinceSignIn || u.daysSinceSignIn > 60;
-  const init2    = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+  const initials = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
   const lastSeen = u.lastSignIn
-    ? new Date(u.lastSignIn).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})
+    ? new Date(u.lastSignIn).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })
     : "Never";
 
   let ageCls, ageLabel;
-  if (!u.daysSinceSignIn)           { ageCls="age-never";    ageLabel="Never"; }
-  else if (u.daysSinceSignIn > 90)  { ageCls="age-critical"; ageLabel=u.daysSinceSignIn+"d"; }
-  else if (u.daysSinceSignIn > 60)  { ageCls="age-warning";  ageLabel=u.daysSinceSignIn+"d"; }
-  else                              { ageCls="age-ok";       ageLabel=u.daysSinceSignIn+"d"; }
+  if (!u.daysSinceSignIn)          { ageCls="age-never";    ageLabel="Never"; }
+  else if (u.daysSinceSignIn > 90) { ageCls="age-critical"; ageLabel=u.daysSinceSignIn+"d"; }
+  else if (u.daysSinceSignIn > 60) { ageCls="age-warning";  ageLabel=u.daysSinceSignIn+"d"; }
+  else                             { ageCls="age-ok";       ageLabel=u.daysSinceSignIn+"d"; }
 
-  const acct  = u.accountEnabled===false
-    ? `<span class="status-pill pill-disabled">Disabled</span>`
-    : `<span class="status-pill pill-active">Active</span>`;
-  const pills = (u.licenses||[]).map(l=>`<span class="lic-pill">${l}</span>`).join("");
+  const acct = u.accountEnabled === false
+    ? `<span class="badge-pill pill-error">Disabled</span>`
+    : `<span class="badge-pill pill-success">Active</span>`;
+
+  const costCell = hasCost
+    ? `<td style="font-size:12px;font-weight:600;color:var(--amber)">${u.monthlyCost !== null && u.monthlyCost > 0 ? formatCurrency(u.monthlyCost)+"/mo" : "—"}</td>`
+    : "";
+
+  // Action cell — show removed badge or remove button
+  const actionCell = u.removed
+    ? `<td><span class="removed-badge">✓ Removed</span></td>`
+    : `<td><button class="btn-remove" onclick="openRemoveModal('${u.id}')" id="removebtn-${u.id}">Remove licence</button></td>`;
+
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
-  let costCell = "";
-  if (hasCost) {
-    const c = u.monthlyCost;
-    if (c === null)     costCell = `<td class="cost-cell no-cost">—</td>`;
-    else if (c === 0)   costCell = `<td class="cost-cell free-cost">Free</td>`;
-    else                costCell = `<td class="cost-cell has-cost">${formatCurrency(c)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span></td>`;
-  }
-
-  return `<tr data-search="${search}">
+  return `<tr data-search="${search}" data-userid="${u.id}" id="row-${u.id}" ${u.removed ? 'style="opacity:.55"' : ""}>
     <td><div class="user-cell">
-      <div class="avatar ${stale?"stale":"ok"}">${init2}</div>
+      <div class="avatar ${stale?"stale":"ok"}">${initials}</div>
       <div><div class="user-name">${u.displayName||"Unknown"}</div><div class="user-upn">${u.upn}</div></div>
     </div></td>
     <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
     <td style="color:${stale?"var(--red)":"var(--muted)"};font-size:12px">${lastSeen}</td>
-    <td><span class="${ageCls}">${ageLabel}</span></td>
+    <td><span class="age-badge ${ageCls}">${ageLabel}</span></td>
     <td>${acct}</td>
     ${costCell}
-    <td>${pills}</td>
+    ${actionCell}
   </tr>`;
 }
 
+// ── Sorting / filtering ───────────────────────────────────────────────────────
 function sortBy(col) {
   sortDir = sortCol===col ? sortDir*-1 : -1; sortCol=col;
   const b = document.getElementById("auditBody");
+  const hasCost = allUsers[0]?.monthlyCost !== undefined;
   if (b) {
-    const hasCost = _hasFinanceAccess && getCost(_activeSku) !== null;
-    b.innerHTML = sortUsers(allUsers).map(u => userRow(u, hasCost)).join("");
+    b.innerHTML = sortUsers(allUsers).map(u => userRow(u, hasCost !== null)).join("");
     filterTbl(document.querySelector('input[type="search"]')?.value||"");
   }
 }
 
 function sortUsers(users) {
   return [...users].sort((a,b) => {
-    let av=a[sortCol], bv=b[sortCol];
-    if (sortCol==="daysSinceSignIn") { av=av===null?999999:av; bv=bv===null?999999:bv; return sortDir*(bv-av); }
-    if (sortCol==="monthlyCost")     { av=av===null?-1:av;     bv=bv===null?-1:bv;     return sortDir*(bv-av); }
-    if (sortCol==="accountEnabled")  return sortDir*((a.accountEnabled===false?0:1)-(b.accountEnabled===false?0:1));
-    return sortDir*(av||"").toString().toLowerCase().localeCompare((bv||"").toString().toLowerCase());
+    if (sortCol==="daysSinceSignIn") {
+      const av = a.daysSinceSignIn===null ? 999999 : a.daysSinceSignIn;
+      const bv = b.daysSinceSignIn===null ? 999999 : b.daysSinceSignIn;
+      return sortDir * (bv - av);
+    }
+    if (sortCol==="accountEnabled")  return sortDir * ((a.accountEnabled===false?0:1)-(b.accountEnabled===false?0:1));
+    if (sortCol==="monthlyCost")     return sortDir * ((a.monthlyCost||0)-(b.monthlyCost||0));
+    const av=a[sortCol]||"", bv=b[sortCol]||"";
+    return sortDir * av.toString().toLowerCase().localeCompare(bv.toString().toLowerCase());
   });
 }
 
 function filterTbl(q) {
   q = q.toLowerCase();
   document.querySelectorAll("#auditBody tr").forEach(tr => {
-    tr.style.display = tr.dataset.search.includes(q) ? "" : "none";
+    tr.style.display = tr.dataset.search?.includes(q) ? "" : "none";
   });
 }
 
+// ── Licence removal ───────────────────────────────────────────────────────────
+function openRemoveModal(userId) {
+  const user = allUsers.find(u => u.id === userId);
+  if (!user || user.removed) return;
+
+  _pendingRemoval = user;
+
+  document.getElementById("modalUserName").textContent = user.displayName;
+  document.getElementById("modalUserUpn").textContent  = user.upn;
+  document.getElementById("modalLicName").textContent  = getFriendlyName(user.skuPartNumber);
+
+  const modal = document.getElementById("removeModal");
+  modal.classList.add("show");
+  document.getElementById("modalConfirmBtn").disabled = false;
+}
+
+function closeModal() {
+  document.getElementById("removeModal").classList.remove("show");
+  _pendingRemoval = null;
+}
+
+async function confirmRemoval() {
+  if (!_pendingRemoval) return;
+  const user = _pendingRemoval;
+
+  const confirmBtn = document.getElementById("modalConfirmBtn");
+  confirmBtn.disabled    = true;
+  confirmBtn.textContent = "Removing…";
+
+  try {
+    // Build the assignedLicenses patch — remove the target SKU, keep everything else
+    const token = await ITTools.auth.getToken(TOOL_SCOPES);
+    const res   = await fetch(`https://graph.microsoft.com/v1.0/users/${user.id}/assignLicense`, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type":  "application/json"
+      },
+      body: JSON.stringify({
+        addLicenses:    [],
+        removeLicenses: [user.skuId]
+      })
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const msg  = body?.error?.message || `Graph error ${res.status}`;
+      if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented in Entra ID.");
+      throw new Error(msg);
+    }
+
+    // Success — mark as removed in state and update the row
+    user.removed = true;
+    _removedUserIds.add(user.id);
+    _removalCount++;
+
+    // Update the row in place
+    const row = document.getElementById(`row-${user.id}`);
+    if (row) {
+      row.style.opacity = "0.55";
+      const actionCell = row.querySelector("td:last-child");
+      if (actionCell) actionCell.innerHTML = `<span class="removed-badge">✓ Removed</span>`;
+    }
+
+    // Update removal summary banner
+    updateRemovalSummary();
+    closeModal();
+
+  } catch(e) {
+    confirmBtn.disabled    = false;
+    confirmBtn.textContent = "Remove licence";
+    // Show error inside modal
+    let errEl = document.getElementById("modalErr");
+    if (!errEl) {
+      errEl = document.createElement("div");
+      errEl.id        = "modalErr";
+      errEl.className = "banner error";
+      errEl.style.marginBottom = "1rem";
+      document.querySelector(".modal-card").insertBefore(errEl, document.querySelector(".modal-actions"));
+    }
+    errEl.textContent   = "Error: " + e.message;
+    errEl.style.display = "block";
+  }
+}
+
+function updateRemovalSummary() {
+  const el = document.getElementById("removalSummary");
+  if (_removalCount === 0) { el.classList.remove("show"); return; }
+
+  const removed = allUsers.filter(u => u.removed);
+  const totalMonthlySaved = removed.reduce((sum, u) => sum + (u.monthlyCost || 0), 0);
+
+  let msg = `✓ ${_removalCount} licence${_removalCount!==1?"s":""} removed this session.`;
+  if (totalMonthlySaved > 0) {
+    msg += ` Estimated saving: ${formatCurrency(totalMonthlySaved)}/mo · ${formatCurrency(totalMonthlySaved*12)}/yr.`;
+  }
+  msg += " Export CSV to save a record of this session's changes.";
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
 function exportCsv() {
   if (!allUsers.length) return;
-  const hasCost = _hasFinanceAccess && getCost(_activeSku) !== null;
+  const hasCost = allUsers[0]?.monthlyCost !== undefined && allUsers[0]?.monthlyCost !== null;
   ITTools.csv.download(
-    "M365_License_Audit_" + new Date().toISOString().slice(0,10) + ".csv",
+    "License_Audit_" + new Date().toISOString().slice(0,10) + ".csv",
     allUsers.map(u => {
       const row = {
-        "Display Name":  u.displayName,
-        "UPN":           u.upn,
-        "Department":    u.department,
-        "Job Title":     u.jobTitle,
-        "Account":       u.accountEnabled===false ? "Disabled" : "Active",
-        "Last Sign-In":  u.lastSignIn || "Never",
-        "Days Inactive": u.daysSinceSignIn !== null ? u.daysSinceSignIn : "Never",
-        "Licenses":      (u.licenses||[]).join("; "),
+        "Display Name":   u.displayName,
+        "UPN":            u.upn,
+        "Department":     u.department,
+        "Job Title":      u.jobTitle,
+        "Account Status": u.accountEnabled === false ? "Disabled" : "Active",
+        "Last Sign-In":   u.lastSignIn || "Never",
+        "Days Inactive":  u.daysSinceSignIn !== null ? u.daysSinceSignIn : "Never",
+        "Licences":       (u.licenses||[]).join("; "),
+        "Licence Removed": u.removed ? "Yes" : "No",
       };
       if (hasCost) {
-        const c = u.monthlyCost;
-        row["Monthly Cost"] = c === null ? "" : c === 0 ? "Free" : formatCurrency(c);
-        row["Annual Cost"]  = c === null ? "" : c === 0 ? "Free" : formatCurrency(c * 12);
+        row["Monthly Cost"] = u.monthlyCost === null ? "" : u.monthlyCost === 0 ? "Free" : formatCurrency(u.monthlyCost);
+        row["Annual Cost"]  = u.monthlyCost === null ? "" : u.monthlyCost === 0 ? "Free" : formatCurrency(u.monthlyCost * 12);
       }
       return row;
     })
   );
 }
+
+// Close modal on overlay click
+document.getElementById("removeModal").addEventListener("click", function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Close modal on Escape
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeModal();
+});
 
 init();
 </script>
