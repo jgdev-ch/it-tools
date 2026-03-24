@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MFA Status Report — IT Tools</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<style>
+  .shell { max-width: 1020px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .page-header { margin-bottom: 1.5rem; }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-header p  { font-size: 13px; color: var(--muted); }
+
+  /* ── Risk score bar ── */
+  .risk-bar-wrap { margin: 1rem 0 .5rem; }
+  .risk-bar-label { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:5px; }
+  .risk-bar-track { height:8px; background:var(--surface3); border-radius:4px; overflow:hidden; display:flex; }
+  .risk-bar-strong { background:var(--green);  height:100%; transition:width .4s ease; }
+  .risk-bar-weak   { background:var(--amber);  height:100%; transition:width .4s ease; }
+  .risk-bar-none   { background:var(--red);    height:100%; transition:width .4s ease; }
+
+  /* ── MFA method checkboxes ── */
+  .method-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px; margin-top: 10px;
+  }
+  .method-check {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--surface2);
+    cursor: pointer; transition: all .12s; font-size: 13px;
+  }
+  .method-check:hover { border-color: var(--border-mid); background: var(--surface3); }
+  .method-check.selected {
+    border-color: var(--red-border); background: var(--red-light); color: var(--red);
+  }
+  .method-check input[type="checkbox"] {
+    width: 14px; height: 14px; accent-color: var(--red); cursor: pointer; flex-shrink: 0;
+  }
+  .method-icon { font-size: 14px; flex-shrink: 0; }
+  .method-label { font-size: 12px; font-weight: 500; }
+  .method-sub   { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+  .filter-actions { display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap; }
+  .filter-note { font-size:11px; color:var(--muted2); }
+
+  /* ── MFA pills in table ── */
+  .mfa-pill {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 7px; border-radius: 20px; font-size: 11px;
+    font-weight: 600; margin: 1px; white-space: nowrap;
+  }
+  .mfa-strong     { background: var(--green-light);  color: var(--green); }
+  .mfa-weak       { background: var(--amber-light);  color: var(--amber); }
+  .mfa-none       { background: var(--red-light);    color: var(--red); }
+  .mfa-unknown    { background: var(--surface3);     color: var(--muted); }
+
+  /* ── Risk badges ── */
+  .risk-high   { background:var(--red-light);    color:var(--red);   border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
+  .risk-medium { background:var(--amber-light);  color:var(--amber); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
+  .risk-low    { background:var(--green-light);  color:var(--green); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
+
+  .user-cell  { display:flex; align-items:center; gap:10px; }
+  .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .avatar.high   { background:var(--red-light);   color:var(--red); }
+  .avatar.medium { background:var(--amber-light); color:var(--amber); }
+  .avatar.low    { background:var(--green-light); color:var(--green); }
+  .user-name { font-size:13px; font-weight:600; }
+  .user-upn  { font-size:11px; color:var(--muted); }
+
+  /* ── Progress ── */
+  .scan-progress { margin: 1rem 0; }
+
+  #authScreen { display:flex; }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="width:44px;height:44px;background:var(--red-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:22px">🔑</div>
+    <h1>MFA Status Report</h1>
+    <p>Sign in with your Microsoft 365 admin account to audit MFA registration status across your tenant.</p>
+    <button class="btn-ms" onclick="doSignIn()">
+      <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authErr"></div>
+    <p class="auth-note">Requires <strong>User.Read.All</strong>, <strong>UserAuthenticationMethod.Read.All</strong>, and <strong>AuditLog.Read.All</strong>.</p>
+    <button class="redirect-toggle" onclick="toggleUri()">Show redirect URI for app registration</button>
+    <div class="redirect-box" id="uriBox"></div>
+  </div>
+</div>
+
+<div id="appScreen" style="display:none">
+  <div class="shell">
+
+    <div class="page-header">
+      <h1>MFA Status Report</h1>
+      <p>Audit MFA registration across your tenant. Flag users with weak or missing authentication methods.</p>
+    </div>
+
+    <!-- Configure -->
+    <div class="card">
+      <div class="card-title">Configure scan</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+        <div class="field" style="flex:1 1 200px;margin-bottom:0">
+          <label class="field-label">Scope</label>
+          <select id="scopeSelect">
+            <option value="all">All enabled users</option>
+            <option value="licensed">Licensed users only</option>
+            <option value="admins">Admin accounts only</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1 1 200px;margin-bottom:0">
+          <label class="field-label">Department filter</label>
+          <input type="text" id="deptFilter" placeholder="Leave blank for all departments"/>
+        </div>
+        <button class="btn btn-primary" id="scanBtn" onclick="startScan()">Run Scan</button>
+      </div>
+      <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
+    </div>
+
+    <div class="banner error" id="errBanner"></div>
+    <div class="banner info"  id="infoBanner"></div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow" style="display:none"></div>
+
+    <!-- Risk bar -->
+    <div class="card" id="riskCard" style="display:none">
+      <div class="card-title">MFA coverage</div>
+      <div class="risk-bar-wrap">
+        <div class="risk-bar-label">
+          <span id="rbStrongLabel">Strong MFA</span>
+          <span id="rbPct"></span>
+        </div>
+        <div class="risk-bar-track">
+          <div class="risk-bar-strong" id="rbStrong" style="width:0%"></div>
+          <div class="risk-bar-weak"   id="rbWeak"   style="width:0%"></div>
+          <div class="risk-bar-none"   id="rbNone"   style="width:0%"></div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--muted)">
+          <span><span style="color:var(--green);font-weight:700">■</span> Strong MFA</span>
+          <span><span style="color:var(--amber);font-weight:700">■</span> Weak method</span>
+          <span><span style="color:var(--red);font-weight:700">■</span> No MFA</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Method filter -->
+    <div class="card" id="filterCard" style="display:none">
+      <div class="card-title">Flag users by authentication method</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:2px">
+        Select which methods your security team considers insufficient. The table will highlight users relying only on these methods.
+      </p>
+      <div class="method-grid" id="methodGrid"></div>
+      <div class="filter-actions">
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px" onclick="selectWeakDefaults()">Select weak defaults</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px" onclick="clearMethodFilter()">Clear all</button>
+        <span class="filter-note" id="filterNote"></span>
+      </div>
+    </div>
+
+    <!-- Results table -->
+    <div id="tableSection"></div>
+
+  </div>
+</div>
+
+<script src="../../shared/auth.js"></script>
+<script>
+const TOOL_SCOPES = ["User.Read.All","UserAuthenticationMethod.Read.All","AuditLog.Read.All"];
+
+// ── MFA method definitions ────────────────────────────────────────────────────
+const MFA_METHODS = {
+  "#microsoft.graph.microsoftAuthenticatorAuthenticationMethod": {
+    label: "Microsoft Authenticator",
+    icon:  "📱",
+    strength: "strong",
+    sub: "Push notification / code"
+  },
+  "#microsoft.graph.fido2AuthenticationMethod": {
+    label: "FIDO2 Security Key",
+    icon:  "🔐",
+    strength: "strong",
+    sub: "Hardware security key"
+  },
+  "#microsoft.graph.windowsHelloForBusinessAuthenticationMethod": {
+    label: "Windows Hello for Business",
+    icon:  "👁️",
+    strength: "strong",
+    sub: "Biometric / PIN"
+  },
+  "#microsoft.graph.passwordlessMicrosoftAuthenticatorAuthenticationMethod": {
+    label: "Authenticator Passwordless",
+    icon:  "🔓",
+    strength: "strong",
+    sub: "Passwordless sign-in"
+  },
+  "#microsoft.graph.temporaryAccessPassAuthenticationMethod": {
+    label: "Temporary Access Pass",
+    icon:  "⏱️",
+    strength: "strong",
+    sub: "Time-limited pass"
+  },
+  "#microsoft.graph.phoneAuthenticationMethod": {
+    label: "SMS / Voice call",
+    icon:  "📞",
+    strength: "weak",
+    sub: "Text message or call"
+  },
+  "#microsoft.graph.emailAuthenticationMethod": {
+    label: "Email OTP",
+    icon:  "📧",
+    strength: "weak",
+    sub: "One-time code via email"
+  },
+  "#microsoft.graph.softwareOathAuthenticationMethod": {
+    label: "Software OATH Token",
+    icon:  "🔢",
+    strength: "weak",
+    sub: "Third-party authenticator app"
+  },
+  "#microsoft.graph.hardwareOathAuthenticationMethod": {
+    label: "Hardware OATH Token",
+    icon:  "🔑",
+    strength: "strong",
+    sub: "Physical token device"
+  },
+  "#microsoft.graph.passwordAuthenticationMethod": {
+    label: "Password only",
+    icon:  "🔒",
+    strength: "none",
+    sub: "No MFA registered"
+  },
+};
+
+// Which @odata.type values indicate "only password" (no real MFA)
+const PASSWORD_ONLY_TYPE = "#microsoft.graph.passwordAuthenticationMethod";
+
+function getMethodInfo(type) {
+  return MFA_METHODS[type] || { label: type.split(".").pop().replace("AuthenticationMethod",""), icon: "❓", strength: "unknown", sub: "" };
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allUsers      = [];
+let flaggedMethods = new Set(); // methods user has selected as "weak"
+let sortCol = "riskLevel", sortDir = -1;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "MFA Status Report", hubRelPath: "../../" });
+  ITTools.ui.syncThemeIcon();
+
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: acct => {
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+    }
+  });
+}
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent = e.message; el.style.display = "block";
+  }
+}
+
+function toggleUri() {
+  const b = document.getElementById("uriBox");
+  b.textContent = ITTools.auth.redirectUri();
+  b.style.display = b.style.display === "none" ? "block" : "none";
+}
+
+// ── Graph retry ───────────────────────────────────────────────────────────────
+async function graphWithRetry(fn, maxRetries = 5) {
+  let attempt = 0;
+  while (true) {
+    try { return await fn(); }
+    catch(e) {
+      attempt++;
+      const isRateLimit = e.message && (
+        e.message.includes("429") || e.message.includes("Rate limited") ||
+        e.message.includes("Too Many Requests") || e.message.includes("503")
+      );
+      if (!isRateLimit || attempt > maxRetries) throw e;
+      const waitSec = Math.min(60, Math.pow(2, attempt));
+      setPhase(`Rate limited — retrying in ${waitSec}s…`);
+      await new Promise(r => setTimeout(r, waitSec * 1000));
+    }
+  }
+}
+
+// ── Phase ─────────────────────────────────────────────────────────────────────
+function setPhase(msg) {
+  const line = document.getElementById("phaseLine");
+  const btn  = document.getElementById("scanBtn");
+  if (msg) {
+    line.classList.add("show");
+    document.getElementById("phaseText").textContent = msg;
+    btn.disabled    = true;
+    btn.textContent = "Scanning…";
+  } else {
+    line.classList.remove("show");
+    btn.disabled    = false;
+    btn.textContent = "Run Scan";
+  }
+}
+
+// ── Scan ──────────────────────────────────────────────────────────────────────
+async function startScan() {
+  document.getElementById("errBanner").style.display  = "none";
+  document.getElementById("infoBanner").style.display = "none";
+  document.getElementById("statsRow").style.display   = "none";
+  document.getElementById("riskCard").style.display   = "none";
+  document.getElementById("filterCard").style.display = "none";
+  document.getElementById("tableSection").innerHTML   = "";
+  allUsers = []; flaggedMethods = new Set();
+
+  const scope  = document.getElementById("scopeSelect").value;
+  const dept   = document.getElementById("deptFilter").value.trim();
+
+  try {
+    // 1. Fetch users
+    setPhase("Fetching users…");
+    let userUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$filter=accountEnabled eq true&$top=999&$count=true";
+    if (scope === "licensed") userUrl += " and assignedLicenses/$count ne 0";
+    if (dept) userUrl = userUrl.replace("$filter=", `$filter=department eq '${dept.replace(/'/g,"''")}' and `);
+
+    let users;
+    try {
+      users = await graphWithRetry(() => ITTools.graph.getAll(userUrl));
+    } catch(_) {
+      // fallback without filter
+      setPhase("Fallback: fetching all users…");
+      let fallbackUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$top=999";
+      users = await graphWithRetry(() => ITTools.graph.getAll(fallbackUrl));
+      users = users.filter(u => u.accountEnabled !== false && u.userType !== "Guest");
+      if (dept) users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
+      if (scope === "licensed") users = users.filter(u => u.assignedLicenses?.length > 0);
+    }
+
+    if (!users.length) {
+      document.getElementById("infoBanner").textContent   = "No users found matching your filter.";
+      document.getElementById("infoBanner").style.display = "block";
+      setPhase(null); return;
+    }
+
+    // 2. Fetch MFA methods per user (batched with progress)
+    const results = [];
+    const total   = users.length;
+
+    // Show progress card
+    document.getElementById("tableSection").innerHTML = `
+      <div class="card scan-progress">
+        <div class="card-title">Scanning authentication methods</div>
+        <div class="progress-wrap">
+          <div class="progress-meta">
+            <span id="scanLabel">Starting…</span>
+            <span id="scanPct">0%</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="scanFill"></div></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">
+          This may take a minute for large tenants. Each user requires an individual Graph call.
+        </div>
+      </div>`;
+
+    // Process in batches of 5 concurrent to avoid throttling
+    const BATCH = 5;
+    for (let i = 0; i < users.length; i += BATCH) {
+      const batch = users.slice(i, i + BATCH);
+      const batchResults = await Promise.all(batch.map(async u => {
+        try {
+          const methods = await graphWithRetry(() =>
+            ITTools.graph.get(`https://graph.microsoft.com/v1.0/users/${u.id}/authentication/methods`)
+          );
+          return { user: u, methods: methods.value || [] };
+        } catch(_) {
+          return { user: u, methods: [], error: true };
+        }
+      }));
+      results.push(...batchResults);
+
+      // Update progress
+      const done = Math.min(i + BATCH, total);
+      const pct  = Math.round((done / total) * 100);
+      const fill = document.getElementById("scanFill");
+      const lbl  = document.getElementById("scanLabel");
+      const pctEl= document.getElementById("scanPct");
+      if (fill) fill.style.width = pct + "%";
+      if (lbl)  lbl.textContent  = `Scanned ${done} of ${total} users…`;
+      if (pctEl)pctEl.textContent = pct + "%";
+    }
+
+    // 3. Process results
+    allUsers = results.map(({ user: u, methods, error }) => {
+      // Filter out password-only entries for method display
+      const realMethods = methods.filter(m => m["@odata.type"] !== PASSWORD_ONLY_TYPE);
+      const hasPassword = methods.some(m => m["@odata.type"] === PASSWORD_ONLY_TYPE);
+      const methodTypes = realMethods.map(m => m["@odata.type"]);
+
+      // Determine risk level
+      const hasStrong = methodTypes.some(t => MFA_METHODS[t]?.strength === "strong");
+      const hasWeak   = methodTypes.some(t => MFA_METHODS[t]?.strength === "weak");
+      const hasNone   = methodTypes.length === 0;
+
+      let riskLevel;
+      if (hasNone)        riskLevel = 2; // high risk — no MFA
+      else if (!hasStrong) riskLevel = 1; // medium — weak only
+      else                 riskLevel = 0; // low — strong MFA present
+
+      return {
+        id:           u.id,
+        displayName:  u.displayName || "",
+        upn:          u.userPrincipalName || "",
+        department:   u.department || "",
+        jobTitle:     u.jobTitle || "",
+        methodTypes,
+        riskLevel,
+        hasStrong,
+        hasWeak,
+        hasNone,
+        error: !!error,
+      };
+    });
+
+    renderStats(allUsers);
+    renderRiskBar(allUsers);
+    renderMethodFilter(allUsers);
+    renderTable(allUsers);
+    setPhase(null);
+
+  } catch(e) {
+    document.getElementById("errBanner").textContent   = e.message;
+    document.getElementById("errBanner").style.display = "block";
+    setPhase(null);
+  }
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats(users) {
+  const total   = users.length;
+  const strong  = users.filter(u => u.riskLevel === 0).length;
+  const weak    = users.filter(u => u.riskLevel === 1).length;
+  const none    = users.filter(u => u.riskLevel === 2).length;
+  const errors  = users.filter(u => u.error).length;
+  const coverage = total > 0 ? Math.round((strong / total) * 100) : 0;
+
+  const row = document.getElementById("statsRow");
+  row.innerHTML =
+    sc("blue",  "Users scanned", total,    null) +
+    sc("green", "Strong MFA",    strong,   coverage + "% coverage") +
+    sc("amber", "Weak method",   weak,     "needs improvement") +
+    sc("red",   "No MFA",        none,     "highest risk") +
+    (errors > 0 ? sc("gray", "Scan errors", errors, "could not retrieve") : "");
+  row.style.display = "flex";
+}
+function sc(c,l,v,s) {
+  return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
+}
+
+// ── Risk bar ──────────────────────────────────────────────────────────────────
+function renderRiskBar(users) {
+  const total  = users.length || 1;
+  const strong = users.filter(u => u.riskLevel === 0).length;
+  const weak   = users.filter(u => u.riskLevel === 1).length;
+  const none   = users.filter(u => u.riskLevel === 2).length;
+
+  document.getElementById("rbStrong").style.width = ((strong/total)*100).toFixed(1) + "%";
+  document.getElementById("rbWeak").style.width   = ((weak/total)*100).toFixed(1)   + "%";
+  document.getElementById("rbNone").style.width   = ((none/total)*100).toFixed(1)   + "%";
+  document.getElementById("rbPct").textContent    = Math.round((strong/total)*100) + "% strong MFA";
+  document.getElementById("riskCard").style.display = "block";
+}
+
+// ── Method filter ─────────────────────────────────────────────────────────────
+function renderMethodFilter(users) {
+  // Collect which method types actually appear in the results
+  const seen = new Set();
+  users.forEach(u => u.methodTypes.forEach(t => seen.add(t)));
+  // Always show password-only as an option
+  seen.add(PASSWORD_ONLY_TYPE);
+
+  const grid = document.getElementById("methodGrid");
+  grid.innerHTML = [...seen].map(type => {
+    const info = getMethodInfo(type);
+    const isPassword = type === PASSWORD_ONLY_TYPE;
+    return `
+      <label class="method-check" id="mc-${btoa(type).replace(/=/g,'')}" onclick="toggleMethod('${type}', this)">
+        <input type="checkbox" onchange="toggleMethod('${type}', this.closest('.method-check'))"/>
+        <span class="method-icon">${info.icon}</span>
+        <div>
+          <div class="method-label">${isPassword ? "No MFA (password only)" : info.label}</div>
+          <div class="method-sub">${info.sub}</div>
+        </div>
+      </label>`;
+  }).join("");
+
+  document.getElementById("filterCard").style.display = "block";
+  updateFilterNote();
+}
+
+function toggleMethod(type, el) {
+  // Prevent double-fire from label+checkbox both triggering
+  if (event.target.tagName === "INPUT") {
+    if (event.target.checked) flaggedMethods.add(type);
+    else flaggedMethods.delete(type);
+  } else {
+    // clicked label area — toggle
+    if (flaggedMethods.has(type)) { flaggedMethods.delete(type); }
+    else { flaggedMethods.add(type); }
+    el.querySelector("input").checked = flaggedMethods.has(type);
+  }
+  el.classList.toggle("selected", flaggedMethods.has(type));
+  updateFilterNote();
+  applyMethodFilter();
+}
+
+function selectWeakDefaults() {
+  // Default weak: SMS/voice, email, software OATH, password only
+  const weakDefaults = [
+    "#microsoft.graph.phoneAuthenticationMethod",
+    "#microsoft.graph.emailAuthenticationMethod",
+    "#microsoft.graph.softwareOathAuthenticationMethod",
+    PASSWORD_ONLY_TYPE,
+  ];
+  flaggedMethods = new Set(weakDefaults);
+  document.querySelectorAll(".method-check").forEach(el => {
+    const input = el.querySelector("input");
+    const type  = weakDefaults.find(t => el.id === `mc-${btoa(t).replace(/=/g,'')}`);
+    const sel   = !!type;
+    input.checked = sel;
+    el.classList.toggle("selected", sel);
+  });
+  updateFilterNote();
+  applyMethodFilter();
+}
+
+function clearMethodFilter() {
+  flaggedMethods = new Set();
+  document.querySelectorAll(".method-check").forEach(el => {
+    el.querySelector("input").checked = false;
+    el.classList.remove("selected");
+  });
+  updateFilterNote();
+  applyMethodFilter();
+}
+
+function updateFilterNote() {
+  const note = document.getElementById("filterNote");
+  if (flaggedMethods.size === 0) {
+    note.textContent = "No methods flagged — showing all users";
+  } else {
+    const flagged = allUsers.filter(u => isUserFlagged(u)).length;
+    note.textContent = `${flagged} user${flagged!==1?"s":""} flagged with selected method${flaggedMethods.size!==1?"s":""}`;
+  }
+}
+
+function isUserFlagged(u) {
+  if (flaggedMethods.size === 0) return false;
+  // Flag if user has NO methods (password only) and PASSWORD_ONLY_TYPE is checked
+  if (u.hasNone && flaggedMethods.has(PASSWORD_ONLY_TYPE)) return true;
+  // Flag if any of user's methods are in the flagged set AND they have no strong method
+  if (u.methodTypes.some(t => flaggedMethods.has(t)) && !u.hasStrong) return true;
+  return false;
+}
+
+function applyMethodFilter() {
+  const rows = document.querySelectorAll("#mfaBody tr");
+  rows.forEach(tr => {
+    const userId = tr.dataset.userid;
+    const user   = allUsers.find(u => u.id === userId);
+    if (!user) return;
+
+    if (flaggedMethods.size === 0) {
+      tr.style.display = "";
+      tr.style.outline = "";
+      return;
+    }
+    const flagged = isUserFlagged(user);
+    tr.style.display = flagged ? "" : "none";
+  });
+
+  // Also apply search filter on top
+  const q = document.querySelector('input[type="search"]')?.value?.toLowerCase() || "";
+  if (q) filterTbl(q);
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+function renderTable(users) {
+  const sec = document.getElementById("tableSection");
+  if (!users.length) {
+    sec.innerHTML = `<div class="card"><div class="empty-state">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">No users found</div>
+    </div></div>`;
+    return;
+  }
+
+  const sorted = sortUsers(users);
+  sec.innerHTML = `
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <span class="tbl-title">MFA report
+          <span class="status-pill pill-wouldadd" style="margin-left:6px">${users.length} users</span>
+        </span>
+        <div class="tbl-actions">
+          <input type="search" placeholder="Filter by name, email, dept…"
+            style="width:220px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportCsv()">Export CSV</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr>
+          ${th("User","displayName")}
+          ${th("Department","department")}
+          ${th("Risk","riskLevel")}
+          ${th("Registered methods","methodTypes")}
+          ${th("Job title","jobTitle")}
+        </tr></thead>
+        <tbody id="mfaBody">${sorted.map(userRow).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
+function th(label, col) {
+  const active = sortCol===col ? " style='background:var(--surface3)'" : "";
+  const arrow  = sortCol===col ? (sortDir===-1 ? " ↓" : " ↑") : " ↕";
+  return `<th onclick="sortBy('${col}')"${active}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
+}
+
+function userRow(u) {
+  const init2  = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+  const rClass = u.riskLevel===2?"high":u.riskLevel===1?"medium":"low";
+
+  let riskBadge, riskLabel;
+  if      (u.riskLevel===2) { riskBadge="risk-high";   riskLabel="No MFA"; }
+  else if (u.riskLevel===1) { riskBadge="risk-medium";  riskLabel="Weak"; }
+  else                      { riskBadge="risk-low";    riskLabel="Strong"; }
+
+  // Method pills
+  let methodPills;
+  if (u.hasNone) {
+    methodPills = `<span class="mfa-pill mfa-none">🔒 Password only</span>`;
+  } else {
+    methodPills = u.methodTypes.map(t => {
+      const info = getMethodInfo(t);
+      const cls  = info.strength === "strong" ? "mfa-strong" : info.strength === "weak" ? "mfa-weak" : "mfa-unknown";
+      return `<span class="mfa-pill ${cls}">${info.icon} ${info.label}</span>`;
+    }).join("");
+  }
+
+  const search = (u.displayName+" "+u.upn+" "+u.department+" "+u.jobTitle).toLowerCase();
+
+  return `<tr data-search="${search}" data-userid="${u.id}">
+    <td><div class="user-cell">
+      <div class="avatar ${rClass}">${init2}</div>
+      <div><div class="user-name">${u.displayName||"Unknown"}</div><div class="user-upn">${u.upn}</div></div>
+    </div></td>
+    <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
+    <td><span class="${riskBadge}">${riskLabel}</span></td>
+    <td style="max-width:320px">${methodPills}</td>
+    <td style="font-size:12px;color:var(--muted)">${u.jobTitle||"—"}</td>
+  </tr>`;
+}
+
+function sortBy(col) {
+  sortDir = sortCol===col ? sortDir*-1 : -1; sortCol=col;
+  const b = document.getElementById("mfaBody");
+  if (b) {
+    b.innerHTML = sortUsers(allUsers).map(userRow).join("");
+    applyMethodFilter();
+    filterTbl(document.querySelector('input[type="search"]')?.value||"");
+  }
+}
+
+function sortUsers(users) {
+  return [...users].sort((a,b) => {
+    if (sortCol==="riskLevel") return sortDir * (b.riskLevel - a.riskLevel);
+    if (sortCol==="methodTypes") return sortDir * (a.methodTypes.length - b.methodTypes.length);
+    const av = a[sortCol]||"", bv = b[sortCol]||"";
+    return sortDir * av.toString().toLowerCase().localeCompare(bv.toString().toLowerCase());
+  });
+}
+
+function filterTbl(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("#mfaBody tr").forEach(tr => {
+    if (tr.style.display === "none" && flaggedMethods.size > 0) return; // respect method filter
+    tr.style.display = tr.dataset.search.includes(q) ? "" : "none";
+  });
+}
+
+function exportCsv() {
+  if (!allUsers.length) return;
+  ITTools.csv.download(
+    "MFA_Status_Report_" + new Date().toISOString().slice(0,10) + ".csv",
+    allUsers.map(u => ({
+      "Display Name":  u.displayName,
+      "UPN":           u.upn,
+      "Department":    u.department,
+      "Job Title":     u.jobTitle,
+      "Risk Level":    u.riskLevel===2?"High (No MFA)":u.riskLevel===1?"Medium (Weak)":"Low (Strong)",
+      "Has Strong MFA":u.hasStrong ? "Yes" : "No",
+      "Has Weak MFA":  u.hasWeak   ? "Yes" : "No",
+      "No MFA":        u.hasNone   ? "Yes" : "No",
+      "Methods":       u.hasNone ? "Password only" :
+                       u.methodTypes.map(t => getMethodInfo(t).label).join("; "),
+      "Flagged":       isUserFlagged(u) ? "Yes" : "No",
+    }))
+  );
+}
+
+init();
+</script>
+</body>
+</html>
