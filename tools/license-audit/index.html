@@ -139,21 +139,20 @@
 
     <div class="page-header">
       <h1>License Audit</h1>
-      <p>Identify inactive M365 licence holders and recover unused seats. Remove licences directly without leaving the tool.</p>
+      <p>Identify inactive M365 license holders and recover unused seats. Remove licenses directly without leaving the tool.</p>
     </div>
 
     <!-- Configure -->
     <div class="card">
       <div class="card-title">Configure audit</div>
       <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-        <div class="field" style="flex:1 1 220px;margin-bottom:0">
+        <div style="flex:1 1 220px">
           <label class="field-label">License type</label>
           <select id="licSelect" disabled>
-            <option value="">Loading licences from tenant…</option>
+            <option value="">Loading licenses from tenant…</option>
           </select>
-          <div class="sku-meta" id="skuMeta"></div>
         </div>
-        <div class="field" style="flex:0 1 180px;margin-bottom:0">
+        <div style="flex:0 1 180px">
           <label class="field-label">Inactivity threshold</label>
           <select id="daysSelect">
             <option value="30">30 days</option>
@@ -163,8 +162,9 @@
             <option value="365">365 days</option>
           </select>
         </div>
-        <button class="btn btn-primary" id="runBtn" onclick="runAudit()" disabled>Run Audit</button>
+        <button class="btn btn-primary" id="runBtn" onclick="runAudit()" disabled style="margin-bottom:0;align-self:flex-end">Run Audit</button>
       </div>
+      <div class="sku-meta" id="skuMeta" style="margin-top:6px"></div>
       <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
     </div>
 
@@ -189,9 +189,9 @@
 <div class="modal-overlay" id="removeModal">
   <div class="modal-card">
     <div class="modal-icon">⚠️</div>
-    <div class="modal-title">Remove licence?</div>
+    <div class="modal-title">Remove license?</div>
     <div class="modal-body">
-      You are about to remove the following licence from this user. The user will lose access to the associated services immediately.
+      You are about to remove the following license from this user. The user will lose access to the associated services immediately.
     </div>
     <div class="modal-user-card">
       <div class="modal-user-name" id="modalUserName"></div>
@@ -200,7 +200,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-modal-cancel"  onclick="closeModal()">Cancel</button>
-      <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="confirmRemoval()">Remove licence</button>
+      <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="confirmRemoval()">Remove license</button>
     </div>
   </div>
 </div>
@@ -208,7 +208,7 @@
 <script src="../../shared/auth.js"></script>
 <script>
 
-// ── Scopes — now includes User.ReadWrite.All for licence removal ──────────────
+// ── Scopes — now includes User.ReadWrite.All for license removal ──────────────
 const TOOL_SCOPES = [
   "User.Read",
   "User.Read.All",
@@ -222,7 +222,8 @@ const SKU_NAMES = {
   "AAD_PREMIUM":                                       "Microsoft Entra ID P1",
   "AAD_PREMIUM_P2":                                    "Microsoft Entra ID P2",
   "ATP_ENTERPRISE":                                    "Microsoft Defender for Office 365 P1",
-  "COPILOTSTUDIO":                                     "Copilot Studio",
+  "CCIBOTS_PRIVPREV_VIRAL":                            "Microsoft Copilot Studio Viral Trial",
+  "COPILOTSTUDIO":                                     "Microsoft Copilot Studio User License",
   "DEVELOPERPACK":                                     "Office 365 E3 Developer",
   "DEVELOPERPACK_E5":                                  "Microsoft 365 E5 Developer",
   "DESKLESSPACK":                                      "Office 365 F1",
@@ -232,31 +233,43 @@ const SKU_NAMES = {
   "ENTERPRISEPREMIUM":                                 "Microsoft 365 E5",
   "EXCHANGEENTERPRISE":                                "Exchange Online Plan 2",
   "EXCHANGESTANDARD":                                  "Exchange Online Plan 1",
-  "EXCHANGEARCHIVE_ADDON":                             "Exchange Online Archiving",
+  "EXCHANGEARCHIVE_ADDON":                             "Exchange Online Archiving for Exchange Online",
+  "FABRIC_FREE":                                       "Microsoft Fabric (Free)",
+  "FLOW_FREE":                                         "Microsoft Power Automate Free",
   "FLOW_PER_USER":                                     "Power Automate per user",
   "IDENTITY_THREAT_PROTECTION":                        "Microsoft 365 E5 Security",
   "INFORMATION_PROTECTION_COMPLIANCE":                 "Microsoft 365 E5 Compliance",
   "INTUNE_A":                                          "Microsoft Intune Plan 1",
   "INTUNE_A_D":                                        "Microsoft Intune Device",
+  "MBS_BUSINESS_ESSENTIALS":                           "Microsoft Business Center",
+  "MICROSOFT_BUSINESS_CENTER":                         "Microsoft Business Center",
   "MCOPSTN1":                                          "Teams Phone with Calling Plan",
   "MCOPSTN_1_5":                                       "Teams Phone with Calling Plan",
+  "MCOPSTN2":                                          "Microsoft Teams Domestic Calling Plan",
+  "MCOPSTNC":                                          "Communications Credits",
+  "MCOMEETADV":                                        "Microsoft Teams Audio Conferencing",
   "MCOSTANDARD":                                       "Skype for Business Online Plan 2",
   "Microsoft_365_Copilot":                             "Microsoft 365 Copilot",
   "Microsoft_Copilot_for_Microsoft_365":               "Microsoft 365 Copilot",
   "Microsoft_Teams_Premium":                           "Microsoft Teams Premium",
   "MTR_PREM":                                          "Microsoft Teams Rooms Pro",
   "MSTEAMS_PREMIUM":                                   "Microsoft Teams Premium",
-  "MSTEAMS_PREMIUM_DEPT":                              "Microsoft Teams Premium (Dept)",
+  "MSTEAMS_PREMIUM_DEPT":                              "Microsoft Teams Premium (for Departments)",
   "O365_BUSINESS_ESSENTIALS":                          "Microsoft 365 Business Basic",
   "O365_BUSINESS_PREMIUM":                             "Microsoft 365 Business Standard",
   "OFFICESUBSCRIPTION":                                "Microsoft 365 Apps for Enterprise",
   "PBI_PREMIUM_PER_USER":                              "Power BI Premium Per User",
   "PBI_PREMIUM_PER_USER_ADDON":                        "Power BI Premium Per User Add-on",
+  "PHONESYSTEM_VIRTUALUSER":                           "Microsoft Teams Phone Resource Account",
   "POWER_BI_PRO":                                      "Power BI Pro",
   "POWER_BI_PRO_DEPT":                                 "Power BI Pro (Departmental)",
   "POWER_BI_PREMIUM_PER_USER":                         "Power BI Premium Per User",
   "POWER_BI_PREMIUM_PER_USER_ADDON":                   "Power BI Premium Per User Add-on",
-  "POWERAUTOMATE_ATTENDED_RPA":                        "Power Automate with Attended RPA",
+  "POWERAPPS_DEV":                                     "Microsoft Power Apps for Developer",
+  "POWERAPPS_VIRAL":                                   "Microsoft Power Apps Plan 2 Trial",
+  "POWERAUTOMATE_ATTENDED_RPA":                        "Power Automate Premium",
+  "POWERPAGES_VIRA_TRIAL":                             "Power Pages vTrial for Makers",
+  "POWERPAGES_VIRAL":                                  "Power Pages vTrial for Makers",
   "PROJECTPROFESSIONAL":                               "Project Plan 3",
   "PROJECTPREMIUM":                                    "Project Plan 5",
   "RIGHTSMANAGEMENT":                                  "Azure Information Protection P1",
@@ -266,13 +279,14 @@ const SKU_NAMES = {
   "SPE_F1":                                            "Microsoft 365 F3",
   "SPE_F3":                                            "Microsoft 365 F3",
   "STANDARDPACK":                                      "Office 365 E1",
-  "Teams_Premium_(for_Departments)":                   "Microsoft Teams Premium (Dept)",
-  "Teams_Phone_with_Calling_Plan":                     "Teams Phone with Calling Plan",
+  "STREAM_STORAGE":                                    "Microsoft Stream Trial",
+  "Teams_Premium_(for_Departments)":                   "Microsoft Teams Premium (for Departments)",
+  "Teams_Phone_with_Calling_Plan":                     "Teams Phone with Calling Plan (country zone 1 - US)",
   "THREAT_INTELLIGENCE":                               "Microsoft Defender for Office 365 P2",
   "VISIOCLIENT":                                       "Visio Plan 2",
   "VISIO_PLAN2_DEPT":                                  "Visio Plan 2 (Dept)",
   "VISIOONLINE_PLAN1":                                 "Visio Plan 1",
-  "VIRTUAL_AGENT_USL":                                 "Copilot Studio",
+  "VIRTUAL_AGENT_USL":                                 "Microsoft Copilot Studio User License",
   "WINDOWS_STORE":                                     "Windows Store for Business",
 };
 
@@ -355,7 +369,7 @@ function toggleUri() {
 async function loadSkus() {
   const sel  = document.getElementById("licSelect");
   const meta = document.getElementById("skuMeta");
-  sel.innerHTML = "<option>Loading licences from tenant…</option>";
+  sel.innerHTML = "<option>Loading licenses from tenant…</option>";
   sel.disabled  = true;
   document.getElementById("runBtn").disabled = true;
 
@@ -373,8 +387,8 @@ async function loadSkus() {
 
     const rawCount = _tenantSkus.filter(s => !SKU_NAMES[s.skuPartNumber]).length;
     meta.textContent = rawCount > 0
-      ? `${_tenantSkus.length} licences found · ${rawCount} shown with raw SKU name`
-      : `${_tenantSkus.length} licences found · all names resolved`;
+      ? `${_tenantSkus.length} licenses found · ${rawCount} shown with raw SKU name`
+      : `${_tenantSkus.length} licenses found · all names resolved`;
 
     sel.disabled = false;
     document.getElementById("runBtn").disabled = false;
@@ -437,14 +451,14 @@ async function runAudit() {
   const costPerUser = getCost(licSku);
 
   try {
-    setPhase("Fetching licence data…");
+    setPhase("Fetching license data…");
     const skus = await graphWithRetry(() =>
       ITTools.graph.getAll("https://graph.microsoft.com/v1.0/subscribedSkus")
     );
     const targetSkus = skus.filter(s => s.skuPartNumber === licSku);
     if (!targetSkus.length) {
       const found = skus.map(s => getFriendlyName(s.skuPartNumber)).join(", ");
-      throw new Error(`Licence '${licSku}' not found. Available: ${found}`);
+      throw new Error(`License '${licSku}' not found. Available: ${found}`);
     }
     const targetSkuIds = targetSkus.map(s => s.skuId);
 
@@ -548,7 +562,7 @@ function renderStats(skus, inactiveCount, days, licSku, costPerUser) {
   const pct = total > 0 ? Math.round((assigned/total)*100) : 0;
 
   let html =
-    sc("blue",  "Total licences",  total,             null) +
+    sc("blue",  "Total licenses",  total,             null) +
     sc("green", "Assigned",         assigned,          pct + "% utilisation") +
     sc("gray",  "Available",         total - assigned,  null);
 
@@ -587,7 +601,7 @@ function renderTable(users, skuName, costPerUser) {
   sec.innerHTML = `
     <div class="tbl-wrap">
       <div class="tbl-toolbar">
-        <span class="tbl-title">Inactive licence holders
+        <span class="tbl-title">Inactive license holders
           <span class="status-pill pill-skipped" style="margin-left:6px">${users.length} users</span>
         </span>
         <div class="tbl-actions">
@@ -641,7 +655,7 @@ function userRow(u, hasCost) {
   // Action cell — show removed badge or remove button
   const actionCell = u.removed
     ? `<td><span class="removed-badge">✓ Removed</span></td>`
-    : `<td><button class="btn-remove" onclick="openRemoveModal('${u.id}')" id="removebtn-${u.id}">Remove licence</button></td>`;
+    : `<td><button class="btn-remove" onclick="openRemoveModal('${u.id}')" id="removebtn-${u.id}">Remove license</button></td>`;
 
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
@@ -691,7 +705,7 @@ function filterTbl(q) {
   });
 }
 
-// ── Licence removal ───────────────────────────────────────────────────────────
+// ── License removal ───────────────────────────────────────────────────────────
 function openRemoveModal(userId) {
   const user = allUsers.find(u => u.id === userId);
   if (!user || user.removed) return;
@@ -761,7 +775,7 @@ async function confirmRemoval() {
 
   } catch(e) {
     confirmBtn.disabled    = false;
-    confirmBtn.textContent = "Remove licence";
+    confirmBtn.textContent = "Remove license";
     // Show error inside modal
     let errEl = document.getElementById("modalErr");
     if (!errEl) {
@@ -783,7 +797,7 @@ function updateRemovalSummary() {
   const removed = allUsers.filter(u => u.removed);
   const totalMonthlySaved = removed.reduce((sum, u) => sum + (u.monthlyCost || 0), 0);
 
-  let msg = `✓ ${_removalCount} licence${_removalCount!==1?"s":""} removed this session.`;
+  let msg = `✓ ${_removalCount} license${_removalCount!==1?"s":""} removed this session.`;
   if (totalMonthlySaved > 0) {
     msg += ` Estimated saving: ${formatCurrency(totalMonthlySaved)}/mo · ${formatCurrency(totalMonthlySaved*12)}/yr.`;
   }
@@ -807,8 +821,8 @@ function exportCsv() {
         "Account Status": u.accountEnabled === false ? "Disabled" : "Active",
         "Last Sign-In":   u.lastSignIn || "Never",
         "Days Inactive":  u.daysSinceSignIn !== null ? u.daysSinceSignIn : "Never",
-        "Licences":       (u.licenses||[]).join("; "),
-        "Licence Removed": u.removed ? "Yes" : "No",
+        "Licenses":       (u.licenses||[]).join("; "),
+        "License Removed": u.removed ? "Yes" : "No",
       };
       if (hasCost) {
         row["Monthly Cost"] = u.monthlyCost === null ? "" : u.monthlyCost === 0 ? "Free" : formatCurrency(u.monthlyCost);
