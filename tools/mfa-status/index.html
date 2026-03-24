@@ -61,6 +61,15 @@
   .btn-cancel:hover { background: var(--red-light); }
   .btn-cancel.show  { display: inline-flex; }
 
+  /* ── Disabled scope notice ── */
+  .disabled-notice {
+    display: none;
+    background: var(--amber-light); border: 1px solid var(--amber-border);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 13px; color: var(--amber); margin-top: 10px; line-height: 1.5;
+  }
+  .disabled-notice.show { display: block; }
+
   /* ── MFA pills in table ── */
   .mfa-pill {
     display: inline-flex; align-items: center; gap: 3px;
@@ -77,13 +86,16 @@
   .risk-medium { background:var(--amber-light);  color:var(--amber); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
   .risk-low    { background:var(--green-light);  color:var(--green); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
 
+  /* ── Account status badge ── */
+  .acct-disabled { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
+  .acct-enabled  { background:var(--green-light); color:var(--green); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
+
   .user-cell  { display:flex; align-items:center; gap:10px; }
   .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
   .avatar.high   { background:var(--red-light);   color:var(--red); }
   .avatar.medium { background:var(--amber-light); color:var(--amber); }
   .avatar.low    { background:var(--green-light); color:var(--green); }
-  .user-name { font-size:13px; font-weight:600; }
-  .user-upn  { font-size:11px; color:var(--muted); }
+  .avatar.disabled-acc { background:var(--surface3); color:var(--muted); }
 
   /* ── Progress ── */
   .scan-progress { margin: 1rem 0; }
@@ -130,18 +142,24 @@
       <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
         <div class="field" style="flex:1 1 200px;margin-bottom:0">
           <label class="field-label">Scope</label>
-          <select id="scopeSelect">
+          <select id="scopeSelect" onchange="onScopeChange()">
             <option value="all">All enabled users</option>
             <option value="licensed">Licensed users only</option>
             <option value="admins">Admin accounts only</option>
+            <option value="disabled">Disabled accounts</option>
           </select>
         </div>
-        <div class="field" style="flex:1 1 200px;margin-bottom:0">
+        <div class="field" style="flex:1 1 200px;margin-bottom:0" id="deptField">
           <label class="field-label">Department filter</label>
           <input type="text" id="deptFilter" placeholder="Leave blank for all departments"/>
         </div>
         <button class="btn btn-primary" id="scanBtn" onclick="startScan()">Run Scan</button>
         <button class="btn-cancel" id="cancelBtn" onclick="cancelScan()">✕ Cancel</button>
+      </div>
+      <div class="disabled-notice" id="disabledNotice">
+        ⚠ <strong>Disabled accounts mode.</strong> Showing all disabled user accounts regardless of license assignment.
+        These accounts may still hold licences and represent a cleanup and cost-recovery opportunity.
+        Consider reviewing with your team before deletion.
       </div>
       <div class="scan-warning" id="scopeWarning"></div>
       <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
@@ -262,7 +280,6 @@ const MFA_METHODS = {
   },
 };
 
-// Which @odata.type values indicate "only password" (no real MFA)
 const PASSWORD_ONLY_TYPE = "#microsoft.graph.passwordAuthenticationMethod";
 
 function getMethodInfo(type) {
@@ -273,8 +290,15 @@ function getMethodInfo(type) {
 let allUsers       = [];
 let flaggedMethods = new Set();
 let sortCol = "riskLevel", sortDir = -1;
-let _cancelled     = false;  // scan cancel flag
-let _scanStartTime = 0;      // for ETA calculation
+let _cancelled     = false;
+let _scanStartTime = 0;
+
+// ── Scope change handler ──────────────────────────────────────────────────────
+function onScopeChange() {
+  const scope  = document.getElementById("scopeSelect").value;
+  const notice = document.getElementById("disabledNotice");
+  notice.classList.toggle("show", scope === "disabled");
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -375,26 +399,42 @@ async function startScan() {
   allUsers = []; flaggedMethods = new Set();
   _cancelled = false; _scanStartTime = Date.now();
 
-  const scope = document.getElementById("scopeSelect").value;
-  const dept  = document.getElementById("deptFilter").value.trim();
+  const scope      = document.getElementById("scopeSelect").value;
+  const dept       = document.getElementById("deptFilter").value.trim();
+  const isDisabled = scope === "disabled";
 
   try {
-    // 1. Fetch users
     setPhase("Fetching users…");
 
     let users;
 
-    if (scope === "admins") {
-      // ── Admin scope: fetch via directory roles directly ──
-      // This is fast — only pulls actual role members, not all 17k users
+    if (isDisabled) {
+      // ── Disabled accounts scope ──────────────────────────────────────────────
+      // Fetch all disabled users; department filter still applies if set
+      setPhase("Fetching disabled accounts…");
+      let disabledUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$filter=accountEnabled eq false&$top=999&$count=true";
+      if (dept) {
+        disabledUrl = `https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$filter=accountEnabled eq false and department eq '${dept.replace(/'/g,"''")}'&$top=999&$count=true`;
+      }
+      try {
+        users = await graphWithRetry(() => ITTools.graph.getAll(disabledUrl));
+      } catch(_) {
+        // Fallback: fetch all, filter client-side
+        setPhase("Using fallback fetch for disabled accounts…");
+        const all = await graphWithRetry(() =>
+          ITTools.graph.getAll("https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$top=999")
+        );
+        users = all.filter(u => u.accountEnabled === false);
+        if (dept) users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
+      }
+
+    } else if (scope === "admins") {
+      // ── Admin scope ──────────────────────────────────────────────────────────
       setPhase("Fetching admin role members…");
       try {
-        // Get all active directory roles
         const roles = await graphWithRetry(() =>
           ITTools.graph.getAll("https://graph.microsoft.com/v1.0/directoryRoles?$select=id,displayName")
         );
-
-        // Fetch members of each role in parallel
         const memberSets = await Promise.all(roles.map(role =>
           graphWithRetry(() =>
             ITTools.graph.getAll(
@@ -402,8 +442,6 @@ async function startScan() {
             )
           ).catch(() => [])
         ));
-
-        // Flatten, deduplicate by id, filter to enabled users only
         const seen = new Set();
         users = memberSets.flat().filter(u => {
           if (!u.id || seen.has(u.id)) return false;
@@ -412,19 +450,17 @@ async function startScan() {
           seen.add(u.id);
           return true;
         });
-
         setPhase(`Found ${users.length} admin account${users.length !== 1 ? "s" : ""} across ${roles.length} roles…`);
       } catch(_) {
-        // Fallback to full user list filtered client-side
         setPhase("Fallback: fetching all users for admin filter…");
-        const allUsers = await graphWithRetry(() =>
+        const allU = await graphWithRetry(() =>
           ITTools.graph.getAll("https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$top=999")
         );
-        users = allUsers.filter(u => u.accountEnabled !== false && u.userType !== "Guest");
+        users = allU.filter(u => u.accountEnabled !== false && u.userType !== "Guest");
       }
 
     } else {
-      // ── All users or Licensed users scope ──
+      // ── All enabled / Licensed scope ─────────────────────────────────────────
       let userUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$filter=accountEnabled eq true&$top=999&$count=true";
       if (scope === "licensed") userUrl += " and assignedLicenses/$count ne 0";
       if (dept) userUrl = userUrl.replace("$filter=", `$filter=department eq '${dept.replace(/'/g,"''")}' and `);
@@ -439,24 +475,24 @@ async function startScan() {
         if (dept)               users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
         if (scope === "licensed") users = users.filter(u => u.assignedLicenses?.length > 0);
       }
-    }
 
-    // Apply department filter for non-admin scopes
-    if (scope !== "admins" && dept) {
-      users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
+      // Apply department filter for non-admin scopes
+      if (dept) users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
     }
 
     if (!users.length) {
-      document.getElementById("infoBanner").textContent   = "No users found matching your filter.";
+      document.getElementById("infoBanner").textContent   = isDisabled
+        ? "No disabled accounts found" + (dept ? ` in department "${dept}"` : "") + "."
+        : "No users found matching your filter.";
       document.getElementById("infoBanner").style.display = "block";
       setPhase(null); return;
     }
 
     // Show scope warning for large scans
     if (users.length > 5000) {
-      const estMins = Math.ceil(users.length / 300); // ~300 users/min at batch of 5
+      const estMins = Math.ceil(users.length / 300);
       const warn = document.getElementById("scopeWarning");
-      warn.innerHTML = `⚠ <strong>${users.length.toLocaleString()} users found.</strong> This scan will take approximately ${estMins}-${estMins + 2} minutes. Use the department filter or switch to "Licensed users only" to reduce scope, or click Cancel at any time to see partial results.`;
+      warn.innerHTML = `⚠ <strong>${users.length.toLocaleString()} users found.</strong> This scan will take approximately ${estMins}-${estMins + 2} minutes. Use the department filter or switch scope to reduce the size, or click Cancel at any time to see partial results.`;
       warn.style.display = "block";
     }
 
@@ -464,7 +500,6 @@ async function startScan() {
     const results = [];
     const total   = users.length;
 
-    // Show progress card
     document.getElementById("tableSection").innerHTML = `
       <div class="card scan-progress">
         <div class="card-title">Scanning authentication methods</div>
@@ -481,14 +516,9 @@ async function startScan() {
         </div>
       </div>`;
 
-    // Process in batches of 5 concurrent to avoid throttling
     const BATCH = 5;
     for (let i = 0; i < users.length; i += BATCH) {
-      // Check cancel flag before each batch
-      if (_cancelled) {
-        // Process whatever we have so far and show partial results
-        break;
-      }
+      if (_cancelled) break;
 
       const batch = users.slice(i, i + BATCH);
       const batchResults = await Promise.all(batch.map(async u => {
@@ -503,11 +533,10 @@ async function startScan() {
       }));
       results.push(...batchResults);
 
-      // Update progress + ETA
       const done    = Math.min(i + BATCH, total);
       const pct     = Math.round((done / total) * 100);
-      const elapsed = (Date.now() - _scanStartTime) / 1000; // seconds
-      const rate    = done / elapsed; // users per second
+      const elapsed = (Date.now() - _scanStartTime) / 1000;
+      const rate    = done / elapsed;
       const remaining = rate > 0 ? Math.ceil((total - done) / rate) : null;
 
       const fill  = document.getElementById("scanFill");
@@ -519,37 +548,38 @@ async function startScan() {
       if (lbl)   lbl.textContent   = `Scanned ${done.toLocaleString()} of ${total.toLocaleString()} users`;
       if (pctEl) pctEl.textContent = pct + "%";
       if (eta && remaining !== null) {
-        if (remaining > 60) {
-          eta.textContent = `~${Math.ceil(remaining / 60)} min remaining`;
-        } else {
-          eta.textContent = `~${remaining}s remaining`;
-        }
+        eta.textContent = remaining > 60
+          ? `~${Math.ceil(remaining / 60)} min remaining`
+          : `~${remaining}s remaining`;
       }
     }
 
     // 3. Process results
     allUsers = results.map(({ user: u, methods, error }) => {
-      // Filter out password-only entries for method display
       const realMethods = methods.filter(m => m["@odata.type"] !== PASSWORD_ONLY_TYPE);
       const hasPassword = methods.some(m => m["@odata.type"] === PASSWORD_ONLY_TYPE);
       const methodTypes = realMethods.map(m => m["@odata.type"]);
 
-      // Determine risk level
       const hasStrong = methodTypes.some(t => MFA_METHODS[t]?.strength === "strong");
       const hasWeak   = methodTypes.some(t => MFA_METHODS[t]?.strength === "weak");
       const hasNone   = methodTypes.length === 0;
 
       let riskLevel;
-      if (hasNone)        riskLevel = 2; // high risk — no MFA
-      else if (!hasStrong) riskLevel = 1; // medium — weak only
-      else                 riskLevel = 0; // low — strong MFA present
+      if (hasNone)         riskLevel = 2;
+      else if (!hasStrong) riskLevel = 1;
+      else                 riskLevel = 0;
+
+      const hasLicense    = (u.assignedLicenses || []).length > 0;
+      const accountEnabled = u.accountEnabled !== false;
 
       return {
-        id:           u.id,
-        displayName:  u.displayName || "",
-        upn:          u.userPrincipalName || "",
-        department:   u.department || "",
-        jobTitle:     u.jobTitle || "",
+        id:             u.id,
+        displayName:    u.displayName || "",
+        upn:            u.userPrincipalName || "",
+        department:     u.department || "",
+        jobTitle:       u.jobTitle || "",
+        accountEnabled,
+        hasLicense,
         methodTypes,
         riskLevel,
         hasStrong,
@@ -559,10 +589,10 @@ async function startScan() {
       };
     });
 
-    renderStats(allUsers);
+    renderStats(allUsers, isDisabled);
     renderRiskBar(allUsers);
     renderMethodFilter(allUsers);
-    renderTable(allUsers);
+    renderTable(allUsers, isDisabled);
     setPhase(null);
 
   } catch(e) {
@@ -573,23 +603,31 @@ async function startScan() {
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
-function renderStats(users) {
-  const total   = users.length;
-  const strong  = users.filter(u => u.riskLevel === 0).length;
-  const weak    = users.filter(u => u.riskLevel === 1).length;
-  const none    = users.filter(u => u.riskLevel === 2).length;
-  const errors  = users.filter(u => u.error).length;
+function renderStats(users, isDisabled) {
+  const total    = users.length;
+  const strong   = users.filter(u => u.riskLevel === 0).length;
+  const weak     = users.filter(u => u.riskLevel === 1).length;
+  const none     = users.filter(u => u.riskLevel === 2).length;
+  const errors   = users.filter(u => u.error).length;
   const coverage = total > 0 ? Math.round((strong / total) * 100) : 0;
 
+  let html = sc("blue", isDisabled ? "Disabled accounts" : "Users scanned", total, null) +
+             sc("green", "Strong MFA",  strong, coverage + "% coverage") +
+             sc("amber", "Weak method", weak,   "needs improvement") +
+             sc("red",   "No MFA",      none,   "highest risk");
+
+  if (isDisabled) {
+    const licensed = users.filter(u => u.hasLicense).length;
+    if (licensed > 0) html += sc("amber", "Have licences", licensed, "cost recovery opportunity");
+  }
+
+  if (errors > 0) html += sc("gray", "Scan errors", errors, "could not retrieve");
+
   const row = document.getElementById("statsRow");
-  row.innerHTML =
-    sc("blue",  "Users scanned", total,    null) +
-    sc("green", "Strong MFA",    strong,   coverage + "% coverage") +
-    sc("amber", "Weak method",   weak,     "needs improvement") +
-    sc("red",   "No MFA",        none,     "highest risk") +
-    (errors > 0 ? sc("gray", "Scan errors", errors, "could not retrieve") : "");
+  row.innerHTML     = html;
   row.style.display = "flex";
 }
+
 function sc(c,l,v,s) {
   return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
 }
@@ -610,10 +648,8 @@ function renderRiskBar(users) {
 
 // ── Method filter ─────────────────────────────────────────────────────────────
 function renderMethodFilter(users) {
-  // Collect which method types actually appear in the results
   const seen = new Set();
   users.forEach(u => u.methodTypes.forEach(t => seen.add(t)));
-  // Always show password-only as an option
   seen.add(PASSWORD_ONLY_TYPE);
 
   const grid = document.getElementById("methodGrid");
@@ -636,12 +672,10 @@ function renderMethodFilter(users) {
 }
 
 function toggleMethod(type, el) {
-  // Prevent double-fire from label+checkbox both triggering
   if (event.target.tagName === "INPUT") {
     if (event.target.checked) flaggedMethods.add(type);
     else flaggedMethods.delete(type);
   } else {
-    // clicked label area — toggle
     if (flaggedMethods.has(type)) { flaggedMethods.delete(type); }
     else { flaggedMethods.add(type); }
     el.querySelector("input").checked = flaggedMethods.has(type);
@@ -652,7 +686,6 @@ function toggleMethod(type, el) {
 }
 
 function selectWeakDefaults() {
-  // Default weak: SMS/voice, email, software OATH, password only
   const weakDefaults = [
     "#microsoft.graph.phoneAuthenticationMethod",
     "#microsoft.graph.emailAuthenticationMethod",
@@ -693,9 +726,7 @@ function updateFilterNote() {
 
 function isUserFlagged(u) {
   if (flaggedMethods.size === 0) return false;
-  // Flag if user has NO methods (password only) and PASSWORD_ONLY_TYPE is checked
   if (u.hasNone && flaggedMethods.has(PASSWORD_ONLY_TYPE)) return true;
-  // Flag if any of user's methods are in the flagged set AND they have no strong method
   if (u.methodTypes.some(t => flaggedMethods.has(t)) && !u.hasStrong) return true;
   return false;
 }
@@ -706,7 +737,6 @@ function applyMethodFilter() {
     const userId = tr.dataset.userid;
     const user   = allUsers.find(u => u.id === userId);
     if (!user) return;
-
     if (flaggedMethods.size === 0) {
       tr.style.display = "";
       tr.style.outline = "";
@@ -715,14 +745,12 @@ function applyMethodFilter() {
     const flagged = isUserFlagged(user);
     tr.style.display = flagged ? "" : "none";
   });
-
-  // Also apply search filter on top
   const q = document.querySelector('input[type="search"]')?.value?.toLowerCase() || "";
   if (q) filterTbl(q);
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
-function renderTable(users) {
+function renderTable(users, isDisabled) {
   const sec = document.getElementById("tableSection");
   if (!users.length) {
     sec.innerHTML = `<div class="card"><div class="empty-state">
@@ -733,11 +761,15 @@ function renderTable(users) {
   }
 
   const sorted = sortUsers(users);
+
+  // Extra column header for disabled mode
+  const acctHeader = isDisabled ? th("Licences", "hasLicense") : "";
+
   sec.innerHTML = `
     <div class="tbl-wrap">
       <div class="tbl-toolbar">
         <span class="tbl-title">MFA report
-          <span class="status-pill pill-wouldadd" style="margin-left:6px">${users.length} users</span>
+          <span class="status-pill pill-wouldadd" style="margin-left:6px">${users.length} ${isDisabled ? "disabled accounts" : "users"}</span>
         </span>
         <div class="tbl-actions">
           <input type="search" placeholder="Filter by name, email, dept…"
@@ -751,9 +783,10 @@ function renderTable(users) {
           ${th("Department","department")}
           ${th("Risk","riskLevel")}
           ${th("Registered methods","methodTypes")}
+          ${isDisabled ? th("Licences","hasLicense") : ""}
           ${th("Job title","jobTitle")}
         </tr></thead>
-        <tbody id="mfaBody">${sorted.map(userRow).join("")}</tbody>
+        <tbody id="mfaBody">${sorted.map(u => userRow(u, isDisabled)).join("")}</tbody>
       </table>
     </div>`;
 }
@@ -764,16 +797,15 @@ function th(label, col) {
   return `<th onclick="sortBy('${col}')"${active}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
 }
 
-function userRow(u) {
+function userRow(u, isDisabled) {
   const init2  = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
-  const rClass = u.riskLevel===2?"high":u.riskLevel===1?"medium":"low";
+  const rClass = isDisabled ? "disabled-acc" : (u.riskLevel===2?"high":u.riskLevel===1?"medium":"low");
 
   let riskBadge, riskLabel;
   if      (u.riskLevel===2) { riskBadge="risk-high";   riskLabel="No MFA"; }
   else if (u.riskLevel===1) { riskBadge="risk-medium";  riskLabel="Weak"; }
   else                      { riskBadge="risk-low";    riskLabel="Strong"; }
 
-  // Method pills
   let methodPills;
   if (u.hasNone) {
     methodPills = `<span class="mfa-pill mfa-none">🔒 Password only</span>`;
@@ -785,6 +817,14 @@ function userRow(u) {
     }).join("");
   }
 
+  // Licence cell — only shown in disabled mode
+  const licenceCell = isDisabled
+    ? `<td>${u.hasLicense
+        ? `<span class="acct-disabled">Has licence</span>`
+        : `<span style="font-size:12px;color:var(--muted)">None</span>`
+      }</td>`
+    : "";
+
   const search = (u.displayName+" "+u.upn+" "+u.department+" "+u.jobTitle).toLowerCase();
 
   return `<tr data-search="${search}" data-userid="${u.id}">
@@ -795,6 +835,7 @@ function userRow(u) {
     <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
     <td><span class="${riskBadge}">${riskLabel}</span></td>
     <td style="max-width:320px">${methodPills}</td>
+    ${licenceCell}
     <td style="font-size:12px;color:var(--muted)">${u.jobTitle||"—"}</td>
   </tr>`;
 }
@@ -802,8 +843,9 @@ function userRow(u) {
 function sortBy(col) {
   sortDir = sortCol===col ? sortDir*-1 : -1; sortCol=col;
   const b = document.getElementById("mfaBody");
+  const isDisabled = document.getElementById("scopeSelect").value === "disabled";
   if (b) {
-    b.innerHTML = sortUsers(allUsers).map(userRow).join("");
+    b.innerHTML = sortUsers(allUsers).map(u => userRow(u, isDisabled)).join("");
     applyMethodFilter();
     filterTbl(document.querySelector('input[type="search"]')?.value||"");
   }
@@ -811,8 +853,9 @@ function sortBy(col) {
 
 function sortUsers(users) {
   return [...users].sort((a,b) => {
-    if (sortCol==="riskLevel") return sortDir * (b.riskLevel - a.riskLevel);
+    if (sortCol==="riskLevel")   return sortDir * (b.riskLevel - a.riskLevel);
     if (sortCol==="methodTypes") return sortDir * (a.methodTypes.length - b.methodTypes.length);
+    if (sortCol==="hasLicense")  return sortDir * ((a.hasLicense?1:0) - (b.hasLicense?1:0));
     const av = a[sortCol]||"", bv = b[sortCol]||"";
     return sortDir * av.toString().toLowerCase().localeCompare(bv.toString().toLowerCase());
   });
@@ -821,27 +864,30 @@ function sortUsers(users) {
 function filterTbl(q) {
   q = q.toLowerCase();
   document.querySelectorAll("#mfaBody tr").forEach(tr => {
-    if (tr.style.display === "none" && flaggedMethods.size > 0) return; // respect method filter
+    if (tr.style.display === "none" && flaggedMethods.size > 0) return;
     tr.style.display = tr.dataset.search.includes(q) ? "" : "none";
   });
 }
 
 function exportCsv() {
   if (!allUsers.length) return;
+  const isDisabled = document.getElementById("scopeSelect").value === "disabled";
   ITTools.csv.download(
     "MFA_Status_Report_" + new Date().toISOString().slice(0,10) + ".csv",
     allUsers.map(u => ({
-      "Display Name":  u.displayName,
-      "UPN":           u.upn,
-      "Department":    u.department,
-      "Job Title":     u.jobTitle,
-      "Risk Level":    u.riskLevel===2?"High (No MFA)":u.riskLevel===1?"Medium (Weak)":"Low (Strong)",
-      "Has Strong MFA":u.hasStrong ? "Yes" : "No",
-      "Has Weak MFA":  u.hasWeak   ? "Yes" : "No",
-      "No MFA":        u.hasNone   ? "Yes" : "No",
-      "Methods":       u.hasNone ? "Password only" :
-                       u.methodTypes.map(t => getMethodInfo(t).label).join("; "),
-      "Flagged":       isUserFlagged(u) ? "Yes" : "No",
+      "Display Name":   u.displayName,
+      "UPN":            u.upn,
+      "Department":     u.department,
+      "Job Title":      u.jobTitle,
+      "Account Status": u.accountEnabled ? "Enabled" : "Disabled",
+      ...(isDisabled ? { "Has Licence": u.hasLicense ? "Yes" : "No" } : {}),
+      "Risk Level":     u.riskLevel===2?"High (No MFA)":u.riskLevel===1?"Medium (Weak)":"Low (Strong)",
+      "Has Strong MFA": u.hasStrong ? "Yes" : "No",
+      "Has Weak MFA":   u.hasWeak   ? "Yes" : "No",
+      "No MFA":         u.hasNone   ? "Yes" : "No",
+      "Methods":        u.hasNone ? "Password only" :
+                        u.methodTypes.map(t => getMethodInfo(t).label).join("; "),
+      "Flagged":        isUserFlagged(u) ? "Yes" : "No",
     }))
   );
 }
