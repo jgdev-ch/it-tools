@@ -315,13 +315,51 @@ function formatCurrency(n) {
     "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// ── Finance gate ──────────────────────────────────────────────────────────────
+// Cost features (headline, pricing in dropdown, cost column, cost CSV columns)
+// are only visible to members of this Entra security group.
+const FINANCE_GROUP = "SG-IT-Tools-Finance-View";
+let _hasFinanceAccess = false;
+
+async function checkFinanceAccess() {
+  try {
+    // Look up the group by display name
+    const enc = encodeURIComponent(`displayName eq '${FINANCE_GROUP}'`);
+    const res = await ITTools.graph.get(
+      `https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`
+    );
+    const groups = res.value || [];
+    if (!groups.length) { _hasFinanceAccess = false; return; }
+
+    const groupId = groups[0].id;
+
+    // Check if the signed-in user is a member (transitive — handles nested groups)
+    try {
+      await ITTools.graph.get(
+        `https://graph.microsoft.com/v1.0/groups/${groupId}/members/$count`,
+        // Use a simple membership check via /me/memberOf instead
+      );
+    } catch(_) {}
+
+    // Use /me/transitiveMemberOf and check for the group id
+    const memberships = await ITTools.graph.getAll(
+      `https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`
+    );
+    _hasFinanceAccess = memberships.some(m => m.id === groupId);
+
+  } catch(_) {
+    // If the check fails for any reason, default to no access — fail secure
+    _hasFinanceAccess = false;
+  }
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let allUsers        = [];
 let sortCol         = "daysSinceSignIn";
 let sortDir         = -1;
 let _tenantSkus     = [];
-let _removedUserIds = new Set();  // track removals this session
-let _pendingRemoval = null;       // { userId, skuId, skuName, displayName, upn, rowEl }
+let _removedUserIds = new Set();
+let _pendingRemoval = null;
 let _removalCount   = 0;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -336,12 +374,16 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
-      await Promise.all([loadSkus(), loadCosts()]);
+      // Run all three in parallel — finance check is silent, never blocks the UI
+      await Promise.all([loadSkus(), loadCosts(), checkFinanceAccess()]);
+      // Rebuild dropdown with pricing hints now that finance access is known
+      rebuildDropdown();
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
       document.getElementById("authScreen").style.display = "flex";
       ITTools.ui.clearUser();
+      _hasFinanceAccess = false;
     }
   });
 }
@@ -352,7 +394,8 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
-    await Promise.all([loadSkus(), loadCosts()]);
+    await Promise.all([loadSkus(), loadCosts(), checkFinanceAccess()]);
+    rebuildDropdown();
   } catch(e) {
     const el = document.getElementById("authErr");
     el.textContent = e.message; el.style.display = "block";
@@ -379,6 +422,7 @@ async function loadSkus() {
       .filter(s => s.capabilityStatus !== "Deleted" && s.consumedUnits > 0)
       .sort((a, b) => getFriendlyName(a.skuPartNumber).localeCompare(getFriendlyName(b.skuPartNumber)));
 
+    // Build dropdown without pricing — rebuildDropdown() adds pricing for finance members
     sel.innerHTML = _tenantSkus.map(s =>
       `<option value="${s.skuPartNumber}" data-skuid="${s.skuId}">
         ${getFriendlyName(s.skuPartNumber)} — ${s.consumedUnits} assigned
@@ -396,6 +440,22 @@ async function loadSkus() {
     sel.innerHTML = "<option>Failed to load — check permissions</option>";
     meta.textContent = e.message;
   }
+}
+
+// Rebuild dropdown with pricing hints injected for finance members
+function rebuildDropdown() {
+  if (!_tenantSkus.length) return;
+  const sel = document.getElementById("licSelect");
+  const prev = sel.value;
+  sel.innerHTML = _tenantSkus.map(s => {
+    const cost    = _hasFinanceAccess ? getCost(s.skuPartNumber) : null;
+    const costHint = cost !== null && cost > 0 ? ` · ${formatCurrency(cost)}/user/mo` : "";
+    return `<option value="${s.skuPartNumber}" data-skuid="${s.skuId}">
+      ${getFriendlyName(s.skuPartNumber)} — ${s.consumedUnits} assigned${costHint}
+    </option>`;
+  }).join("");
+  // Restore previously selected value if possible
+  if (prev) sel.value = prev;
 }
 
 // ── Graph helpers ─────────────────────────────────────────────────────────────
@@ -448,7 +508,8 @@ async function runAudit() {
   const selOpt    = document.getElementById("licSelect").selectedOptions[0];
   const skuId     = selOpt?.dataset?.skuid;
   const skuName   = getFriendlyName(licSku);
-  const costPerUser = getCost(licSku);
+  // Cost data only available to finance group members
+  const costPerUser = _hasFinanceAccess ? getCost(licSku) : null;
 
   try {
     setPhase("Fetching license data…");
@@ -809,7 +870,7 @@ function updateRemovalSummary() {
 // ── Export ────────────────────────────────────────────────────────────────────
 function exportCsv() {
   if (!allUsers.length) return;
-  const hasCost = allUsers[0]?.monthlyCost !== undefined && allUsers[0]?.monthlyCost !== null;
+  const hasCost = _hasFinanceAccess && allUsers[0]?.monthlyCost !== undefined && allUsers[0]?.monthlyCost !== null;
   ITTools.csv.download(
     "License_Audit_" + new Date().toISOString().slice(0,10) + ".csv",
     allUsers.map(u => {
