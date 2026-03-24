@@ -15,7 +15,14 @@
   .controls-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
   .controls-row .field { flex:1 1 180px; margin-bottom:0; }
   .controls-meta { font-size:11px; color:var(--muted2); margin-top:8px; min-height:16px; display:flex; align-items:center; gap:8px; }
-  select:disabled { opacity:.6; cursor:not-allowed; }
+  /* ── Finance access indicator ── */
+  .finance-badge {
+    display: none; align-items: center; gap: 5px;
+    background: var(--amber-light); border: 1px solid var(--amber-border);
+    color: var(--amber); border-radius: 20px;
+    padding: 3px 10px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
 
   /* ── Cost headline banner ── */
   .cost-headline {
@@ -118,8 +125,11 @@
   <div class="shell">
 
     <div class="page-header">
-      <h1>License Audit</h1>
-      <p>Identify inactive M365 license holders, surface recoverable seats, and quantify cost savings.</p>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <h1 style="margin-bottom:0">License Audit</h1>
+        <span class="finance-badge" id="financeIndicator">💰 Finance View</span>
+      </div>
+      <p>Identify inactive M365 license holders and surface recoverable seats.</p>
     </div>
 
     <div class="card">
@@ -178,7 +188,7 @@
 
 <script src="../../shared/auth.js"></script>
 <script>
-const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All"];
+const TOOL_SCOPES = ["User.Read.All","Directory.Read.All","AuditLog.Read.All","Group.Read.All"];
 
 // ── Friendly name map ─────────────────────────────────────────────────────────
 const SKU_NAMES = {
@@ -271,7 +281,24 @@ const SKU_NAMES = {
 
 function getFriendlyName(sku) { return SKU_NAMES[sku] || sku; }
 
-// ── Cost data (loaded from costs.json) ───────────────────────────────────────
+// ── Finance access gate ───────────────────────────────────────────────────────
+// Members of this group see cost data. Everyone else sees operational data only.
+const FINANCE_GROUP = "SG-IT-Tools-Finance-View";
+let _hasFinanceAccess = false;
+
+async function checkFinanceAccess() {
+  try {
+    // Check if signed-in user is a member of the finance group
+    const escaped = FINANCE_GROUP.replace(/'/g, "''");
+    const res = await ITTools.graph.get(
+      `/me/memberOf?$filter=displayName eq '${encodeURIComponent(escaped)}'&$count=true&$select=displayName`
+    );
+    _hasFinanceAccess = (res.value?.length > 0);
+  } catch(_) {
+    // If check fails, default to no access — fail safe
+    _hasFinanceAccess = false;
+  }
+}
 let _costData = { costs: {}, free_skus: [] };
 
 async function loadCosts() {
@@ -330,7 +357,12 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
-      await Promise.all([loadSkus(), loadCosts()]);
+      await Promise.all([checkFinanceAccess(), loadSkus(), loadCosts()]);
+      // Show subtle finance indicator if access granted
+      if (_hasFinanceAccess) {
+        const indicator = document.getElementById("financeIndicator");
+        if (indicator) indicator.style.display = "inline-flex";
+      }
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
@@ -346,7 +378,11 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
-    await Promise.all([loadSkus(), loadCosts()]);
+    await Promise.all([checkFinanceAccess(), loadSkus(), loadCosts()]);
+    if (_hasFinanceAccess) {
+      const indicator = document.getElementById("financeIndicator");
+      if (indicator) indicator.style.display = "inline-flex";
+    }
   } catch(e) {
     const el = document.getElementById("authErr");
     el.textContent = e.message; el.style.display = "block";
@@ -387,7 +423,10 @@ async function loadSkus() {
     select.innerHTML = _skus.map(s => {
       const name = getFriendlyName(s.skuPartNumber);
       const cost = getCost(s.skuPartNumber);
-      const costHint = cost > 0 ? ` — ${formatCurrency(cost)}/user/mo` : cost === 0 ? " — Free" : "";
+      // Only show cost hints to finance group members
+      const costHint = _hasFinanceAccess
+        ? (cost > 0 ? ` — ${formatCurrency(cost)}/user/mo` : cost === 0 ? " — Free" : "")
+        : "";
       return `<option value="${s.skuPartNumber}">${name}${costHint}</option>`;
     }).join("");
 
@@ -498,7 +537,7 @@ async function runAudit() {
 
     allUsers = inactive;
     renderStats(targetSkus, inactive.length, days, licSku);
-    renderCostHeadline(inactive, licSku);
+    if (_hasFinanceAccess) renderCostHeadline(inactive, licSku);
     renderTable(inactive, days, licSku);
 
   } catch(e) {
@@ -541,7 +580,7 @@ function renderStats(skus, inactiveCount, days, sku) {
   skus.forEach(s => { total += (s.prepaidUnits?.enabled)||0; assigned += s.consumedUnits||0; });
   const pct  = total > 0 ? Math.round((assigned/total)*100) : 0;
   const cost = getCost(sku);
-  const hasCost = cost !== null && cost > 0;
+  const hasCost = _hasFinanceAccess && cost !== null && cost > 0;
 
   const totalCostStr    = hasCost ? `${formatCurrencyRound(total * cost)}/mo total` : null;
   const assignedCostStr = hasCost ? `${formatCurrencyRound(assigned * cost)}/mo spend` : `${pct}% utilization`;
@@ -569,7 +608,7 @@ function sc(c,l,v,s) {
 // ── Table ─────────────────────────────────────────────────────────────────────
 function renderTable(users, days, sku) {
   const sec = document.getElementById("tableSection");
-  const hasCost = getCost(sku) !== null;
+  const hasCost = _hasFinanceAccess && getCost(sku) !== null;
 
   if (!users.length) {
     sec.innerHTML = `<div class="card"><div class="empty-state">
@@ -659,7 +698,7 @@ function sortBy(col) {
   sortDir = sortCol===col ? sortDir*-1 : -1; sortCol=col;
   const b = document.getElementById("auditBody");
   if (b) {
-    const hasCost = getCost(_activeSku) !== null;
+    const hasCost = _hasFinanceAccess && getCost(_activeSku) !== null;
     b.innerHTML = sortUsers(allUsers).map(u => userRow(u, hasCost)).join("");
     filterTbl(document.querySelector('input[type="search"]')?.value||"");
   }
@@ -684,7 +723,7 @@ function filterTbl(q) {
 
 function exportCsv() {
   if (!allUsers.length) return;
-  const hasCost = getCost(_activeSku) !== null;
+  const hasCost = _hasFinanceAccess && getCost(_activeSku) !== null;
   ITTools.csv.download(
     "M365_License_Audit_" + new Date().toISOString().slice(0,10) + ".csv",
     allUsers.map(u => {
