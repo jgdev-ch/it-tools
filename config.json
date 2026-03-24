@@ -24,10 +24,10 @@
     },
     {
       "id": "mfa-status",
-      "name": "beta",
+      "name": "MFA Status Report",
       "description": "Audit MFA registration status across your tenant. Surface users with weak or missing authentication methods.",
       "icon": "🔑",
-      "status": "coming-soon",
+      "status": "beta",
       "path": "",
       "permissions": ["UserAuthMethod.Read.All"],
       "accent": "#92400e",
