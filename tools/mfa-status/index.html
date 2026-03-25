@@ -525,19 +525,30 @@ async function startScan() {
     // 2. Fetch MFA registration data
     // Strategy (fastest → slowest, automatic fallback):
     //   A. Report endpoint  — one paginated bulk call, all users at once
+    //                         NOTE: report endpoint only covers enabled accounts,
+    //                         so disabled scope skips straight to B.
     //   B. Graph $batch     — 20 sub-requests per HTTP call
     //   C. Per-user calls   — 15 concurrent, original approach
 
     showScanProgress();
 
     // methodMap: userId → string[] of @odata.type values (normalised across all paths)
-    let methodMap;
+    let methodMap = null;
     let fetchError = false;
 
-    try {
-      methodMap = await fetchViaReportEndpoint(users.length);
-    } catch(reportErr) {
-      updateScanLabel(`Report endpoint unavailable — switching to batch mode…`, null);
+    // Report endpoint only covers enabled accounts — disabled scope goes straight to batch
+    const canUseReportEndpoint = !isDisabled;
+
+    if (canUseReportEndpoint) {
+      try {
+        methodMap = await fetchViaReportEndpoint(users.length);
+      } catch(reportErr) {
+        updateScanLabel(`Report endpoint unavailable — switching to batch mode…`, null);
+        methodMap = null;
+      }
+    }
+
+    if (!methodMap) {
       try {
         methodMap = await fetchViaBatch(users);
       } catch(batchErr) {
@@ -667,6 +678,12 @@ async function fetchViaReportEndpoint(expectedUsers) {
       map.set(record.id, types);
     }
     next = data?.["@odata.nextLink"] || null;
+  }
+
+  // If the map covers fewer than 30% of the expected users the report endpoint
+  // likely doesn't have data for this scope — throw to trigger $batch fallback.
+  if (map.size < expectedUsers * 0.3) {
+    throw new Error(`Report endpoint returned ${map.size} records for ${expectedUsers} expected users — insufficient coverage`);
   }
 
   updateScanLabel(`Registration data loaded — ${map.size.toLocaleString()} records`, 100);
