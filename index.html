@@ -15,6 +15,7 @@
   --bg:         #f0f4f9;
   --surface:    #ffffff;
   --surface2:   #f8fafc;
+  --surface3:   #f1f5f9;
   --border:     #dde3ec;
   --border-mid: #c8d0dc;
   --text:       #1a1f36;
@@ -34,7 +35,6 @@
   --purple-light:#ede9fe;
   --teal:       #0e7490;
   --teal-light: #cffafe;
-  --surface3:   #f1f5f9;
 }
 
 [data-theme="dark"] {
@@ -87,7 +87,7 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
-.brand-tag  {
+.brand-tag {
   font-size: 10px; font-weight: 500; color: var(--blue-mid);
   background: var(--blue-light); padding: 2px 8px; border-radius: 10px;
 }
@@ -100,19 +100,17 @@ body {
   color: var(--muted); transition: all .12s; text-decoration: none;
 }
 .btn-icon:hover { background: var(--surface2); color: var(--text); }
-.btn-icon svg { width: 15px; height: 15px; }
 
 /* Sign-in button */
 .btn-signin {
   display: flex; align-items: center; gap: 7px;
-  padding: 5px 12px; border-radius: 6px;
+  padding: 5px 13px; border-radius: 6px;
   border: 1px solid var(--border); background: transparent;
   font-size: 12px; font-weight: 600; color: var(--muted);
-  cursor: pointer; font-family: inherit; transition: all .12s;
-  white-space: nowrap;
+  cursor: pointer; font-family: inherit; transition: all .12s; white-space: nowrap;
 }
 .btn-signin:hover { background: var(--blue-light); color: var(--blue-dark); border-color: var(--blue); }
-.btn-signin.loading { opacity: .6; cursor: not-allowed; pointer-events: none; }
+.btn-signin.loading { opacity: .55; pointer-events: none; }
 
 /* User chip */
 .user-chip {
@@ -130,8 +128,7 @@ body {
 
 /* Sign-out button */
 .btn-signout {
-  display: none;
-  padding: 5px 11px; border-radius: 6px;
+  display: none; padding: 5px 11px; border-radius: 6px;
   border: 1px solid var(--border); background: transparent;
   font-size: 12px; font-weight: 500; color: var(--muted);
   cursor: pointer; font-family: inherit; transition: all .12s;
@@ -142,8 +139,7 @@ body {
 /* ── HERO ── */
 .hero {
   max-width: 860px; margin: 0 auto;
-  padding: 4rem 1.5rem 2.5rem;
-  text-align: center;
+  padding: 4rem 1.5rem 2.5rem; text-align: center;
 }
 .hero-eyebrow {
   display: inline-flex; align-items: center; gap: 6px;
@@ -152,18 +148,15 @@ body {
   padding: 4px 12px; border-radius: 20px; margin-bottom: 1.25rem;
 }
 .hero h1 {
-  font-size: clamp(28px, 5vw, 40px);
-  font-weight: 700; letter-spacing: -.02em;
-  line-height: 1.2; margin-bottom: .75rem;
+  font-size: clamp(28px, 5vw, 40px); font-weight: 700;
+  letter-spacing: -.02em; line-height: 1.2; margin-bottom: .75rem;
 }
 .hero h1 span { color: var(--blue-mid); }
 .hero p {
   font-size: 16px; color: var(--muted); line-height: 1.7;
   max-width: 520px; margin: 0 auto 2rem;
 }
-.hero-meta {
-  display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;
-}
+.hero-meta { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; }
 .meta-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted2); }
 .meta-dot  { width: 6px; height: 6px; border-radius: 50%; }
 .meta-dot.green { background: var(--green); }
@@ -182,7 +175,7 @@ body {
   gap: 14px; margin-bottom: 2.5rem;
 }
 
-/* ── TOOL CARD ── */
+/* ── TOOL CARD — base ── */
 .tool-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; padding: 1.25rem;
@@ -197,26 +190,43 @@ body {
 }
 .tool-card:hover { border-color: var(--border-mid); box-shadow: 0 4px 20px rgba(0,0,0,.07); transform: translateY(-1px); }
 .tool-card:hover::before { transform: scaleX(1); }
+
+/* Disabled (coming-soon, in-dev) */
 .tool-card.disabled { cursor: default; opacity: .65; }
 .tool-card.disabled:hover { transform: none; box-shadow: none; border-color: var(--border); }
 .tool-card.disabled:hover::before { transform: scaleX(0); }
 
-/* Finance-only: hidden by default, revealed by JS */
-.tool-card[data-finance-gated] { display: none; }
+/* ── LOCKED card state (gated, not yet unlocked) ── */
+.tool-card.locked {
+  cursor: default;
+  opacity: .6;
+  filter: grayscale(30%);
+  border-style: dashed;
+}
+.tool-card.locked:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.tool-card.locked:hover::before { transform: scaleX(0); }
+
+/* Lock badge */
+.lock-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); background: var(--surface3); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
+}
+
+/* Sign-in hint on locked card */
+.lock-hint {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--muted2);
+  display: flex; align-items: center; gap: 5px;
+}
 
 .tool-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
 .tool-icon {
   width: 40px; height: 40px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center; font-size: 18px;
   background: var(--icon-bg, var(--blue-light));
-}
-
-.finance-card-badge {
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--amber); background: var(--amber-light);
-  padding: 2px 7px; border-radius: 4px;
-  display: inline-flex; align-items: center; gap: 3px;
-  margin-bottom: 6px;
 }
 
 /* ── STATUS BADGES ── */
@@ -227,15 +237,15 @@ body {
 }
 .status-badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
-.badge-live           { background: var(--green-light);  color: var(--green); }
-.badge-live::before   { background: var(--green);   animation: pulse 2s infinite; }
-.badge-beta           { background: var(--teal-light);   color: var(--teal); }
-.badge-beta::before   { background: var(--teal); }
-.badge-in-development { background: var(--blue-light);   color: var(--blue-dark); }
+.badge-live          { background: var(--green-light); color: var(--green); }
+.badge-live::before  { background: var(--green); animation: pulse 2s infinite; }
+.badge-beta          { background: var(--teal-light);  color: var(--teal); }
+.badge-beta::before  { background: var(--teal); }
+.badge-in-development { background: var(--blue-light); color: var(--blue-dark); }
 .badge-in-development::before { background: var(--blue-mid); animation: spin-dot 1.5s linear infinite; }
-.badge-coming-soon    { background: var(--amber-light);  color: var(--amber); }
+.badge-coming-soon   { background: var(--amber-light); color: var(--amber); }
 .badge-coming-soon::before { background: var(--amber); }
-.badge-deprecated     { background: var(--red-light);    color: var(--red); }
+.badge-deprecated    { background: var(--red-light);   color: var(--red); }
 .badge-deprecated::before  { background: var(--red); }
 
 @keyframes pulse {
@@ -258,7 +268,7 @@ body {
   font-family: 'DM Mono', 'Consolas', monospace;
 }
 
-/* ── LOADING SKELETON ── */
+/* ── SKELETON ── */
 .skeleton-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; padding: 1.25rem; height: 180px;
@@ -316,30 +326,27 @@ body {
   </div>
 
   <div class="topbar-right">
-    <!-- Theme toggle -->
     <button class="btn-icon" onclick="toggleTheme()" title="Toggle theme">
-      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"></svg>
     </button>
-
-    <!-- GitHub -->
     <a href="https://github.com/jgdev-ch/it-tools" target="_blank" class="btn-icon" title="GitHub repository">
       <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
         <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
       </svg>
     </a>
 
-    <!-- User chip (shown after sign-in) -->
+    <!-- User chip — visible after sign-in -->
     <div class="user-chip" id="userChip">
       <div class="user-avatar" id="userInitials"></div>
       <span id="userName"></span>
     </div>
 
-    <!-- Sign out (shown after sign-in) -->
+    <!-- Sign out — visible after sign-in -->
     <button class="btn-signout" id="signOutBtn" onclick="hubSignOut()">Sign out</button>
 
-    <!-- Sign in (shown when signed out) -->
+    <!-- Sign in — visible when signed out -->
     <button class="btn-signin" id="signInBtn" onclick="hubSignIn()">
-      <svg viewBox="0 0 21 21" width="14" height="14" fill="none">
+      <svg viewBox="0 0 21 21" width="13" height="13" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
         <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
         <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
@@ -372,7 +379,6 @@ body {
 
 <!-- TOOLS -->
 <div class="tools-section">
-
   <div class="section-label">Available tools</div>
 
   <div class="legend">
@@ -397,7 +403,6 @@ body {
     <div class="setup-uri" id="baseUri"></div>
     <p>Each tool will automatically use its own sub-path as the redirect URI. You only need one registration for the whole hub.</p>
   </div>
-
 </div>
 
 <footer class="hub-footer">
@@ -411,12 +416,19 @@ body {
 
 <script>
 // ── Constants ─────────────────────────────────────────────────────────────────
-const CLIENT_ID     = "6d881af5-d626-4df6-8969-69f1f0292772";
-const TENANT_ID     = "683d57e7-70bf-4bc4-b88d-bd8905a0c39a";
-const REDIRECT_URI  = window.location.origin + "/it-tools/";
-const FINANCE_KEY   = "it-tools-finance-unlocked";
-const FINANCE_GROUP = "SG-IT-Tools-Finance-View";
-const HUB_SCOPES    = ["User.Read"];
+const CLIENT_ID    = "6d881af5-d626-4df6-8969-69f1f0292772";
+const TENANT_ID    = "683d57e7-70bf-4bc4-b88d-bd8905a0c39a";
+const REDIRECT_URI = window.location.origin + "/it-tools/";
+const HUB_SCOPES   = ["User.Read"];
+
+// Group gates — keyed by the config `financeOnly` / `requiredGroup` field.
+// Add new group Object IDs here as more gated tools are built.
+const GROUP_GATES = {
+  "finance": {
+    id:       "ff9c3232-251f-4570-9564-340039d17aa9",
+    localKey: "it-tools-finance-unlocked",
+  }
+};
 
 let _msalApp = null;
 
@@ -450,12 +462,10 @@ function toggleTheme() {
   applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
 }
 function syncThemeIcon(t) {
-  const icon = document.getElementById("themeIcon");
-  if (t === "dark") {
-    icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" fill="none"/>`;
-  } else {
-    icon.innerHTML = `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
-  }
+  const el = document.getElementById("themeIcon");
+  el.innerHTML = t === "dark"
+    ? `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" fill="none"/>`
+    : `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
 }
 
 // ── Topbar state ──────────────────────────────────────────────────────────────
@@ -474,36 +484,139 @@ function showSignedOut() {
   document.getElementById("signInBtn").style.display  = "";
 }
 
-// ── Finance card visibility ───────────────────────────────────────────────────
-function revealFinanceCards() {
-  document.querySelectorAll("[data-finance-gated]").forEach(el => el.style.display = "");
-}
-function hideFinanceCards() {
-  document.querySelectorAll("[data-finance-gated]").forEach(el => el.style.display = "none");
+// ── Card lock / unlock ────────────────────────────────────────────────────────
+function unlockCard(gateKey) {
+  // Replace the locked div with a proper clickable anchor
+  const locked = document.querySelector(`[data-gate="${gateKey}"]`);
+  if (!locked) return;
+
+  const path      = locked.dataset.path;
+  const accent    = locked.dataset.accent;
+  const iconBg    = locked.dataset.iconbg;
+  const icon      = locked.dataset.icon;
+  const status    = locked.dataset.status;
+  const name      = locked.dataset.name;
+  const desc      = locked.dataset.desc;
+  const tags      = locked.dataset.tags;
+
+  locked.outerHTML = `
+    <a class="tool-card" href="${path}"
+       style="--card-accent:${accent};--icon-bg:${iconBg}"
+       data-gate="${gateKey}">
+      <div class="tool-card-header">
+        <div class="tool-icon">${icon}</div>
+        ${badgeHtml(status)}
+      </div>
+      <div class="tool-name">${name}</div>
+      <div class="tool-desc">${desc}</div>
+      <div class="tool-tags">${tags}</div>
+    </a>`;
 }
 
-// ── Group membership check ────────────────────────────────────────────────────
-// Uses /checkMemberOf — single call, no pagination, works regardless of how
-// many groups the user is in. Only requires User.Read.
-const FINANCE_GROUP_ID = "ff9c3232-251f-4570-9564-340039d17aa9";
+function lockCard(gateKey) {
+  // Re-lock if signed out — find unlocked card and restore locked state
+  const card = document.querySelector(`[data-gate="${gateKey}"]`);
+  if (!card || card.classList.contains("locked")) return;
 
-async function checkFinanceGroup(token) {
+  // Re-render as locked using stored data attributes
+  const path   = card.getAttribute("href");
+  const accent = card.style.getPropertyValue("--card-accent") ||
+                 card.style.cssText.match(/--card-accent:([^;]+)/)?.[1] || "";
+  const iconBg = card.style.getPropertyValue("--icon-bg") ||
+                 card.style.cssText.match(/--icon-bg:([^;]+)/)?.[1] || "";
+  const icon   = card.dataset.icon   || card.querySelector(".tool-icon")?.innerHTML || "";
+  const name   = card.dataset.name   || card.querySelector(".tool-name")?.textContent || "";
+  const desc   = card.dataset.desc   || card.querySelector(".tool-desc")?.textContent || "";
+  const status = card.dataset.status || "live";
+  const tags   = card.dataset.tags   || card.querySelector(".tool-tags")?.innerHTML || "";
+
+  card.outerHTML = buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, tags });
+}
+
+// ── Card HTML builders ────────────────────────────────────────────────────────
+const STATUS_LABELS = {
+  "live":"Live","beta":"Beta","in-development":"In Development",
+  "coming-soon":"Coming Soon","deprecated":"Deprecated"
+};
+function badgeHtml(status) {
+  return `<span class="status-badge badge-${status}">${STATUS_LABELS[status] || status}</span>`;
+}
+
+function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, tags }) {
+  return `<div class="tool-card locked"
+      data-gate="${gateKey}" data-path="${path}"
+      data-accent="${accent}" data-iconbg="${iconBg}"
+      data-icon="${icon}" data-status="${status}"
+      data-name="${name}" data-desc="${desc}"
+      data-tags="${tags}"
+      style="--card-accent:${accent};--icon-bg:${iconBg}">
+    <div class="lock-badge">🔒 Restricted access</div>
+    <div class="tool-card-header">
+      <div class="tool-icon">${icon}</div>
+      ${badgeHtml(status)}
+    </div>
+    <div class="tool-name">${name}</div>
+    <div class="tool-desc">${desc}</div>
+    <div class="tool-tags">${tags}</div>
+    <div class="lock-hint">Sign in to unlock if you have access</div>
+  </div>`;
+}
+
+function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, tags }) {
+  return `<a class="tool-card" href="${path}"
+      style="--card-accent:${accent};--icon-bg:${iconBg}">
+    <div class="tool-card-header">
+      <div class="tool-icon">${icon}</div>
+      ${badgeHtml(status)}
+    </div>
+    <div class="tool-name">${name}</div>
+    <div class="tool-desc">${desc}</div>
+    <div class="tool-tags">${tags}</div>
+  </a>`;
+}
+
+// ── Group membership check (checkMemberObjects — one call, no pagination) ─────
+async function checkMembership(token, groupId) {
   try {
-    const res = await fetch(
-      "https://graph.microsoft.com/v1.0/me/checkMemberObjects",
-      {
-        method:  "POST",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-        body:    JSON.stringify({ ids: [FINANCE_GROUP_ID] }),
-      }
-    );
+    const res = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+      method:  "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body:    JSON.stringify({ ids: [groupId] }),
+    });
     if (!res.ok) return false;
-    const data = await res.json();
-    return (data.value || []).includes(FINANCE_GROUP_ID);
+    return (await res.json()).value?.includes(groupId) ?? false;
   } catch(_) { return false; }
 }
 
-// ── Topbar sign-in ────────────────────────────────────────────────────────────
+// ── Run all gate checks after sign-in ─────────────────────────────────────────
+async function runGateChecks(token) {
+  for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
+    const isMember = await checkMembership(token, gate.id);
+    if (isMember) {
+      localStorage.setItem(gate.localKey, "true");
+      unlockCard(gateKey);
+    }
+  }
+}
+
+// ── Restore locks from localStorage (instant, no network) ────────────────────
+function restoreFromLocalStorage() {
+  for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
+    if (localStorage.getItem(gate.localKey) === "true") {
+      unlockCard(gateKey);
+    }
+  }
+}
+
+// ── Clear all gate flags on sign-out ─────────────────────────────────────────
+function clearAllGates() {
+  for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
+    localStorage.removeItem(gate.localKey);
+    lockCard(gateKey);
+  }
+}
+
+// ── Hub sign-in ───────────────────────────────────────────────────────────────
 async function hubSignIn() {
   const btn = document.getElementById("signInBtn");
   btn.classList.add("loading");
@@ -512,31 +625,20 @@ async function hubSignIn() {
   try {
     const app = await getMsal();
     const res = await app.loginPopup({ scopes: HUB_SCOPES });
-
-    // Acquire token (loginPopup may not always return accessToken directly)
-    let token;
-    try {
-      token = res.accessToken || (await app.acquireTokenSilent({
-        scopes: HUB_SCOPES, account: res.account
-      })).accessToken;
-    } catch(_) { token = null; }
-
     showSignedIn(res.account);
 
-    if (token) {
-      const isMember = await checkFinanceGroup(token);
-      if (isMember) {
-        localStorage.setItem(FINANCE_KEY, "true");
-        revealFinanceCards();
-      }
-    }
+    // Acquire token then check all group gates
+    try {
+      const tokenRes = await app.acquireTokenSilent({ scopes: HUB_SCOPES, account: res.account });
+      await runGateChecks(tokenRes.accessToken);
+    } catch(_) {}
+
   } catch(_) {
-    // User cancelled or popup blocked — fail silently
+    // User cancelled or popup blocked — silent fail
   } finally {
     btn.classList.remove("loading");
-    // Re-stamp button content in case it was cleared during loading state
     btn.innerHTML = `
-      <svg viewBox="0 0 21 21" width="14" height="14" fill="none">
+      <svg viewBox="0 0 21 21" width="13" height="13" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
         <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
         <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
@@ -546,24 +648,18 @@ async function hubSignIn() {
   }
 }
 
-// ── Topbar sign-out ───────────────────────────────────────────────────────────
+// ── Hub sign-out ──────────────────────────────────────────────────────────────
 async function hubSignOut() {
   try {
     const app      = await getMsal();
     const accounts = app.getAllAccounts();
     if (accounts.length) await app.logoutPopup({ account: accounts[0] });
   } catch(_) {}
-
-  // Always clear regardless of popup outcome
-  localStorage.removeItem(FINANCE_KEY);
-  hideFinanceCards();
+  clearAllGates();
   showSignedOut();
 }
 
 // ── Silent session restore on load ────────────────────────────────────────────
-// If there's already a cached MSAL session (e.g. user visited a tool earlier
-// this browser session), silently restore the topbar state without a popup.
-// Also re-validates the finance flag so it stays accurate.
 async function trySilentRestore() {
   try {
     const app      = await getMsal();
@@ -572,33 +668,10 @@ async function trySilentRestore() {
 
     const res = await app.acquireTokenSilent({ scopes: HUB_SCOPES, account: accounts[0] });
     showSignedIn(accounts[0]);
-
-    // Re-check group membership silently to keep the flag fresh.
-    // If already flagged in localStorage we still confirm it's still valid.
-    const isMember = await checkFinanceGroup(res.accessToken);
-    if (isMember) {
-      localStorage.setItem(FINANCE_KEY, "true");
-      revealFinanceCards();   // ensure revealed even if localStorage was cleared
-    } else {
-      // User was removed from group — revoke silently
-      localStorage.removeItem(FINANCE_KEY);
-      hideFinanceCards();
-    }
+    await runGateChecks(res.accessToken);
   } catch(_) {
-    // No valid session or token expired — silent failure is correct
+    // No valid cached session — silent fail, locked state stays
   }
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-const STATUS_LABELS = {
-  "live":           "Live",
-  "beta":           "Beta",
-  "in-development": "In Development",
-  "coming-soon":    "Coming Soon",
-  "deprecated":     "Deprecated"
-};
-function badgeHtml(status) {
-  return `<span class="status-badge badge-${status}">${STATUS_LABELS[status] || status}</span>`;
 }
 
 // ── Render tools from config ──────────────────────────────────────────────────
@@ -610,17 +683,39 @@ async function loadTools() {
     const clickable = ["live", "beta"];
 
     grid.innerHTML = data.tools.map(tool => {
-      const isClickable  = clickable.includes(tool.status) && tool.path;
-      const tag          = isClickable ? "a" : "div";
-      const href         = isClickable ? ` href="${tool.path}"` : "";
-      const isFinance    = !!tool.financeOnly;
-      const financeAttr  = isFinance ? ` data-finance-gated="true"` : "";
-      const cls          = isClickable ? "tool-card" : "tool-card disabled";
-      const tags         = (tool.permissions || []).map(p => `<span class="tag">${p}</span>`).join("");
-      const financeBadge = isFinance ? `<div class="finance-card-badge">🔒 Finance only</div>` : "";
+      const tags = (tool.permissions || []).map(p => `<span class="tag">${p}</span>`).join("");
 
-      return `<${tag} class="${cls}"${href}${financeAttr} style="--card-accent:${tool.accent};--icon-bg:${tool.iconBg}">
-        ${financeBadge}
+      // Gated tool — render locked card
+      if (tool.financeOnly) {
+        return buildLockedCard({
+          gateKey: "finance",
+          path:    tool.path,
+          accent:  tool.accent,
+          iconBg:  tool.iconBg,
+          icon:    tool.icon,
+          status:  tool.status,
+          name:    tool.name,
+          desc:    tool.description,
+          tags,
+        });
+      }
+
+      // Standard clickable tool
+      if (clickable.includes(tool.status) && tool.path) {
+        return buildLiveCard({
+          path:   tool.path,
+          accent: tool.accent,
+          iconBg: tool.iconBg,
+          icon:   tool.icon,
+          status: tool.status,
+          name:   tool.name,
+          desc:   tool.description,
+          tags,
+        });
+      }
+
+      // Non-clickable (coming-soon, in-development, deprecated)
+      return `<div class="tool-card disabled" style="--card-accent:${tool.accent};--icon-bg:${tool.iconBg}">
         <div class="tool-card-header">
           <div class="tool-icon">${tool.icon}</div>
           ${badgeHtml(tool.status)}
@@ -628,17 +723,15 @@ async function loadTools() {
         <div class="tool-name">${tool.name}</div>
         <div class="tool-desc">${tool.description}</div>
         <div class="tool-tags">${tags}</div>
-      </${tag}>`;
+      </div>`;
+
     }).join("");
 
-    // ── Step 1: Instant reveal from localStorage (zero network cost) ──────────
-    if (localStorage.getItem(FINANCE_KEY) === "true") {
-      revealFinanceCards();
-    }
+    // 1 — Instant unlock from localStorage (no network)
+    restoreFromLocalStorage();
 
-    // ── Step 2: Silent MSAL restore in background ─────────────────────────────
-    // Runs after render so it never blocks the page. Updates topbar user chip,
-    // re-validates group membership, and keeps the localStorage flag accurate.
+    // 2 — Silent MSAL restore in background
+    //     Updates topbar user chip and re-validates all gates
     trySilentRestore();
 
   } catch(e) {
