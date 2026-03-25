@@ -483,22 +483,17 @@ function hideFinanceCards() {
 }
 
 // ── Group membership check ────────────────────────────────────────────────────
+// Hardcoded Object ID — no Group.Read.All permission required.
+const FINANCE_GROUP_ID = "ff9c3232-251f-4570-9564-340039d17aa9";
+
 async function checkFinanceGroup(token) {
   try {
-    const gRes = await fetch(
-      `https://graph.microsoft.com/v1.0/groups?$filter=${encodeURIComponent(`displayName eq '${FINANCE_GROUP}'`)}&$select=id`,
-      { headers: { Authorization: "Bearer " + token, ConsistencyLevel: "eventual" } }
-    );
-    if (!gRes.ok) return false;
-    const groups = (await gRes.json()).value || [];
-    if (!groups.length) return false;
-
-    const mRes = await fetch(
+    const res = await fetch(
       "https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id",
       { headers: { Authorization: "Bearer " + token } }
     );
-    if (!mRes.ok) return false;
-    return (await mRes.json()).value.some(m => m.id === groups[0].id);
+    if (!res.ok) return false;
+    return (await res.json()).value.some(m => m.id === FINANCE_GROUP_ID);
   } catch(_) { return false; }
 }
 
