@@ -342,11 +342,22 @@ const SKU_NAMES = {
 function skuName(sku) { return SKU_NAMES[sku] || sku; }
 
 // ── Finance gate ───────────────────────────────────────────────────────────────
-// Uses hardcoded Object ID — no Group.Read.All required.
+// Uses /checkMemberObjects — single call, no pagination, works regardless of
+// how many groups the user is in. Only requires User.Read.
 async function checkFinanceAccess() {
   try {
-    const memberships = await ITTools.graph.getAll(`https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`);
-    return memberships.some(m => m.id === FINANCE_GROUP_ID);
+    const token = await ITTools.auth.getToken();
+    const res   = await fetch(
+      "https://graph.microsoft.com/v1.0/me/checkMemberObjects",
+      {
+        method:  "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body:    JSON.stringify({ ids: [FINANCE_GROUP_ID] }),
+      }
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return (data.value || []).includes(FINANCE_GROUP_ID);
   } catch(_) { return false; }
 }
 
