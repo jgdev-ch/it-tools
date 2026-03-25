@@ -288,6 +288,29 @@ function getMethodInfo(type) {
   return MFA_METHODS[type] || { label: type.split(".").pop().replace("AuthenticationMethod",""), icon: "❓", strength: "unknown", sub: "" };
 }
 
+// ── Report endpoint method name → @odata.type mapping ────────────────────────
+// /reports/authenticationMethods/userRegistrationDetails returns short string
+// names instead of @odata.type values. Map them back so all rendering code
+// stays identical regardless of which fetch path was used.
+const REPORT_METHOD_MAP = {
+  // Strong
+  "microsoftAuthenticator":             "#microsoft.graph.microsoftAuthenticatorAuthenticationMethod",
+  "authenticatorApp":                   "#microsoft.graph.microsoftAuthenticatorAuthenticationMethod",
+  "fido2":                              "#microsoft.graph.fido2AuthenticationMethod",
+  "windowsHelloForBusiness":            "#microsoft.graph.windowsHelloForBusinessAuthenticationMethod",
+  "microsoftAuthenticatorPasswordless": "#microsoft.graph.passwordlessMicrosoftAuthenticatorAuthenticationMethod",
+  "temporaryAccessPass":                "#microsoft.graph.temporaryAccessPassAuthenticationMethod",
+  "hardwareOneTimePasscode":            "#microsoft.graph.hardwareOathAuthenticationMethod",
+  // Weak
+  "mobilePhone":                        "#microsoft.graph.phoneAuthenticationMethod",
+  "alternateMobilePhone":               "#microsoft.graph.phoneAuthenticationMethod",
+  "officePhone":                        "#microsoft.graph.phoneAuthenticationMethod",
+  "email":                              "#microsoft.graph.emailAuthenticationMethod",
+  "softwareOneTimePasscode":            "#microsoft.graph.softwareOathAuthenticationMethod",
+  // No MFA
+  "password":                           "#microsoft.graph.passwordAuthenticationMethod",
+};
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let allUsers       = [];
 let flaggedMethods = new Set();
@@ -491,76 +514,52 @@ async function startScan() {
       setPhase(null); return;
     }
 
-    // Show scope warning for large scans
-    if (users.length > 5000) {
-      const estMins = Math.ceil(users.length / 300);
+    // Show scope warning for very large tenants — report endpoint is fast but
+    // the subsequent user-join pass can be slow above ~20k users
+    if (users.length > 10000) {
       const warn = document.getElementById("scopeWarning");
-      warn.innerHTML = `⚠ <strong>${users.length.toLocaleString()} users found.</strong> This scan will take approximately ${estMins}-${estMins + 2} minutes. Use the department filter or switch scope to reduce the size, or click Cancel at any time to see partial results.`;
+      warn.innerHTML = `⚠ <strong>${users.length.toLocaleString()} users found.</strong> Large tenant — fetching registration data in bulk. This should complete in under a minute. Use the department filter to narrow results, or click Cancel at any time to see partial results.`;
       warn.style.display = "block";
     }
 
-    // 2. Fetch MFA methods per user (batched with progress)
-    const results = [];
-    const total   = users.length;
+    // 2. Fetch MFA registration data
+    // Strategy (fastest → slowest, automatic fallback):
+    //   A. Report endpoint  — one paginated bulk call, all users at once
+    //   B. Graph $batch     — 20 sub-requests per HTTP call
+    //   C. Per-user calls   — 15 concurrent, original approach
 
-    document.getElementById("tableSection").innerHTML = `
-      <div class="card scan-progress">
-        <div class="card-title">Scanning authentication methods</div>
-        <div class="progress-wrap">
-          <div class="progress-meta">
-            <span id="scanLabel">Starting…</span>
-            <span id="scanPct">0%</span>
-          </div>
-          <div class="progress-track"><div class="progress-fill" id="scanFill"></div></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span style="font-size:11px;color:var(--muted)" id="scanEta">Calculating time remaining…</span>
-          <span style="font-size:11px;color:var(--muted2)">Click Cancel above to stop and see partial results</span>
-        </div>
-      </div>`;
+    showScanProgress();
 
-    const BATCH = 5;
-    for (let i = 0; i < users.length; i += BATCH) {
-      if (_cancelled) break;
+    // methodMap: userId → string[] of @odata.type values (normalised across all paths)
+    let methodMap;
+    let fetchError = false;
 
-      const batch = users.slice(i, i + BATCH);
-      const batchResults = await Promise.all(batch.map(async u => {
+    try {
+      methodMap = await fetchViaReportEndpoint(users.length);
+    } catch(reportErr) {
+      updateScanLabel(`Report endpoint unavailable — switching to batch mode…`, null);
+      try {
+        methodMap = await fetchViaBatch(users);
+      } catch(batchErr) {
+        updateScanLabel(`Batch mode failed — falling back to per-user calls…`, null);
         try {
-          const methods = await graphWithRetry(() =>
-            ITTools.graph.get(`https://graph.microsoft.com/v1.0/users/${u.id}/authentication/methods`)
-          );
-          return { user: u, methods: methods.value || [] };
-        } catch(_) {
-          return { user: u, methods: [], error: true };
+          methodMap = await fetchPerUser(users);
+        } catch(perUserErr) {
+          fetchError = true;
+          methodMap  = new Map();
         }
-      }));
-      results.push(...batchResults);
-
-      const done    = Math.min(i + BATCH, total);
-      const pct     = Math.round((done / total) * 100);
-      const elapsed = (Date.now() - _scanStartTime) / 1000;
-      const rate    = done / elapsed;
-      const remaining = rate > 0 ? Math.ceil((total - done) / rate) : null;
-
-      const fill  = document.getElementById("scanFill");
-      const lbl   = document.getElementById("scanLabel");
-      const pctEl = document.getElementById("scanPct");
-      const eta   = document.getElementById("scanEta");
-
-      if (fill)  fill.style.width  = pct + "%";
-      if (lbl)   lbl.textContent   = `Scanned ${done.toLocaleString()} of ${total.toLocaleString()} users`;
-      if (pctEl) pctEl.textContent = pct + "%";
-      if (eta && remaining !== null) {
-        eta.textContent = remaining > 60
-          ? `~${Math.ceil(remaining / 60)} min remaining`
-          : `~${remaining}s remaining`;
       }
     }
 
-    // 3. Process results
-    allUsers = results.map(({ user: u, methods, error }) => {
-      const realMethods    = methods.filter(m => m["@odata.type"] !== PASSWORD_ONLY_TYPE);
-      const methodTypes    = realMethods.map(m => m["@odata.type"]);
+    // 3. Process results — identical logic regardless of which fetch path ran
+    allUsers = users.map(u => {
+      const rawTypes    = methodMap.get(u.id) ?? null;
+      const hasMapError = rawTypes === null;
+      // Strip password-only entries — they mean "no real MFA registered"
+      const methodTypes = hasMapError
+        ? []
+        : rawTypes.filter(t => t !== PASSWORD_ONLY_TYPE);
+
       const hasStrong      = methodTypes.some(t => MFA_METHODS[t]?.strength === "strong");
       const hasWeak        = methodTypes.some(t => MFA_METHODS[t]?.strength === "weak");
       const hasNone        = methodTypes.length === 0;
@@ -585,7 +584,7 @@ async function startScan() {
         hasStrong,
         hasWeak,
         hasNone,
-        error: !!error,
+        error: hasMapError,
       };
     });
 
@@ -600,6 +599,158 @@ async function startScan() {
     document.getElementById("errBanner").style.display = "block";
     setPhase(null);
   }
+}
+
+// ── Progress UI helpers ───────────────────────────────────────────────────────
+function showScanProgress() {
+  document.getElementById("tableSection").innerHTML = `
+    <div class="card scan-progress">
+      <div class="card-title">Fetching authentication data</div>
+      <div class="progress-wrap">
+        <div class="progress-meta">
+          <span id="scanLabel">Starting…</span>
+          <span id="scanPct">0%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="scanFill"></div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <span style="font-size:11px;color:var(--muted)" id="scanEta"></span>
+        <span style="font-size:11px;color:var(--muted2)">Click Cancel above to stop and see partial results</span>
+      </div>
+    </div>`;
+}
+
+function updateScanLabel(label, pct) {
+  const lbl   = document.getElementById("scanLabel");
+  const pctEl = document.getElementById("scanPct");
+  const fill  = document.getElementById("scanFill");
+  if (lbl)   lbl.textContent   = label;
+  if (pct !== null) {
+    if (pctEl) pctEl.textContent = pct + "%";
+    if (fill)  fill.style.width  = pct + "%";
+  }
+}
+
+function updateScanEta(elapsed, done, total) {
+  const eta  = document.getElementById("scanEta");
+  if (!eta || !done || !elapsed) return;
+  const rate      = done / elapsed;
+  const remaining = rate > 0 ? Math.ceil((total - done) / rate) : null;
+  if (remaining === null) return;
+  eta.textContent = remaining > 60
+    ? `~${Math.ceil(remaining / 60)} min remaining`
+    : `~${remaining}s remaining`;
+}
+
+// ── Fetch path A: registration report endpoint ────────────────────────────────
+// Single paginated bulk call — returns all tenant users' method data at once.
+// Permission already held: AuditLog.Read.All satisfies this endpoint.
+async function fetchViaReportEndpoint(expectedUsers) {
+  const REPORT_URL = "https://graph.microsoft.com/v1.0/reports/authenticationMethods/userRegistrationDetails?$select=id,methodsRegistered&$top=999";
+  const map        = new Map();
+  let   next       = REPORT_URL;
+  let   page       = 0;
+  const estPages   = Math.max(1, Math.ceil(expectedUsers / 999));
+
+  while (next) {
+    if (_cancelled) break;
+    page++;
+    const pct = Math.min(95, Math.round((page / estPages) * 100));
+    updateScanLabel(`Fetching registration data… page ${page} of ~${estPages}`, pct);
+
+    const data = await graphWithRetry(() => ITTools.graph.get(next));
+    for (const record of (data?.value || [])) {
+      // Convert report string names → @odata.type keys used by MFA_METHODS
+      const types = (record.methodsRegistered || [])
+        .map(m => REPORT_METHOD_MAP[m])
+        .filter(Boolean);
+      map.set(record.id, types);
+    }
+    next = data?.["@odata.nextLink"] || null;
+  }
+
+  updateScanLabel(`Registration data loaded — ${map.size.toLocaleString()} records`, 100);
+  return map;
+}
+
+// ── Fetch path B: Graph $batch (20 sub-requests per HTTP call) ────────────────
+// Used when the report endpoint is unavailable. ~20× faster than path C.
+async function fetchViaBatch(users) {
+  const map       = new Map();
+  const BATCH     = 20;
+  const total     = users.length;
+  const startTime = Date.now();
+
+  for (let i = 0; i < total; i += BATCH) {
+    if (_cancelled) break;
+
+    const slice    = users.slice(i, i + BATCH);
+    const requests = slice.map((u, idx) => ({
+      id:     String(idx),
+      method: "GET",
+      url:    `/users/${u.id}/authentication/methods`,
+    }));
+
+    const response = await graphWithRetry(() =>
+      ITTools.graph.post("https://graph.microsoft.com/v1.0/$batch", { requests })
+    );
+
+    for (const resp of (response?.responses || [])) {
+      const user = slice[parseInt(resp.id)];
+      if (!user) continue;
+      if (resp.status === 200 && resp.body?.value) {
+        const types = resp.body.value
+          .map(m => m["@odata.type"])
+          .filter(t => t && t !== PASSWORD_ONLY_TYPE);
+        map.set(user.id, types);
+      } else {
+        map.set(user.id, null); // error marker — treated as no data
+      }
+    }
+
+    const done    = Math.min(i + BATCH, total);
+    const elapsed = (Date.now() - startTime) / 1000;
+    const pct     = Math.round((done / total) * 100);
+    updateScanLabel(`Batch scan: ${done.toLocaleString()} / ${total.toLocaleString()} users`, pct);
+    updateScanEta(elapsed, done, total);
+  }
+
+  return map;
+}
+
+// ── Fetch path C: per-user calls (15 concurrent) ─────────────────────────────
+// Original approach, retained as final fallback. BATCH raised from 5 → 15.
+async function fetchPerUser(users) {
+  const map       = new Map();
+  const BATCH     = 15;
+  const total     = users.length;
+  const startTime = Date.now();
+
+  for (let i = 0; i < total; i += BATCH) {
+    if (_cancelled) break;
+
+    const slice        = users.slice(i, i + BATCH);
+    const batchResults = await Promise.all(slice.map(async u => {
+      try {
+        const methods = await graphWithRetry(() =>
+          ITTools.graph.get(`https://graph.microsoft.com/v1.0/users/${u.id}/authentication/methods`)
+        );
+        return { id: u.id, types: (methods.value || []).map(m => m["@odata.type"]).filter(t => t && t !== PASSWORD_ONLY_TYPE) };
+      } catch(_) {
+        return { id: u.id, types: null };
+      }
+    }));
+
+    for (const { id, types } of batchResults) map.set(id, types);
+
+    const done    = Math.min(i + BATCH, total);
+    const elapsed = (Date.now() - startTime) / 1000;
+    const pct     = Math.round((done / total) * 100);
+    updateScanLabel(`Scanning: ${done.toLocaleString()} / ${total.toLocaleString()} users`, pct);
+    updateScanEta(elapsed, done, total);
+  }
+
+  return map;
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
