@@ -378,7 +378,9 @@ async function graphWithRetry(fn, maxRetries = 5) {
       if (!isRateLimit || attempt > maxRetries) throw e;
       const waitSec = Math.min(60, Math.pow(2, attempt));
       setPhase(`Rate limited — retrying in ${waitSec}s…`);
-      await new Promise(r => setTimeout(r, waitSec * 1000));
+      _pauseActiveTimer();
+      await countdownEta(waitSec);
+      _resumeActiveTimer();
     }
   }
 }
@@ -642,10 +644,46 @@ function updateScanLabel(label, pct) {
   }
 }
 
-function updateScanEta(elapsed, done, total) {
-  const eta  = document.getElementById("scanEta");
-  if (!eta || !done || !elapsed) return;
-  const rate      = done / elapsed;
+// ── Active-time tracker ──────────────────────────────────────────────────────
+// Tracks only the time spent doing real work, excluding backoff waits.
+// graphWithRetry calls _pauseActiveTimer / _resumeActiveTimer around waits.
+let _activeStart   = null;  // timestamp when current active period began
+let _activeElapsed = 0;     // cumulative active milliseconds across all periods
+
+function _resetActiveTimer() {
+  _activeStart   = Date.now();
+  _activeElapsed = 0;
+}
+function _pauseActiveTimer() {
+  if (_activeStart !== null) {
+    _activeElapsed += Date.now() - _activeStart;
+    _activeStart    = null;
+  }
+}
+function _resumeActiveTimer() {
+  _activeStart = Date.now();
+}
+function _getActiveElapsedSec() {
+  const extra = _activeStart !== null ? (Date.now() - _activeStart) : 0;
+  return (_activeElapsed + extra) / 1000;
+}
+
+// Shows a live countdown in the ETA line during a known backoff wait,
+// then restores the 'remaining' phrasing when done.
+async function countdownEta(seconds) {
+  const eta = document.getElementById("scanEta");
+  for (let s = seconds; s > 0; s--) {
+    if (eta) eta.textContent = `Rate limited — resuming in ${s}s…`;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
+function updateScanEta(done, total) {
+  const eta     = document.getElementById("scanEta");
+  if (!eta || !done) return;
+  const activeSec = _getActiveElapsedSec();
+  if (activeSec < 1) return; // not enough data yet
+  const rate      = done / activeSec;
   const remaining = rate > 0 ? Math.ceil((total - done) / rate) : null;
   if (remaining === null) return;
   eta.textContent = remaining > 60
@@ -699,6 +737,7 @@ async function fetchViaBatch(users) {
   const BATCH     = 20;
   const total     = users.length;
   const startTime = Date.now();
+  _resetActiveTimer();
   const retryQueue = []; // users whose batch sub-request failed
 
   // ── Pass 1: batch ──────────────────────────────────────────────────────────
@@ -742,7 +781,7 @@ async function fetchViaBatch(users) {
     // Progress reflects batch pass only (0–80%) — retry pass fills the rest
     const pct     = Math.round((done / total) * 80);
     updateScanLabel(`Batch scan: ${done.toLocaleString()} / ${total.toLocaleString()} users`, pct);
-    updateScanEta(elapsed, done, total);
+    updateScanEta(done, total);
   }
 
   // ── Pass 2: per-user retry for anything the batch throttled ───────────────
@@ -785,6 +824,7 @@ async function fetchPerUser(users) {
   const BATCH     = 15;
   const total     = users.length;
   const startTime = Date.now();
+  _resetActiveTimer();
 
   for (let i = 0; i < total; i += BATCH) {
     if (_cancelled) break;
@@ -807,7 +847,7 @@ async function fetchPerUser(users) {
     const elapsed = (Date.now() - startTime) / 1000;
     const pct     = Math.round((done / total) * 100);
     updateScanLabel(`Scanning: ${done.toLocaleString()} / ${total.toLocaleString()} users`, pct);
-    updateScanEta(elapsed, done, total);
+    updateScanEta(done, total);
   }
 
   return map;
