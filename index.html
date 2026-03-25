@@ -483,17 +483,23 @@ function hideFinanceCards() {
 }
 
 // ── Group membership check ────────────────────────────────────────────────────
-// Hardcoded Object ID — no Group.Read.All permission required.
+// Uses /checkMemberOf — single call, no pagination, works regardless of how
+// many groups the user is in. Only requires User.Read.
 const FINANCE_GROUP_ID = "ff9c3232-251f-4570-9564-340039d17aa9";
 
 async function checkFinanceGroup(token) {
   try {
     const res = await fetch(
-      "https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id",
-      { headers: { Authorization: "Bearer " + token } }
+      "https://graph.microsoft.com/v1.0/me/checkMemberObjects",
+      {
+        method:  "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body:    JSON.stringify({ ids: [FINANCE_GROUP_ID] }),
+      }
     );
     if (!res.ok) return false;
-    return (await res.json()).value.some(m => m.id === FINANCE_GROUP_ID);
+    const data = await res.json();
+    return (data.value || []).includes(FINANCE_GROUP_ID);
   } catch(_) { return false; }
 }
 
