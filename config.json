@@ -49,7 +49,7 @@
       "name": "Finance Dashboard",
       "description": "Full M365 license spend breakdown, seat utilisation analysis, department cost attribution, and 12-month projections with scenario modelling.",
       "icon": "💰",
-      "status": "live",
+      "status": "beta",
       "path": "tools/finance-dashboard/",
       "permissions": ["User.Read.All", "AuditLog.Read.All", "Directory.Read.All"],
       "accent": "#92400e",
