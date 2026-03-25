@@ -691,13 +691,17 @@ async function fetchViaReportEndpoint(expectedUsers) {
 }
 
 // ── Fetch path B: Graph $batch (20 sub-requests per HTTP call) ────────────────
-// Used when the report endpoint is unavailable. ~20× faster than path C.
+// Pass 1: batch all users 20 at a time — fast for the majority.
+// Pass 2: any sub-request that returned 429/error gets retried individually
+//         via graphWithRetry so throttled accounts still resolve correctly.
 async function fetchViaBatch(users) {
   const map       = new Map();
   const BATCH     = 20;
   const total     = users.length;
   const startTime = Date.now();
+  const retryQueue = []; // users whose batch sub-request failed
 
+  // ── Pass 1: batch ──────────────────────────────────────────────────────────
   for (let i = 0; i < total; i += BATCH) {
     if (_cancelled) break;
 
@@ -708,9 +712,16 @@ async function fetchViaBatch(users) {
       url:    `/users/${u.id}/authentication/methods`,
     }));
 
-    const response = await graphWithRetry(() =>
-      ITTools.graph.post("https://graph.microsoft.com/v1.0/$batch", { requests })
-    );
+    let response;
+    try {
+      response = await graphWithRetry(() =>
+        ITTools.graph.post("https://graph.microsoft.com/v1.0/$batch", { requests })
+      );
+    } catch(_) {
+      // Outer POST itself failed — queue the whole slice for per-user retry
+      retryQueue.push(...slice);
+      continue;
+    }
 
     for (const resp of (response?.responses || [])) {
       const user = slice[parseInt(resp.id)];
@@ -721,15 +732,47 @@ async function fetchViaBatch(users) {
           .filter(t => t && t !== PASSWORD_ONLY_TYPE);
         map.set(user.id, types);
       } else {
-        map.set(user.id, null); // error marker — treated as no data
+        // 429, 503, 404 (deleted), or any other non-200 — queue for retry
+        retryQueue.push(user);
       }
     }
 
     const done    = Math.min(i + BATCH, total);
     const elapsed = (Date.now() - startTime) / 1000;
-    const pct     = Math.round((done / total) * 100);
+    // Progress reflects batch pass only (0–80%) — retry pass fills the rest
+    const pct     = Math.round((done / total) * 80);
     updateScanLabel(`Batch scan: ${done.toLocaleString()} / ${total.toLocaleString()} users`, pct);
     updateScanEta(elapsed, done, total);
+  }
+
+  // ── Pass 2: per-user retry for anything the batch throttled ───────────────
+  if (retryQueue.length > 0 && !_cancelled) {
+    const retryTotal = retryQueue.length;
+    const RETRY_BATCH = 15;
+    updateScanLabel(`Retrying ${retryTotal.toLocaleString()} throttled account${retryTotal !== 1 ? "s" : ""}…`, 80);
+
+    for (let i = 0; i < retryTotal; i += RETRY_BATCH) {
+      if (_cancelled) break;
+
+      const slice = retryQueue.slice(i, i + RETRY_BATCH);
+      await Promise.all(slice.map(async u => {
+        try {
+          const methods = await graphWithRetry(() =>
+            ITTools.graph.get(`https://graph.microsoft.com/v1.0/users/${u.id}/authentication/methods`)
+          );
+          const types = (methods.value || [])
+            .map(m => m["@odata.type"])
+            .filter(t => t && t !== PASSWORD_ONLY_TYPE);
+          map.set(u.id, types);
+        } catch(_) {
+          map.set(u.id, null); // genuinely unresolvable — deleted or no permission
+        }
+      }));
+
+      const retryDone = Math.min(i + RETRY_BATCH, retryTotal);
+      const pct       = 80 + Math.round((retryDone / retryTotal) * 20);
+      updateScanLabel(`Retrying throttled accounts: ${retryDone.toLocaleString()} / ${retryTotal.toLocaleString()}`, pct);
+    }
   }
 
   return map;
