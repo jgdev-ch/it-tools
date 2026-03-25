@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Finance Dashboard — IT Tools</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<style>
+  /* ── Local token additions not in shared ── */
+  :root {
+    --teal:        #0e7490;
+    --teal-light:  #cffafe;
+    --teal-border: #67e8f9;
+  }
+  [data-theme="dark"] {
+    --teal:        #22d3ee;
+    --teal-light:  #0c2a31;
+    --teal-border: #164e63;
+  }
+
+  .shell { max-width: 1100px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; }
+
+  /* ── Page header ── */
+  .page-header { margin-bottom: 1.5rem; }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-header p  { font-size: 13px; color: var(--muted); }
+  .finance-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--amber-light); color: var(--amber);
+    border-radius: 20px; padding: 3px 10px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  }
+
+  /* ── Dashboard grid layouts ── */
+  .dash-grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;
+  }
+  @media (max-width: 800px) { .dash-grid-2 { grid-template-columns: 1fr; } }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-size: 14px; font-weight: 700; margin-bottom: 1rem;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;
+  }
+  .section-meta { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+  /* ── Chart containers ── */
+  .chart-wrap { position: relative; }
+  .donut-container {
+    display: flex; align-items: center; justify-content: center;
+    padding: .5rem 0;
+  }
+  .donut-container canvas { max-width: 200px; max-height: 200px; }
+
+  /* ── SKU list under donut ── */
+  .sku-list { margin-top: .75rem; }
+  .sku-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .sku-row:last-child { border-bottom: none; }
+  .sku-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sku-name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .sku-cost { font-weight: 700; color: var(--amber); white-space: nowrap; }
+  .sku-seats { font-size: 10px; color: var(--muted2); white-space: nowrap; }
+
+  /* ── Callout banner ── */
+  .callout {
+    border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1rem;
+    border-left: 4px solid; display: flex; align-items: flex-start; gap: 12px;
+  }
+  .callout.savings { background: var(--green-light); border-color: var(--green); }
+  .callout.warning { background: var(--amber-light); border-color: var(--amber); }
+  .callout-icon  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .callout.savings .callout-title { color: var(--green); }
+  .callout.warning .callout-title { color: var(--amber); }
+  .callout-body  { font-size: 12px; line-height: 1.6; color: var(--muted); }
+
+  /* ── Projection controls ── */
+  .proj-controls {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+  }
+  .proj-controls .field { flex: 1 1 170px; margin-bottom: 0; }
+
+  /* ── Projection table ── */
+  .proj-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 1.25rem; }
+  .proj-table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 560px; }
+  .proj-table-wrap th { padding: 7px 12px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .proj-table-wrap td { padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .proj-table-wrap tr:last-child td { border-bottom: none; }
+  .proj-table-wrap tr:hover td { background: var(--surface2); }
+
+  /* ── Inactive cost cell ── */
+  .cost-cell { font-size: 12px; font-weight: 700; color: var(--amber); white-space: nowrap; }
+
+  /* ── Access denied ── */
+  .access-denied {
+    min-height: calc(100vh - var(--topbar-h));
+    display: none; align-items: center; justify-content: center; padding: 2rem;
+  }
+  .access-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2.5rem 2rem; max-width: 420px;
+    width: 100%; text-align: center; box-shadow: var(--shadow-md);
+  }
+  .access-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .access-card p  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
+
+  /* ── Inline stat number sizing ── */
+  .stat-value-md { font-size: 20px !important; }
+
+  /* ── Scan summary row ── */
+  .scan-meta-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 11px; color: var(--muted2); margin-top: 8px;
+  }
+  .scan-meta-row span { display: flex; align-items: center; gap: 4px; }
+  .scan-meta-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+  #authScreen { display: flex; }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<!-- ── Auth screen ── -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="width:44px;height:44px;background:var(--amber-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:22px">💰</div>
+    <h1>Finance Dashboard</h1>
+    <p>Sign in with your M365 admin account. Access requires membership in <strong>SG-IT-Tools-Finance-View</strong>.</p>
+    <button class="btn-ms" onclick="doSignIn()">
+      <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authErr"></div>
+    <p class="auth-note">Requires membership in <strong>SG-IT-Tools-Finance-View</strong>.</p>
+    <button class="redirect-toggle" onclick="toggleUri()">Show redirect URI for app registration</button>
+    <div class="redirect-box" id="uriBox"></div>
+  </div>
+</div>
+
+<!-- ── Access denied screen ── -->
+<div id="accessDeniedScreen" class="access-denied">
+  <div class="access-card">
+    <div style="font-size:36px;margin-bottom:1rem">🔒</div>
+    <h2>Access Restricted</h2>
+    <p>This dashboard is limited to members of <strong>SG-IT-Tools-Finance-View</strong>. Contact your IT administrator to request access.</p>
+    <a href="../../" class="btn btn-ghost" style="display:inline-flex">← Back to hub</a>
+  </div>
+</div>
+
+<!-- ── App screen ── -->
+<div id="appScreen" style="display:none">
+<div class="shell">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
+      <h1 style="margin-bottom:0">Finance Dashboard</h1>
+      <span class="finance-badge">💰 Finance View</span>
+    </div>
+    <p>Full M365 license spend analysis, seat utilisation, department breakdown, and 12-month cost projections.</p>
+  </div>
+
+  <!-- Configure -->
+  <div class="card">
+    <div class="card-title">Configure</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+      <div class="field" style="flex:1 1 200px;margin-bottom:0">
+        <label class="field-label">Inactivity threshold</label>
+        <select id="daysSelect">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90" selected>90 days</option>
+          <option value="180">180 days</option>
+          <option value="365">365 days</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1 1 200px;margin-bottom:0">
+        <label class="field-label">Department filter</label>
+        <select id="deptFilterSel" onchange="onDeptFilter()">
+          <option value="">All departments</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="loadBtn" onclick="loadDashboard()">Load Dashboard</button>
+    </div>
+    <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
+  </div>
+
+  <div class="banner error" id="errBanner"></div>
+
+  <!-- Overview stats -->
+  <div class="stats-row" id="statsRow" style="display:none"></div>
+
+  <!-- Callout -->
+  <div id="calloutArea"></div>
+
+  <!-- Row 1: SKU spend donut + Seat utilisation -->
+  <div class="dash-grid-2" id="row1" style="display:none">
+
+    <!-- Donut -->
+    <div class="card">
+      <div class="section-title">
+        <span>Spend by SKU</span>
+        <span class="section-meta" id="donutMeta"></span>
+      </div>
+      <div class="donut-container">
+        <canvas id="donutChart"></canvas>
+      </div>
+      <div class="sku-list" id="skuList"></div>
+    </div>
+
+    <!-- Seat utilisation stacked bar -->
+    <div class="card">
+      <div class="section-title">
+        <span>Seat Utilisation</span>
+        <span class="section-meta">Active · Inactive · Unassigned</span>
+      </div>
+      <div class="chart-wrap" style="max-height:300px">
+        <canvas id="utilizationChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Department cost breakdown -->
+  <div class="card" id="deptCard" style="display:none">
+    <div class="section-title">
+      <span>Cost by Department</span>
+      <span class="section-meta" id="deptMeta"></span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="deptChart" style="max-height:340px"></canvas>
+    </div>
+  </div>
+
+  <!-- 12-Month projections -->
+  <div class="card" id="projCard" style="display:none">
+    <div class="section-title">
+      <span>12-Month Cost Projections</span>
+      <button class="btn btn-ghost" style="padding:5px 14px;font-size:12px" onclick="exportProjections()">Export CSV</button>
+    </div>
+
+    <div class="proj-controls">
+      <div class="field">
+        <label class="field-label">Monthly headcount growth (%)</label>
+        <input type="number" id="growthRate" value="2" min="0" max="50" step="0.5" oninput="updateProjections()"/>
+      </div>
+      <div class="field">
+        <label class="field-label">Reduction target (%)</label>
+        <input type="number" id="reductionRate" value="0" min="0" max="100" step="1" title="Optional: model planned seat reductions each month" oninput="updateProjections()"/>
+        <div class="field-hint">Optional planned monthly seat reduction</div>
+      </div>
+    </div>
+
+    <!-- Scenario legend -->
+    <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:1rem;font-size:12px" id="projLegend"></div>
+
+    <div class="chart-wrap">
+      <canvas id="projChart" style="max-height:320px"></canvas>
+    </div>
+
+    <!-- Projection breakdown table -->
+    <div class="proj-table-wrap" id="projTable"></div>
+  </div>
+
+  <!-- Inactive license holders -->
+  <div class="card" id="inactiveCard" style="display:none">
+    <div class="section-title">
+      <span>Inactive License Holders</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="inactiveCountBadge" style="display:inline-flex;align-items:center;gap:4px;background:var(--amber-light);color:var(--amber);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"></span>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px" onclick="exportInactive()">Export CSV</button>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">
+      Licensed users who have not signed in within the configured threshold — sorted by monthly cost impact.
+    </p>
+    <div id="inactiveTableWrap"></div>
+  </div>
+
+</div><!-- /shell -->
+</div><!-- /appScreen -->
+
+<script src="../../shared/auth.js"></script>
+<script>
+
+const TOOL_SCOPES    = ["User.Read.All","AuditLog.Read.All","Directory.Read.All","Group.Read.All"];
+const FINANCE_GROUP  = "SG-IT-Tools-Finance-View";
+
+// ── Cost data ──────────────────────────────────────────────────────────────────
+let _costData = { costs: {}, free_skus: [] };
+
+async function loadCosts() {
+  try {
+    const r  = await fetch("../../costs.json?v=" + Date.now());
+    _costData = await r.json();
+  } catch(_) { console.warn("costs.json not found — cost features disabled"); }
+}
+
+function getCost(sku) {
+  if (_costData.free_skus?.includes(sku)) return 0;
+  return _costData.costs?.[sku] ?? null;
+}
+
+function fmt(val, round = false) {
+  if (round) return "$" + Math.round(val).toLocaleString("en-US");
+  return "$" + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ── SKU friendly names ─────────────────────────────────────────────────────────
+const SKU_NAMES = {
+  "SPE_E3":"Microsoft 365 E3","SPE_E5":"Microsoft 365 E5","SPE_F1":"Microsoft 365 F3","SPE_F3":"Microsoft 365 F3",
+  "Microsoft_365_Copilot":"M365 Copilot","Microsoft_Copilot_for_Microsoft_365":"Copilot for M365",
+  "OFFICESUBSCRIPTION":"M365 Apps (Enterprise)","ENTERPRISEPACK":"Office 365 E3","ENTERPRISEPREMIUM":"Office 365 E5",
+  "STANDARDPACK":"Office 365 E1","EXCHANGESTANDARD":"Exchange Online P1","EXCHANGEENTERPRISE":"Exchange Online P2",
+  "EXCHANGEARCHIVE_ADDON":"Exchange Archiving","MSTEAMS_PREMIUM":"Teams Premium",
+  "Microsoft_Teams_Premium":"Teams Premium","MSTEAMS_PREMIUM_DEPT":"Teams Premium (Dept)",
+  "Teams_Premium_(for_Departments)":"Teams Premium (Dept)","MTR_PREM":"Teams Rooms Pro",
+  "Microsoft_Teams_Rooms_Pro":"Teams Rooms Pro","MCOPSTN1":"Teams Calling Plan",
+  "Teams_Phone_with_Calling_Plan":"Teams Phone + Calling","MCOPSTN_1_5":"Teams Phone + Calling",
+  "MCOSTANDARD":"Skype Online P2","POWER_BI_PRO":"Power BI Pro","POWER_BI_PRO_DEPT":"Power BI Pro",
+  "PBI_PREMIUM_PER_USER":"Power BI Premium/User","POWER_BI_PREMIUM_PER_USER":"Power BI Premium/User",
+  "PBI_PREMIUM_PER_USER_ADDON":"Power BI Premium Add-On","POWER_BI_PREMIUM_PER_USER_ADDON":"Power BI Premium Add-On",
+  "COPILOTSTUDIO":"Copilot Studio","VIRTUAL_AGENT_USL":"Copilot Studio",
+  "FLOW_PER_USER":"Power Automate Premium","POWERAUTOMATE_ATTENDED_RPA":"Power Automate RPA",
+  "VISIOCLIENT":"Visio Plan 2","VISIO_PLAN2_DEPT":"Visio Plan 2","VISIOONLINE_PLAN1":"Visio Plan 1",
+};
+function skuName(sku) { return SKU_NAMES[sku] || sku; }
+
+// ── Finance gate ───────────────────────────────────────────────────────────────
+async function checkFinanceAccess() {
+  try {
+    const enc = encodeURIComponent(`displayName eq '${FINANCE_GROUP}'`);
+    const res = await ITTools.graph.get(`https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`);
+    const groups = res.value || [];
+    if (!groups.length) return false;
+    const groupId = groups[0].id;
+    const memberships = await ITTools.graph.getAll(`https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`);
+    return memberships.some(m => m.id === groupId);
+  } catch(_) { return false; }
+}
+
+// ── Graph retry ────────────────────────────────────────────────────────────────
+async function gwr(fn, max = 5) {
+  let attempt = 0;
+  while (true) {
+    try { return await fn(); }
+    catch(e) {
+      attempt++;
+      const rate = e.message && (e.message.includes("429") || e.message.includes("503"));
+      if (!rate || attempt > max) throw e;
+      const wait = Math.min(60, Math.pow(2, attempt));
+      setPhase(`Rate limited — retrying in ${wait}s…`);
+      await new Promise(r => setTimeout(r, wait * 1000));
+    }
+  }
+}
+
+// ── Chart state ────────────────────────────────────────────────────────────────
+let _charts = {};
+let _data   = null;  // processed dashboard data
+
+function destroyCharts() {
+  Object.values(_charts).forEach(c => c?.destroy());
+  _charts = {};
+}
+
+// ── Theme-aware chart defaults ─────────────────────────────────────────────────
+function cd() {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  return {
+    text:   dark ? "#94a3b8" : "#6b7280",
+    grid:   dark ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.06)",
+    bg:     dark ? "#1a1d27" : "#ffffff",
+    border: dark ? "#2d3148" : "#dde3ec",
+  };
+}
+
+// Fixed palette that works in both themes
+const PALETTE = [
+  "#1a56db","#047857","#92400e","#5b21b6","#0e7490",
+  "#991b1b","#065f46","#1e40af","#78350f","#4c1d95",
+  "#0c4a6e","#7f1d1d","#064e3b","#1e3a5f","#451a03",
+];
+
+// ── Phase helper ───────────────────────────────────────────────────────────────
+function setPhase(msg) {
+  const line = document.getElementById("phaseLine");
+  const btn  = document.getElementById("loadBtn");
+  if (msg) {
+    line.classList.add("show");
+    document.getElementById("phaseText").textContent = msg;
+    btn.disabled = true; btn.textContent = "Loading…";
+  } else {
+    line.classList.remove("show");
+    btn.disabled = false; btn.textContent = "Load Dashboard";
+  }
+}
+
+// ── Main data loader ───────────────────────────────────────────────────────────
+async function loadDashboard() {
+  document.getElementById("errBanner").style.display    = "none";
+  document.getElementById("calloutArea").innerHTML      = "";
+  document.getElementById("statsRow").style.display     = "none";
+  document.getElementById("row1").style.display         = "none";
+  document.getElementById("deptCard").style.display     = "none";
+  document.getElementById("projCard").style.display     = "none";
+  document.getElementById("inactiveCard").style.display = "none";
+  destroyCharts();
+
+  const days   = parseInt(document.getElementById("daysSelect").value);
+  const cutoff = new Date(Date.now() - days * 86400000);
+
+  try {
+    // 1 — SKU subscriptions
+    setPhase("Fetching license subscriptions…");
+    const allSkus  = await gwr(() => ITTools.graph.getAll("/subscribedSkus"));
+    const paidSkus = allSkus.filter(s => {
+      const c = getCost(s.skuPartNumber);
+      return c !== null && c > 0;
+    });
+
+    // Build a quick skuId → partNumber map
+    const skuIdMap = {};
+    allSkus.forEach(s => { skuIdMap[s.skuId] = s.skuPartNumber; });
+
+    // 2 — Licensed users with sign-in activity
+    setPhase("Fetching licensed users and sign-in data…");
+    const fields = "id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,signInActivity";
+    let users;
+    try {
+      users = await gwr(() => ITTools.graph.getAll(
+        `https://graph.microsoft.com/v1.0/users?$select=${fields}&$filter=assignedLicenses/$count ne 0&$count=true&$top=999`
+      ));
+    } catch(_) {
+      setPhase("Fallback: fetching all users…");
+      const all = await gwr(() => ITTools.graph.getAll(
+        `https://graph.microsoft.com/v1.0/users?$select=${fields}&$top=999`
+      ));
+      users = all.filter(u => (u.assignedLicenses||[]).length > 0);
+    }
+
+    setPhase(`Analysing ${users.length.toLocaleString()} licensed users…`);
+
+    // 3 — Process users
+    const processedUsers = users.map(u => {
+      const si   = u.signInActivity || {};
+      const d1   = si.lastSignInDateTime              ? new Date(si.lastSignInDateTime)              : null;
+      const d2   = si.lastNonInteractiveSignInDateTime ? new Date(si.lastNonInteractiveSignInDateTime) : null;
+      const last = d1 && d2 ? (d1 > d2 ? d1 : d2) : (d1 || d2 || null);
+      const daysSince  = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
+      const inactive   = !last || last < cutoff;
+
+      const licenses = (u.assignedLicenses||[]).map(l => {
+        const sku  = skuIdMap[l.skuId] || "";
+        const cost = getCost(sku);
+        return { skuId: l.skuId, sku, cost: cost || 0 };
+      });
+      const totalCost = licenses.reduce((s, l) => s + l.cost, 0);
+
+      return {
+        id: u.id,
+        displayName:  u.displayName || "",
+        upn:          u.userPrincipalName || "",
+        department:   u.department || "Unknown",
+        jobTitle:     u.jobTitle || "",
+        accountEnabled: u.accountEnabled !== false,
+        lastSignIn:   last,
+        daysSince,
+        inactive,
+        licenses,
+        totalCost,
+      };
+    });
+
+    // 4 — SKU-level stats
+    const skuStats = {};
+    paidSkus.forEach(s => {
+      const cost     = getCost(s.skuPartNumber) || 0;
+      const total    = s.prepaidUnits?.enabled || 0;
+      const assigned = s.consumedUnits || 0;
+      skuStats[s.skuPartNumber] = {
+        sku:           s.skuPartNumber,
+        name:          skuName(s.skuPartNumber),
+        total,
+        assigned,
+        unassigned:    Math.max(0, total - assigned),
+        unitCost:      cost,
+        assignedCost:  assigned * cost,
+        totalPaidCost: total * cost,
+        wasteCost:     Math.max(0, total - assigned) * cost,
+        inactiveCount: 0,
+        inactiveCost:  0,
+      };
+    });
+
+    // Overlay inactive counts per SKU
+    processedUsers.filter(u => u.inactive).forEach(u => {
+      u.licenses.forEach(l => {
+        if (skuStats[l.sku] && l.cost > 0) {
+          skuStats[l.sku].inactiveCount++;
+          skuStats[l.sku].inactiveCost += l.cost;
+        }
+      });
+    });
+
+    const skuList = Object.values(skuStats)
+      .filter(s => s.assignedCost > 0)
+      .sort((a, b) => b.assignedCost - a.assignedCost);
+
+    // 5 — Department breakdown
+    const deptMap = {};
+    processedUsers.forEach(u => {
+      const d = u.department;
+      if (!deptMap[d]) deptMap[d] = { active: 0, inactive: 0, count: 0 };
+      deptMap[d].active += u.inactive ? 0 : u.totalCost;
+      deptMap[d].inactive += u.inactive ? u.totalCost : 0;
+      deptMap[d].count++;
+    });
+
+    // 6 — Populate dept filter dropdown
+    const deptSelect = document.getElementById("deptFilterSel");
+    const depts = Object.keys(deptMap).sort();
+    const prev  = deptSelect.value;
+    deptSelect.innerHTML = `<option value="">All departments</option>` +
+      depts.map(d => `<option value="${d}">${d} (${deptMap[d].count})</option>`).join("");
+    if (prev && depts.includes(prev)) deptSelect.value = prev;
+
+    // Store globally for re-renders
+    _data = { skuList, processedUsers, deptMap, skuStats, days };
+
+    renderAll();
+    setPhase(null);
+
+  } catch(e) {
+    document.getElementById("errBanner").textContent   = e.message;
+    document.getElementById("errBanner").style.display = "block";
+    setPhase(null);
+  }
+}
+
+// ── Render everything from _data ───────────────────────────────────────────────
+function renderAll() {
+  if (!_data) return;
+  const { skuList, processedUsers, deptMap, days } = _data;
+  const deptFilter = document.getElementById("deptFilterSel").value;
+
+  const filtered    = deptFilter ? processedUsers.filter(u => u.department === deptFilter) : processedUsers;
+  const inactiveU   = filtered.filter(u => u.inactive && u.totalCost > 0);
+
+  const monthly     = skuList.reduce((s, k) => s + k.assignedCost,  0);
+  const waste       = skuList.reduce((s, k) => s + k.wasteCost,     0);
+  const inactiveCost= inactiveU.reduce((s, u) => s + u.totalCost,    0);
+  const saveable    = waste + inactiveCost;
+
+  renderStats(monthly, waste, inactiveCost, skuList.length, inactiveU.length, days);
+  renderCallout(monthly, waste, inactiveCost, inactiveU.length, days);
+  renderDonut(skuList);
+  renderUtilisation(skuList);
+  renderDeptChart(deptMap, deptFilter);
+  renderProjections(monthly, inactiveCost, waste);
+  renderInactiveTable(inactiveU, days);
+
+  // Show all sections
+  document.getElementById("statsRow").style.display    = "flex";
+  document.getElementById("row1").style.display        = "grid";
+  document.getElementById("deptCard").style.display    = "block";
+  document.getElementById("projCard").style.display    = "block";
+  document.getElementById("inactiveCard").style.display= "block";
+}
+
+// Department filter change handler
+function onDeptFilter() { if (_data) { destroyCharts(); renderAll(); } }
+
+// ── Stats row ──────────────────────────────────────────────────────────────────
+function renderStats(monthly, waste, inactive, skuCount, inactiveCount, days) {
+  const annual   = monthly * 12;
+  const saveable = waste + inactive;
+  document.getElementById("statsRow").innerHTML =
+    sc("amber",  "Monthly Spend",        fmt(monthly,  true), `across ${skuCount} paid SKUs`) +
+    sc("blue",   "Annual Projection",    fmt(annual,   true), "at current spend rate") +
+    sc("red",    "Unassigned Seat Waste",fmt(waste,    true) + "/mo", "seats paid for, not assigned") +
+    sc("amber",  `Inactive Cost (>${days}d)`, fmt(inactive, true) + "/mo", `${inactiveCount} users`) +
+    sc("green",  "Total Recoverable",    fmt(saveable, true) + "/mo", fmt(saveable * 12, true) + "/yr potential");
+}
+function sc(c,l,v,s) {
+  return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value stat-value-md">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
+}
+
+// ── Callout ────────────────────────────────────────────────────────────────────
+function renderCallout(monthly, waste, inactive, inactiveCount, days) {
+  const area    = document.getElementById("calloutArea");
+  const saveable = waste + inactive;
+  if (saveable < 1) { area.innerHTML = ""; return; }
+  const annSavings = saveable * 12;
+  area.innerHTML = `
+    <div class="callout savings">
+      <div class="callout-icon">💡</div>
+      <div>
+        <div class="callout-title">${fmt(saveable, true)}/month in recoverable spend identified</div>
+        <div class="callout-body">
+          ${fmt(waste, true)}/mo from unassigned seats already being billed —
+          ${fmt(inactive, true)}/mo from ${inactiveCount} license holder${inactiveCount!==1?"s":""} inactive &gt;${days} days.
+          Addressing both would save approximately <strong>${fmt(annSavings, true)}/year</strong>.
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Donut chart ────────────────────────────────────────────────────────────────
+function renderDonut(skuList) {
+  const top    = skuList.slice(0, 9);
+  const rest   = skuList.slice(9);
+  const labels = [...top.map(s => s.name)];
+  const values = [...top.map(s => s.assignedCost)];
+  const colors = top.map((_, i) => PALETTE[i % PALETTE.length]);
+
+  if (rest.length > 0) {
+    labels.push("Other");
+    values.push(rest.reduce((s, k) => s + k.assignedCost, 0));
+    colors.push("#64748b");
+  }
+
+  const total = values.reduce((s, v) => s + v, 0);
+
+  if (_charts.donut) { _charts.donut.destroy(); }
+  const ctx = document.getElementById("donutChart").getContext("2d");
+  _charts.donut = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: cd().bg,
+        hoverBorderWidth: 3,
+      }]
+    },
+    options: {
+      cutout: "66%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}/mo (${Math.round(ctx.raw/total*100)}%)`
+          }
+        }
+      }
+    }
+  });
+
+  document.getElementById("donutMeta").textContent = fmt(total) + "/mo";
+
+  document.getElementById("skuList").innerHTML = [...top, ...(rest.length > 0 ? [{name:"Other", assignedCost: rest.reduce((s,k)=>s+k.assignedCost,0), assigned: rest.reduce((s,k)=>s+k.assigned,0)}] : [])]
+    .map((s, i) => `
+      <div class="sku-row">
+        <div class="sku-dot" style="background:${colors[i]}"></div>
+        <span class="sku-name" title="${s.name}">${s.name}</span>
+        <span class="sku-cost">${fmt(s.assignedCost)}</span>
+        <span class="sku-seats">${(s.assigned||0).toLocaleString()} seats</span>
+      </div>`).join("");
+}
+
+// ── Utilisation chart ──────────────────────────────────────────────────────────
+function renderUtilisation(skuList) {
+  const top = skuList.slice(0, 10);
+  const { text, grid } = cd();
+
+  if (_charts.util) { _charts.util.destroy(); }
+  const ctx = document.getElementById("utilizationChart").getContext("2d");
+  _charts.util = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: top.map(s => s.name),
+      datasets: [
+        { label: "Active",     data: top.map(s => Math.max(0, s.assigned - s.inactiveCount)), backgroundColor: "#047857bb", stack: "s" },
+        { label: "Inactive",   data: top.map(s => s.inactiveCount),                           backgroundColor: "#92400ebb", stack: "s" },
+        { label: "Unassigned", data: top.map(s => s.unassigned),                               backgroundColor: "#991b1bbb", stack: "s" },
+      ]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: text, font: { size: 11 }, boxWidth: 11, padding: 14 }
+        },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} seats` }
+        }
+      },
+      scales: {
+        x: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 } } },
+        y: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 }, maxRotation: 0 } }
+      }
+    }
+  });
+}
+
+// ── Department chart ───────────────────────────────────────────────────────────
+function renderDeptChart(deptMap, filter) {
+  const sorted = Object.entries(deptMap)
+    .filter(([d]) => !filter || d === filter)
+    .sort(([,a],[,b]) => (b.active + b.inactive) - (a.active + a.inactive))
+    .slice(0, 18);
+
+  const { text, grid } = cd();
+  if (_charts.dept) { _charts.dept.destroy(); }
+  const ctx = document.getElementById("deptChart").getContext("2d");
+  _charts.dept = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: sorted.map(([d]) => d),
+      datasets: [
+        { label: "Active spend",   data: sorted.map(([,v]) => +v.active.toFixed(2)),   backgroundColor: "#1a56dbbb", stack: "s" },
+        { label: "Inactive spend", data: sorted.map(([,v]) => +v.inactive.toFixed(2)), backgroundColor: "#92400ebb", stack: "s" },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom", labels: { color: text, font: { size: 11 }, boxWidth: 11, padding: 14 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}/mo` } }
+      },
+      scales: {
+        x: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 } } },
+        y: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 }, callback: v => "$" + Math.round(v).toLocaleString() } }
+      }
+    }
+  });
+
+  const totalDepts = Object.keys(deptMap).length;
+  document.getElementById("deptMeta").textContent =
+    filter ? `Filtered: ${filter}` : `${totalDepts} department${totalDepts!==1?"s":""} · top 18 shown`;
+  document.getElementById("deptCard").style.display = "block";
+}
+
+// ── Projection state ───────────────────────────────────────────────────────────
+let _projBase = {};
+
+function renderProjections(monthly, inactiveCost, wasteCost) {
+  _projBase = { monthly, inactiveCost, wasteCost };
+  updateProjections();
+}
+
+function updateProjections() {
+  const { monthly, inactiveCost, wasteCost } = _projBase;
+  if (!monthly) return;
+
+  const growthR    = Math.max(0, parseFloat(document.getElementById("growthRate").value    || 2))    / 100;
+  const reductionR = Math.max(0, parseFloat(document.getElementById("reductionRate").value || 0))    / 100;
+  const cleanBase  = Math.max(0, monthly - inactiveCost - wasteCost);
+
+  const now    = new Date();
+  const labels = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+  });
+
+  // Scenario 1 — Flat: current spend held constant
+  const flat = labels.map(() => +monthly.toFixed(2));
+
+  // Scenario 2 — Savings only: inactive + waste removed, no growth
+  const savings = labels.map(() => +cleanBase.toFixed(2));
+
+  // Scenario 3 — Growth: current spend × (1 + growth)^n
+  const growth = labels.map((_, i) => +(monthly * Math.pow(1 + growthR, i)).toFixed(2));
+
+  // Scenario 4 — Optimised growth: clean base × growth, with optional reduction trend
+  const optGrowth = labels.map((_, i) => {
+    const base  = cleanBase * Math.pow(1 + growthR, i);
+    const reduc = reductionR > 0 ? base * Math.pow(1 - reductionR, i) : base;
+    return +reduc.toFixed(2);
+  });
+
+  // Update legend
+  document.getElementById("projLegend").innerHTML = [
+    { label: "Flat (status quo)",                    color: "#1a56db", dash: false },
+    { label: "Savings (waste + inactive removed)",   color: "#047857", dash: true  },
+    { label: `Growth (${(growthR*100).toFixed(1)}%/mo)`, color: "#92400e", dash: false },
+    { label: "Optimised growth",                     color: "#0e7490", dash: true  },
+  ].map(l => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+      <div style="width:22px;height:3px;border-radius:2px;background:${l.color};${l.dash?"border-top:2px dashed "+l.color+";background:transparent":""};flex-shrink:0"></div>
+      ${l.label}
+    </div>`).join("");
+
+  const { text, grid } = cd();
+  if (_charts.proj) { _charts.proj.destroy(); }
+  const ctx = document.getElementById("projChart").getContext("2d");
+  _charts.proj = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Flat",              data: flat,      borderColor: "#1a56db", backgroundColor: "transparent", borderWidth: 2.5, tension: .2, pointRadius: 3 },
+        { label: "Savings",           data: savings,   borderColor: "#047857", backgroundColor: "transparent", borderWidth: 2.5, borderDash: [6,3], tension: .2, pointRadius: 3 },
+        { label: "Growth",            data: growth,    borderColor: "#92400e", backgroundColor: "transparent", borderWidth: 2.5, tension: .2, pointRadius: 3 },
+        { label: "Optimised Growth",  data: optGrowth, borderColor: "#0e7490", backgroundColor: "transparent", borderWidth: 2.5, borderDash: [6,3], tension: .2, pointRadius: 3 },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } }
+      },
+      scales: {
+        x: { grid: { color: grid }, ticks: { color: text, font: { size: 11 } } },
+        y: {
+          grid: { color: grid },
+          ticks: { color: text, font: { size: 11 }, callback: v => "$" + Math.round(v).toLocaleString() }
+        }
+      }
+    }
+  });
+
+  // Projection table
+  const tblBody = labels.map((m, i) => `
+    <tr>
+      <td style="font-weight:600">${m}</td>
+      <td style="color:#1a56db">${fmt(flat[i])}</td>
+      <td style="color:#047857">${fmt(savings[i])}</td>
+      <td style="color:#92400e">${fmt(growth[i])}</td>
+      <td style="color:#0e7490">${fmt(optGrowth[i])}</td>
+      <td style="color:var(--green);font-weight:600">${fmt(growth[i] - optGrowth[i])}</td>
+    </tr>`).join("");
+
+  document.getElementById("projTable").innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Month</th>
+        <th style="color:#1a56db">Flat</th>
+        <th style="color:#047857">Savings</th>
+        <th style="color:#92400e">Growth</th>
+        <th style="color:#0e7490">Optimised Growth</th>
+        <th style="color:var(--green)">Monthly Saving vs Growth</th>
+      </tr></thead>
+      <tbody>${tblBody}</tbody>
+    </table>`;
+}
+
+function exportProjections() {
+  const { monthly, inactiveCost, wasteCost } = _projBase;
+  if (!monthly) return;
+  const growthR   = Math.max(0, parseFloat(document.getElementById("growthRate").value    || 2))    / 100;
+  const reductR   = Math.max(0, parseFloat(document.getElementById("reductionRate").value || 0))    / 100;
+  const cleanBase = Math.max(0, monthly - inactiveCost - wasteCost);
+  const now = new Date();
+
+  const rows = Array.from({ length: 12 }, (_, i) => {
+    const d     = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const month = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const grow  = monthly * Math.pow(1 + growthR, i);
+    const opt   = reductR > 0 ? cleanBase * Math.pow(1 + growthR, i) * Math.pow(1 - reductR, i) : cleanBase * Math.pow(1 + growthR, i);
+    return {
+      "Month":            month,
+      "Flat":             fmt(monthly),
+      "Savings Scenario": fmt(cleanBase),
+      "Growth Scenario":  fmt(grow),
+      "Optimised Growth": fmt(opt),
+      "Saving vs Growth": fmt(grow - opt),
+    };
+  });
+  ITTools.csv.download("M365_Projections_" + new Date().toISOString().slice(0,10) + ".csv", rows);
+}
+
+// ── Inactive license holders table ────────────────────────────────────────────
+function renderInactiveTable(users, days) {
+  document.getElementById("inactiveCountBadge").textContent =
+    `${users.length} user${users.length!==1?"s":""}`;
+
+  if (!users.length) {
+    document.getElementById("inactiveTableWrap").innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">No inactive license holders found</div>
+        <p class="empty-sub">All licensed users signed in within ${days} days.</p>
+      </div>`;
+    return;
+  }
+
+  const sorted = [...users].sort((a, b) => b.totalCost - a.totalCost).slice(0, 100);
+  const rows   = sorted.map(u => {
+    const init = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+    const lastSeen = u.lastSignIn
+      ? new Date(u.lastSignIn).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })
+      : "Never";
+
+    let ageCls, ageLabel;
+    if (!u.daysSince)             { ageCls = "age-never";    ageLabel = "Never"; }
+    else if (u.daysSince > 180)   { ageCls = "age-critical"; ageLabel = u.daysSince+"d"; }
+    else                          { ageCls = "age-warning";  ageLabel = u.daysSince+"d"; }
+
+    const licPills = u.licenses.filter(l => l.cost > 0).map(l =>
+      `<span style="display:inline-block;background:var(--blue-light);color:var(--blue-dark);border-radius:4px;padding:2px 6px;font-size:10px;margin:1px;white-space:nowrap">${skuName(l.sku)}</span>`
+    ).join("");
+
+    const acctBadge = !u.accountEnabled
+      ? `<span class="status-pill pill-disabled" style="font-size:10px">Disabled</span>`
+      : "";
+
+    return `<tr>
+      <td>
+        <div class="user-cell">
+          <div class="avatar stale">${init}</div>
+          <div>
+            <div class="user-name">${u.displayName||"Unknown"} ${acctBadge}</div>
+            <div class="user-upn">${u.upn}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:12px;color:var(--muted)">${u.department}</td>
+      <td style="font-size:12px;color:var(--red)">${lastSeen}</td>
+      <td><span class="${ageCls}" style="border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">${ageLabel}</span></td>
+      <td>${licPills}</td>
+      <td class="cost-cell">${fmt(u.totalCost)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span></td>
+      <td style="font-size:12px;color:var(--muted)">${fmt(u.totalCost * 12)}/yr</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("inactiveTableWrap").innerHTML = `
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <span class="tbl-title" style="font-size:13px">
+          Sorted by cost impact
+          ${users.length > 100 ? `<span class="status-pill pill-skipped" style="margin-left:6px">Showing 100 of ${users.length}</span>` : ""}
+        </span>
+        <div class="tbl-actions">
+          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px"
+            oninput="filterInactive(this.value)"/>
+        </div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>User</th><th>Department</th><th>Last Sign-In</th><th>Inactive</th><th>Licenses</th><th>Monthly Cost</th><th>Annual Cost</th>
+        </tr></thead>
+        <tbody id="inactiveBody">${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function filterInactive(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("#inactiveBody tr").forEach(tr => {
+    const txt = tr.textContent.toLowerCase();
+    tr.style.display = txt.includes(q) ? "" : "none";
+  });
+}
+
+function exportInactive() {
+  if (!_data) return;
+  const days  = parseInt(document.getElementById("daysSelect").value);
+  const users = _data.processedUsers.filter(u => u.inactive && u.totalCost > 0);
+  ITTools.csv.download(
+    `M365_Inactive_License_Holders_${new Date().toISOString().slice(0,10)}.csv`,
+    users.map(u => ({
+      "Display Name":  u.displayName,
+      "UPN":           u.upn,
+      "Department":    u.department,
+      "Job Title":     u.jobTitle,
+      "Account":       u.accountEnabled ? "Enabled" : "Disabled",
+      "Last Sign-In":  u.lastSignIn ? new Date(u.lastSignIn).toISOString().slice(0,10) : "Never",
+      "Days Inactive": u.daysSince ?? "Never",
+      "Monthly Cost":  fmt(u.totalCost),
+      "Annual Cost":   fmt(u.totalCost * 12),
+      "Licenses":      u.licenses.filter(l=>l.cost>0).map(l => skuName(l.sku)).join("; "),
+    }))
+  );
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "Finance Dashboard", hubRelPath: "../../" });
+  ITTools.ui.syncThemeIcon();
+  await loadCosts();
+
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: async acct => {
+      const ok = await checkFinanceAccess();
+      if (!ok) {
+        document.getElementById("authScreen").style.display          = "none";
+        document.getElementById("accessDeniedScreen").style.display  = "flex";
+        return;
+      }
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display           = "none";
+      document.getElementById("accessDeniedScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display          = "flex";
+      ITTools.ui.clearUser();
+      destroyCharts();
+      _data = null;
+    }
+  });
+}
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    const ok   = await checkFinanceAccess();
+    if (!ok) {
+      document.getElementById("authScreen").style.display         = "none";
+      document.getElementById("accessDeniedScreen").style.display = "flex";
+      return;
+    }
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent = e.message; el.style.display = "block";
+  }
+}
+
+function toggleUri() {
+  const b = document.getElementById("uriBox");
+  b.textContent   = ITTools.auth.redirectUri();
+  b.style.display = b.style.display === "none" ? "block" : "none";
+}
+
+// Re-render charts on theme toggle so colors update
+const _origToggle = ITTools.theme.toggle.bind(ITTools.theme);
+ITTools.theme.toggle = function() {
+  const t = _origToggle();
+  ITTools.ui.syncThemeIcon();
+  if (_data) { destroyCharts(); renderAll(); }
+  return t;
+};
+
+init();
+</script>
+</body>
+</html>
