@@ -86,16 +86,18 @@
   .risk-medium { background:var(--amber-light);  color:var(--amber); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
   .risk-low    { background:var(--green-light);  color:var(--green); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
 
-  /* ── Account status badge ── */
+  /* ── Account status badges ── */
   .acct-disabled { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
   .acct-enabled  { background:var(--green-light); color:var(--green); border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
 
   .user-cell  { display:flex; align-items:center; gap:10px; }
   .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
-  .avatar.high   { background:var(--red-light);   color:var(--red); }
-  .avatar.medium { background:var(--amber-light); color:var(--amber); }
-  .avatar.low    { background:var(--green-light); color:var(--green); }
-  .avatar.disabled-acc { background:var(--surface3); color:var(--muted); }
+  .avatar.high         { background:var(--red-light);   color:var(--red); }
+  .avatar.medium       { background:var(--amber-light); color:var(--amber); }
+  .avatar.low          { background:var(--green-light); color:var(--green); }
+  .avatar.disabled-acc { background:var(--surface3);    color:var(--muted); }
+  .user-name { font-size:13px; font-weight:600; }
+  .user-upn  { font-size:11px; color:var(--muted); }
 
   /* ── Progress ── */
   .scan-progress { margin: 1rem 0; }
@@ -149,7 +151,7 @@
             <option value="disabled">Disabled accounts</option>
           </select>
         </div>
-        <div class="field" style="flex:1 1 200px;margin-bottom:0" id="deptField">
+        <div class="field" style="flex:1 1 200px;margin-bottom:0">
           <label class="field-label">Department filter</label>
           <input type="text" id="deptFilter" placeholder="Leave blank for all departments"/>
         </div>
@@ -158,7 +160,7 @@
       </div>
       <div class="disabled-notice" id="disabledNotice">
         ⚠ <strong>Disabled accounts mode.</strong> Showing all disabled user accounts regardless of license assignment.
-        These accounts may still hold licences and represent a cleanup and cost-recovery opportunity.
+        These accounts may still hold licenses and represent a cleanup and cost-recovery opportunity.
         Consider reviewing with your team before deletion.
       </div>
       <div class="scan-warning" id="scopeWarning"></div>
@@ -389,13 +391,13 @@ function cancelScan() {
 
 // ── Scan ──────────────────────────────────────────────────────────────────────
 async function startScan() {
-  document.getElementById("errBanner").style.display   = "none";
-  document.getElementById("infoBanner").style.display  = "none";
-  document.getElementById("scopeWarning").style.display= "none";
-  document.getElementById("statsRow").style.display    = "none";
-  document.getElementById("riskCard").style.display    = "none";
-  document.getElementById("filterCard").style.display  = "none";
-  document.getElementById("tableSection").innerHTML    = "";
+  document.getElementById("errBanner").style.display    = "none";
+  document.getElementById("infoBanner").style.display   = "none";
+  document.getElementById("scopeWarning").style.display = "none";
+  document.getElementById("statsRow").style.display     = "none";
+  document.getElementById("riskCard").style.display     = "none";
+  document.getElementById("filterCard").style.display   = "none";
+  document.getElementById("tableSection").innerHTML     = "";
   allUsers = []; flaggedMethods = new Set();
   _cancelled = false; _scanStartTime = Date.now();
 
@@ -410,7 +412,6 @@ async function startScan() {
 
     if (isDisabled) {
       // ── Disabled accounts scope ──────────────────────────────────────────────
-      // Fetch all disabled users; department filter still applies if set
       setPhase("Fetching disabled accounts…");
       let disabledUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$filter=accountEnabled eq false&$top=999&$count=true";
       if (dept) {
@@ -472,12 +473,14 @@ async function startScan() {
         let fallbackUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,userType&$top=999";
         users = await graphWithRetry(() => ITTools.graph.getAll(fallbackUrl));
         users = users.filter(u => u.accountEnabled !== false && u.userType !== "Guest");
-        if (dept)               users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
+        if (dept)                users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
         if (scope === "licensed") users = users.filter(u => u.assignedLicenses?.length > 0);
       }
+    }
 
-      // Apply department filter for non-admin scopes
-      if (dept) users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
+    // Apply department filter for non-disabled, non-admin scopes
+    if (!isDisabled && scope !== "admins" && dept) {
+      users = users.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
     }
 
     if (!users.length) {
@@ -556,21 +559,18 @@ async function startScan() {
 
     // 3. Process results
     allUsers = results.map(({ user: u, methods, error }) => {
-      const realMethods = methods.filter(m => m["@odata.type"] !== PASSWORD_ONLY_TYPE);
-      const hasPassword = methods.some(m => m["@odata.type"] === PASSWORD_ONLY_TYPE);
-      const methodTypes = realMethods.map(m => m["@odata.type"]);
-
-      const hasStrong = methodTypes.some(t => MFA_METHODS[t]?.strength === "strong");
-      const hasWeak   = methodTypes.some(t => MFA_METHODS[t]?.strength === "weak");
-      const hasNone   = methodTypes.length === 0;
+      const realMethods    = methods.filter(m => m["@odata.type"] !== PASSWORD_ONLY_TYPE);
+      const methodTypes    = realMethods.map(m => m["@odata.type"]);
+      const hasStrong      = methodTypes.some(t => MFA_METHODS[t]?.strength === "strong");
+      const hasWeak        = methodTypes.some(t => MFA_METHODS[t]?.strength === "weak");
+      const hasNone        = methodTypes.length === 0;
+      const accountEnabled = u.accountEnabled !== false;
+      const hasLicense     = (u.assignedLicenses || []).length > 0;
 
       let riskLevel;
       if (hasNone)         riskLevel = 2;
       else if (!hasStrong) riskLevel = 1;
       else                 riskLevel = 0;
-
-      const hasLicense    = (u.assignedLicenses || []).length > 0;
-      const accountEnabled = u.accountEnabled !== false;
 
       return {
         id:             u.id,
@@ -611,14 +611,15 @@ function renderStats(users, isDisabled) {
   const errors   = users.filter(u => u.error).length;
   const coverage = total > 0 ? Math.round((strong / total) * 100) : 0;
 
-  let html = sc("blue", isDisabled ? "Disabled accounts" : "Users scanned", total, null) +
-             sc("green", "Strong MFA",  strong, coverage + "% coverage") +
-             sc("amber", "Weak method", weak,   "needs improvement") +
-             sc("red",   "No MFA",      none,   "highest risk");
+  let html =
+    sc("blue",  isDisabled ? "Disabled accounts" : "Users scanned", total, null) +
+    sc("green", "Strong MFA",  strong, coverage + "% coverage") +
+    sc("amber", "Weak method", weak,   "needs improvement") +
+    sc("red",   "No MFA",      none,   "highest risk");
 
   if (isDisabled) {
     const licensed = users.filter(u => u.hasLicense).length;
-    if (licensed > 0) html += sc("amber", "Have licences", licensed, "cost recovery opportunity");
+    if (licensed > 0) html += sc("amber", "Have licenses", licensed, "cost recovery opportunity");
   }
 
   if (errors > 0) html += sc("gray", "Scan errors", errors, "could not retrieve");
@@ -628,8 +629,8 @@ function renderStats(users, isDisabled) {
   row.style.display = "flex";
 }
 
-function sc(c,l,v,s) {
-  return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
+function sc(c, l, v, s) {
+  return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div>${s ? `<div class="stat-sub">${s}</div>` : ""}</div>`;
 }
 
 // ── Risk bar ──────────────────────────────────────────────────────────────────
@@ -654,7 +655,7 @@ function renderMethodFilter(users) {
 
   const grid = document.getElementById("methodGrid");
   grid.innerHTML = [...seen].map(type => {
-    const info = getMethodInfo(type);
+    const info       = getMethodInfo(type);
     const isPassword = type === PASSWORD_ONLY_TYPE;
     return `
       <label class="method-check" id="mc-${btoa(type).replace(/=/g,'')}" onclick="toggleMethod('${type}', this)">
@@ -720,7 +721,7 @@ function updateFilterNote() {
     note.textContent = "No methods flagged — showing all users";
   } else {
     const flagged = allUsers.filter(u => isUserFlagged(u)).length;
-    note.textContent = `${flagged} user${flagged!==1?"s":""} flagged with selected method${flaggedMethods.size!==1?"s":""}`;
+    note.textContent = `${flagged} user${flagged !== 1 ? "s" : ""} flagged with selected method${flaggedMethods.size !== 1 ? "s" : ""}`;
   }
 }
 
@@ -742,8 +743,7 @@ function applyMethodFilter() {
       tr.style.outline = "";
       return;
     }
-    const flagged = isUserFlagged(user);
-    tr.style.display = flagged ? "" : "none";
+    tr.style.display = isUserFlagged(user) ? "" : "none";
   });
   const q = document.querySelector('input[type="search"]')?.value?.toLowerCase() || "";
   if (q) filterTbl(q);
@@ -761,9 +761,6 @@ function renderTable(users, isDisabled) {
   }
 
   const sorted = sortUsers(users);
-
-  // Extra column header for disabled mode
-  const acctHeader = isDisabled ? th("Licences", "hasLicense") : "";
 
   sec.innerHTML = `
     <div class="tbl-wrap">
@@ -783,7 +780,7 @@ function renderTable(users, isDisabled) {
           ${th("Department","department")}
           ${th("Risk","riskLevel")}
           ${th("Registered methods","methodTypes")}
-          ${isDisabled ? th("Licences","hasLicense") : ""}
+          ${isDisabled ? th("Licenses","hasLicense") : ""}
           ${th("Job title","jobTitle")}
         </tr></thead>
         <tbody id="mfaBody">${sorted.map(u => userRow(u, isDisabled)).join("")}</tbody>
@@ -792,19 +789,19 @@ function renderTable(users, isDisabled) {
 }
 
 function th(label, col) {
-  const active = sortCol===col ? " style='background:var(--surface3)'" : "";
-  const arrow  = sortCol===col ? (sortDir===-1 ? " ↓" : " ↑") : " ↕";
+  const active = sortCol === col ? " style='background:var(--surface3)'" : "";
+  const arrow  = sortCol === col ? (sortDir === -1 ? " ↓" : " ↑") : " ↕";
   return `<th onclick="sortBy('${col}')"${active}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
 }
 
 function userRow(u, isDisabled) {
-  const init2  = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
-  const rClass = isDisabled ? "disabled-acc" : (u.riskLevel===2?"high":u.riskLevel===1?"medium":"low");
+  const init2  = (u.displayName || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  const rClass = isDisabled ? "disabled-acc" : (u.riskLevel === 2 ? "high" : u.riskLevel === 1 ? "medium" : "low");
 
   let riskBadge, riskLabel;
-  if      (u.riskLevel===2) { riskBadge="risk-high";   riskLabel="No MFA"; }
-  else if (u.riskLevel===1) { riskBadge="risk-medium";  riskLabel="Weak"; }
-  else                      { riskBadge="risk-low";    riskLabel="Strong"; }
+  if      (u.riskLevel === 2) { riskBadge = "risk-high";   riskLabel = "No MFA"; }
+  else if (u.riskLevel === 1) { riskBadge = "risk-medium"; riskLabel = "Weak"; }
+  else                        { riskBadge = "risk-low";    riskLabel = "Strong"; }
 
   let methodPills;
   if (u.hasNone) {
@@ -817,46 +814,47 @@ function userRow(u, isDisabled) {
     }).join("");
   }
 
-  // Licence cell — only shown in disabled mode
-  const licenceCell = isDisabled
+  // Licenses column — only rendered in disabled accounts mode
+  const licenseCell = isDisabled
     ? `<td>${u.hasLicense
-        ? `<span class="acct-disabled">Has licence</span>`
+        ? `<span class="acct-disabled">Has license</span>`
         : `<span style="font-size:12px;color:var(--muted)">None</span>`
       }</td>`
     : "";
 
-  const search = (u.displayName+" "+u.upn+" "+u.department+" "+u.jobTitle).toLowerCase();
+  const search = (u.displayName + " " + u.upn + " " + u.department + " " + u.jobTitle).toLowerCase();
 
   return `<tr data-search="${search}" data-userid="${u.id}">
     <td><div class="user-cell">
       <div class="avatar ${rClass}">${init2}</div>
-      <div><div class="user-name">${u.displayName||"Unknown"}</div><div class="user-upn">${u.upn}</div></div>
+      <div><div class="user-name">${u.displayName || "Unknown"}</div><div class="user-upn">${u.upn}</div></div>
     </div></td>
-    <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
+    <td style="font-size:12px;color:var(--muted)">${u.department || "—"}</td>
     <td><span class="${riskBadge}">${riskLabel}</span></td>
     <td style="max-width:320px">${methodPills}</td>
-    ${licenceCell}
-    <td style="font-size:12px;color:var(--muted)">${u.jobTitle||"—"}</td>
+    ${licenseCell}
+    <td style="font-size:12px;color:var(--muted)">${u.jobTitle || "—"}</td>
   </tr>`;
 }
 
 function sortBy(col) {
-  sortDir = sortCol===col ? sortDir*-1 : -1; sortCol=col;
-  const b = document.getElementById("mfaBody");
+  sortDir = sortCol === col ? sortDir * -1 : -1;
+  sortCol = col;
+  const b          = document.getElementById("mfaBody");
   const isDisabled = document.getElementById("scopeSelect").value === "disabled";
   if (b) {
     b.innerHTML = sortUsers(allUsers).map(u => userRow(u, isDisabled)).join("");
     applyMethodFilter();
-    filterTbl(document.querySelector('input[type="search"]')?.value||"");
+    filterTbl(document.querySelector('input[type="search"]')?.value || "");
   }
 }
 
 function sortUsers(users) {
-  return [...users].sort((a,b) => {
-    if (sortCol==="riskLevel")   return sortDir * (b.riskLevel - a.riskLevel);
-    if (sortCol==="methodTypes") return sortDir * (a.methodTypes.length - b.methodTypes.length);
-    if (sortCol==="hasLicense")  return sortDir * ((a.hasLicense?1:0) - (b.hasLicense?1:0));
-    const av = a[sortCol]||"", bv = b[sortCol]||"";
+  return [...users].sort((a, b) => {
+    if (sortCol === "riskLevel")   return sortDir * (b.riskLevel - a.riskLevel);
+    if (sortCol === "methodTypes") return sortDir * (a.methodTypes.length - b.methodTypes.length);
+    if (sortCol === "hasLicense")  return sortDir * ((a.hasLicense ? 1 : 0) - (b.hasLicense ? 1 : 0));
+    const av = a[sortCol] || "", bv = b[sortCol] || "";
     return sortDir * av.toString().toLowerCase().localeCompare(bv.toString().toLowerCase());
   });
 }
@@ -873,20 +871,19 @@ function exportCsv() {
   if (!allUsers.length) return;
   const isDisabled = document.getElementById("scopeSelect").value === "disabled";
   ITTools.csv.download(
-    "MFA_Status_Report_" + new Date().toISOString().slice(0,10) + ".csv",
+    "MFA_Status_Report_" + new Date().toISOString().slice(0, 10) + ".csv",
     allUsers.map(u => ({
       "Display Name":   u.displayName,
       "UPN":            u.upn,
       "Department":     u.department,
       "Job Title":      u.jobTitle,
       "Account Status": u.accountEnabled ? "Enabled" : "Disabled",
-      ...(isDisabled ? { "Has Licence": u.hasLicense ? "Yes" : "No" } : {}),
-      "Risk Level":     u.riskLevel===2?"High (No MFA)":u.riskLevel===1?"Medium (Weak)":"Low (Strong)",
+      ...(isDisabled ? { "Has License": u.hasLicense ? "Yes" : "No" } : {}),
+      "Risk Level":     u.riskLevel === 2 ? "High (No MFA)" : u.riskLevel === 1 ? "Medium (Weak)" : "Low (Strong)",
       "Has Strong MFA": u.hasStrong ? "Yes" : "No",
       "Has Weak MFA":   u.hasWeak   ? "Yes" : "No",
       "No MFA":         u.hasNone   ? "Yes" : "No",
-      "Methods":        u.hasNone ? "Password only" :
-                        u.methodTypes.map(t => getMethodInfo(t).label).join("; "),
+      "Methods":        u.hasNone ? "Password only" : u.methodTypes.map(t => getMethodInfo(t).label).join("; "),
       "Flagged":        isUserFlagged(u) ? "Yes" : "No",
     }))
   );
