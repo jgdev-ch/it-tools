@@ -92,6 +92,7 @@ body {
   background: var(--blue-light); padding: 2px 8px; border-radius: 10px;
 }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
+
 .btn-icon {
   width: 32px; height: 32px; border-radius: 6px;
   border: 1px solid var(--border); background: transparent;
@@ -100,6 +101,43 @@ body {
 }
 .btn-icon:hover { background: var(--surface2); color: var(--text); }
 .btn-icon svg { width: 15px; height: 15px; }
+
+/* Sign-in button */
+.btn-signin {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 12px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  cursor: pointer; font-family: inherit; transition: all .12s;
+  white-space: nowrap;
+}
+.btn-signin:hover { background: var(--blue-light); color: var(--blue-dark); border-color: var(--blue); }
+.btn-signin.loading { opacity: .6; cursor: not-allowed; pointer-events: none; }
+
+/* User chip */
+.user-chip {
+  display: none; align-items: center; gap: 7px;
+  background: var(--surface3); border-radius: 20px;
+  padding: 3px 10px 3px 4px; font-size: 12px; font-weight: 500;
+}
+.user-chip.show { display: flex; }
+.user-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--amber-light); color: var(--amber);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+}
+
+/* Sign-out button */
+.btn-signout {
+  display: none;
+  padding: 5px 11px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  cursor: pointer; font-family: inherit; transition: all .12s;
+}
+.btn-signout.show { display: block; }
+.btn-signout:hover { background: var(--red-light); color: var(--red); border-color: var(--red); }
 
 /* ── HERO ── */
 .hero {
@@ -163,7 +201,7 @@ body {
 .tool-card.disabled:hover { transform: none; box-shadow: none; border-color: var(--border); }
 .tool-card.disabled:hover::before { transform: scaleX(0); }
 
-/* Finance-only cards: hidden until group check passes */
+/* Finance-only: hidden by default, revealed by JS */
 .tool-card[data-finance-gated] { display: none; }
 
 .tool-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
@@ -173,26 +211,32 @@ body {
   background: var(--icon-bg, var(--blue-light));
 }
 
+.finance-card-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--amber); background: var(--amber-light);
+  padding: 2px 7px; border-radius: 4px;
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-bottom: 6px;
+}
+
 /* ── STATUS BADGES ── */
 .status-badge {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .04em; padding: 3px 8px; border-radius: 10px;
-  display: inline-flex; align-items: center; gap: 4px;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
 }
-.status-badge::before {
-  content: ""; width: 5px; height: 5px; border-radius: 50; flex-shrink: 0;
-}
-.badge-live { background: var(--green-light); color: var(--green); }
-.badge-live::before { background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
-.badge-beta { background: var(--teal-light); color: var(--teal); }
-.badge-beta::before { background: var(--teal); border-radius: 50%; }
-.badge-in-development { background: var(--blue-light); color: var(--blue-dark); }
-.badge-in-development::before { background: var(--blue-mid); border-radius: 50%; animation: spin-dot 1.5s linear infinite; }
-.badge-coming-soon { background: var(--amber-light); color: var(--amber); }
-.badge-coming-soon::before { background: var(--amber); border-radius: 50%; }
-.badge-deprecated { background: var(--red-light); color: var(--red); }
-.badge-deprecated::before { background: var(--red); border-radius: 50%; }
+.status-badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+.badge-live           { background: var(--green-light);  color: var(--green); }
+.badge-live::before   { background: var(--green);   animation: pulse 2s infinite; }
+.badge-beta           { background: var(--teal-light);   color: var(--teal); }
+.badge-beta::before   { background: var(--teal); }
+.badge-in-development { background: var(--blue-light);   color: var(--blue-dark); }
+.badge-in-development::before { background: var(--blue-mid); animation: spin-dot 1.5s linear infinite; }
+.badge-coming-soon    { background: var(--amber-light);  color: var(--amber); }
+.badge-coming-soon::before { background: var(--amber); }
+.badge-deprecated     { background: var(--red-light);    color: var(--red); }
+.badge-deprecated::before  { background: var(--red); }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -212,15 +256,6 @@ body {
   background: var(--surface2); border: 1px solid var(--border);
   padding: 2px 7px; border-radius: 4px;
   font-family: 'DM Mono', 'Consolas', monospace;
-}
-
-/* Finance badge on card */
-.finance-card-badge {
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--amber); background: var(--amber-light);
-  padding: 2px 6px; border-radius: 4px;
-  display: inline-flex; align-items: center; gap: 3px;
-  margin-bottom: 6px;
 }
 
 /* ── LOADING SKELETON ── */
@@ -260,11 +295,7 @@ body {
 .footer-links a { color: var(--muted2); text-decoration: none; }
 .footer-links a:hover { color: var(--blue-mid); }
 
-/* ── STATUS LEGEND ── */
-.legend {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  margin-bottom: 1.25rem; align-items: center;
-}
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.25rem; align-items: center; }
 .legend-label { font-size: 11px; color: var(--muted2); margin-right: 4px; }
 </style>
 </head>
@@ -283,15 +314,39 @@ body {
     <span class="brand-name">IT Tools</span>
     <span class="brand-tag">M365 Admin Hub</span>
   </div>
+
   <div class="topbar-right">
-    <button class="btn-icon" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">
+    <!-- Theme toggle -->
+    <button class="btn-icon" onclick="toggleTheme()" title="Toggle theme">
       <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
     </button>
+
+    <!-- GitHub -->
     <a href="https://github.com/jgdev-ch/it-tools" target="_blank" class="btn-icon" title="GitHub repository">
       <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
         <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
       </svg>
     </a>
+
+    <!-- User chip (shown after sign-in) -->
+    <div class="user-chip" id="userChip">
+      <div class="user-avatar" id="userInitials"></div>
+      <span id="userName"></span>
+    </div>
+
+    <!-- Sign out (shown after sign-in) -->
+    <button class="btn-signout" id="signOutBtn" onclick="hubSignOut()">Sign out</button>
+
+    <!-- Sign in (shown when signed out) -->
+    <button class="btn-signin" id="signInBtn" onclick="hubSignIn()">
+      <svg viewBox="0 0 21 21" width="14" height="14" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in
+    </button>
   </div>
 </div>
 
@@ -320,7 +375,6 @@ body {
 
   <div class="section-label">Available tools</div>
 
-  <!-- Status legend -->
   <div class="legend">
     <span class="legend-label">Status:</span>
     <span class="status-badge badge-live">Live</span>
@@ -330,7 +384,6 @@ body {
     <span class="status-badge badge-deprecated">Deprecated</span>
   </div>
 
-  <!-- Tool cards render here from config.json -->
   <div class="tools-grid" id="toolsGrid">
     <div class="skeleton-card"></div>
     <div class="skeleton-card"></div>
@@ -357,6 +410,31 @@ body {
 </footer>
 
 <script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const CLIENT_ID     = "6d881af5-d626-4df6-8969-69f1f0292772";
+const TENANT_ID     = "683d57e7-70bf-4bc4-b88d-bd8905a0c39a";
+const REDIRECT_URI  = window.location.origin + "/it-tools/";
+const FINANCE_KEY   = "it-tools-finance-unlocked";
+const FINANCE_GROUP = "SG-IT-Tools-Finance-View";
+const HUB_SCOPES    = ["User.Read", "Directory.Read.All"];
+
+let _msalApp = null;
+
+// ── MSAL singleton ────────────────────────────────────────────────────────────
+async function getMsal() {
+  if (_msalApp) return _msalApp;
+  _msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId:    CLIENT_ID,
+      authority:   `https://login.microsoftonline.com/${TENANT_ID}`,
+      redirectUri: REDIRECT_URI,
+    },
+    cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
+  });
+  await _msalApp.initialize();
+  return _msalApp;
+}
+
 // ── Theme ─────────────────────────────────────────────────────────────────────
 function initTheme() {
   const saved = localStorage.getItem("it-tools-theme") ||
@@ -366,17 +444,147 @@ function initTheme() {
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("it-tools-theme", t);
-  syncIcon(t);
+  syncThemeIcon(t);
 }
 function toggleTheme() {
   applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
 }
-function syncIcon(t) {
+function syncThemeIcon(t) {
   const icon = document.getElementById("themeIcon");
   if (t === "dark") {
     icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" fill="none"/>`;
   } else {
     icon.innerHTML = `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
+  }
+}
+
+// ── Topbar state ──────────────────────────────────────────────────────────────
+function showSignedIn(account) {
+  const name     = account?.name || account?.username || "";
+  const initials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "ME";
+  document.getElementById("userInitials").textContent = initials;
+  document.getElementById("userName").textContent     = name;
+  document.getElementById("userChip").classList.add("show");
+  document.getElementById("signOutBtn").classList.add("show");
+  document.getElementById("signInBtn").style.display  = "none";
+}
+function showSignedOut() {
+  document.getElementById("userChip").classList.remove("show");
+  document.getElementById("signOutBtn").classList.remove("show");
+  document.getElementById("signInBtn").style.display  = "";
+}
+
+// ── Finance card visibility ───────────────────────────────────────────────────
+function revealFinanceCards() {
+  document.querySelectorAll("[data-finance-gated]").forEach(el => el.style.display = "");
+}
+function hideFinanceCards() {
+  document.querySelectorAll("[data-finance-gated]").forEach(el => el.style.display = "none");
+}
+
+// ── Group membership check ────────────────────────────────────────────────────
+async function checkFinanceGroup(token) {
+  try {
+    const gRes = await fetch(
+      `https://graph.microsoft.com/v1.0/groups?$filter=${encodeURIComponent(`displayName eq '${FINANCE_GROUP}'`)}&$select=id`,
+      { headers: { Authorization: "Bearer " + token, ConsistencyLevel: "eventual" } }
+    );
+    if (!gRes.ok) return false;
+    const groups = (await gRes.json()).value || [];
+    if (!groups.length) return false;
+
+    const mRes = await fetch(
+      "https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id",
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    if (!mRes.ok) return false;
+    return (await mRes.json()).value.some(m => m.id === groups[0].id);
+  } catch(_) { return false; }
+}
+
+// ── Topbar sign-in ────────────────────────────────────────────────────────────
+async function hubSignIn() {
+  const btn = document.getElementById("signInBtn");
+  btn.classList.add("loading");
+  btn.textContent = "Signing in…";
+
+  try {
+    const app = await getMsal();
+    const res = await app.loginPopup({ scopes: HUB_SCOPES });
+
+    // Acquire token (loginPopup may not always return accessToken directly)
+    let token;
+    try {
+      token = res.accessToken || (await app.acquireTokenSilent({
+        scopes: HUB_SCOPES, account: res.account
+      })).accessToken;
+    } catch(_) { token = null; }
+
+    showSignedIn(res.account);
+
+    if (token) {
+      const isMember = await checkFinanceGroup(token);
+      if (isMember) {
+        localStorage.setItem(FINANCE_KEY, "true");
+        revealFinanceCards();
+      }
+    }
+  } catch(_) {
+    // User cancelled or popup blocked — fail silently
+  } finally {
+    btn.classList.remove("loading");
+    // Re-stamp button content in case it was cleared during loading state
+    btn.innerHTML = `
+      <svg viewBox="0 0 21 21" width="14" height="14" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in`;
+  }
+}
+
+// ── Topbar sign-out ───────────────────────────────────────────────────────────
+async function hubSignOut() {
+  try {
+    const app      = await getMsal();
+    const accounts = app.getAllAccounts();
+    if (accounts.length) await app.logoutPopup({ account: accounts[0] });
+  } catch(_) {}
+
+  // Always clear regardless of popup outcome
+  localStorage.removeItem(FINANCE_KEY);
+  hideFinanceCards();
+  showSignedOut();
+}
+
+// ── Silent session restore on load ────────────────────────────────────────────
+// If there's already a cached MSAL session (e.g. user visited a tool earlier
+// this browser session), silently restore the topbar state without a popup.
+// Also re-validates the finance flag so it stays accurate.
+async function trySilentRestore() {
+  try {
+    const app      = await getMsal();
+    const accounts = app.getAllAccounts();
+    if (!accounts.length) return;
+
+    const res = await app.acquireTokenSilent({ scopes: HUB_SCOPES, account: accounts[0] });
+    showSignedIn(accounts[0]);
+
+    // Re-check group membership silently to keep the flag fresh.
+    // If already flagged in localStorage we still confirm it's still valid.
+    const isMember = await checkFinanceGroup(res.accessToken);
+    if (isMember) {
+      localStorage.setItem(FINANCE_KEY, "true");
+      revealFinanceCards();   // ensure revealed even if localStorage was cleared
+    } else {
+      // User was removed from group — revoke silently
+      localStorage.removeItem(FINANCE_KEY);
+      hideFinanceCards();
+    }
+  } catch(_) {
+    // No valid session or token expired — silent failure is correct
   }
 }
 
@@ -389,11 +597,10 @@ const STATUS_LABELS = {
   "deprecated":     "Deprecated"
 };
 function badgeHtml(status) {
-  const label = STATUS_LABELS[status] || status;
-  return `<span class="status-badge badge-${status}">${label}</span>`;
+  return `<span class="status-badge badge-${status}">${STATUS_LABELS[status] || status}</span>`;
 }
 
-// ── Render tools from config ───────────────────────────────────────────────────
+// ── Render tools from config ──────────────────────────────────────────────────
 async function loadTools() {
   const grid = document.getElementById("toolsGrid");
   try {
@@ -402,16 +609,14 @@ async function loadTools() {
     const clickable = ["live", "beta"];
 
     grid.innerHTML = data.tools.map(tool => {
-      const isClickable   = clickable.includes(tool.status) && tool.path;
-      const tag           = isClickable ? "a" : "div";
-      const href          = isClickable ? ` href="${tool.path}"` : "";
-      const isFinance     = !!tool.financeOnly;
-      const financeAttr   = isFinance ? ` data-finance-gated="true"` : "";
-      const cls           = isClickable ? "tool-card" : "tool-card disabled";
-      const tags          = (tool.permissions || []).map(p => `<span class="tag">${p}</span>`).join("");
-      const financeBadge  = isFinance
-        ? `<div class="finance-card-badge">🔒 Finance only</div>`
-        : "";
+      const isClickable  = clickable.includes(tool.status) && tool.path;
+      const tag          = isClickable ? "a" : "div";
+      const href         = isClickable ? ` href="${tool.path}"` : "";
+      const isFinance    = !!tool.financeOnly;
+      const financeAttr  = isFinance ? ` data-finance-gated="true"` : "";
+      const cls          = isClickable ? "tool-card" : "tool-card disabled";
+      const tags         = (tool.permissions || []).map(p => `<span class="tag">${p}</span>`).join("");
+      const financeBadge = isFinance ? `<div class="finance-card-badge">🔒 Finance only</div>` : "";
 
       return `<${tag} class="${cls}"${href}${financeAttr} style="--card-accent:${tool.accent};--icon-bg:${tool.iconBg}">
         ${financeBadge}
@@ -425,8 +630,15 @@ async function loadTools() {
       </${tag}>`;
     }).join("");
 
-    // After rendering, attempt a silent finance group check
-    checkAndRevealFinanceCards();
+    // ── Step 1: Instant reveal from localStorage (zero network cost) ──────────
+    if (localStorage.getItem(FINANCE_KEY) === "true") {
+      revealFinanceCards();
+    }
+
+    // ── Step 2: Silent MSAL restore in background ─────────────────────────────
+    // Runs after render so it never blocks the page. Updates topbar user chip,
+    // re-validates group membership, and keeps the localStorage flag accurate.
+    trySilentRestore();
 
   } catch(e) {
     grid.innerHTML = `<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-size:13px">
@@ -435,72 +647,8 @@ async function loadTools() {
   }
 }
 
-// ── Finance card silent reveal ────────────────────────────────────────────────
-// Attempts a non-interactive MSAL session check. If a cached session exists
-// and the user is in SG-IT-Tools-Finance-View, finance-gated cards become visible.
-// Fails silently — non-finance users never see the cards.
-async function checkAndRevealFinanceCards() {
-  const financeCards = document.querySelectorAll("[data-finance-gated]");
-  if (!financeCards.length) return;
-
-  try {
-    const msalApp = new msal.PublicClientApplication({
-      auth: {
-        clientId:    "6d881af5-d626-4df6-8969-69f1f0292772",
-        authority:   "https://login.microsoftonline.com/683d57e7-70bf-4bc4-b88d-bd8905a0c39a",
-        redirectUri: window.location.origin + "/it-tools/",
-      },
-      cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
-    });
-    await msalApp.initialize();
-
-    const accounts = msalApp.getAllAccounts();
-    if (!accounts.length) return; // No cached session — keep finance cards hidden
-
-    // Silent token request — no popup, no redirect
-    let tokenRes;
-    try {
-      tokenRes = await msalApp.acquireTokenSilent({
-        scopes:  ["User.Read", "Directory.Read.All"],
-        account: accounts[0],
-      });
-    } catch(_) {
-      return; // Silent acquisition failed (consent needed etc.) — fail quietly
-    }
-
-    const token = tokenRes.accessToken;
-
-    // Check if the finance group exists
-    const groupRes = await fetch(
-      `https://graph.microsoft.com/v1.0/groups?$filter=${encodeURIComponent("displayName eq 'SG-IT-Tools-Finance-View'")}&$select=id`,
-      { headers: { Authorization: "Bearer " + token, ConsistencyLevel: "eventual" } }
-    );
-    if (!groupRes.ok) return;
-    const groupData  = await groupRes.json();
-    const groups     = groupData.value || [];
-    if (!groups.length) return;
-    const groupId    = groups[0].id;
-
-    // Check transitive membership
-    const memberRes  = await fetch(
-      "https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id",
-      { headers: { Authorization: "Bearer " + token } }
-    );
-    if (!memberRes.ok) return;
-    const memberData = await memberRes.json();
-    const isMember   = (memberData.value || []).some(m => m.id === groupId);
-
-    if (isMember) {
-      financeCards.forEach(el => { el.style.display = ""; });
-    }
-
-  } catch(_) {
-    // Silently swallow all errors — finance cards just stay hidden
-  }
-}
-
 // ── Boot ──────────────────────────────────────────────────────────────────────
-document.getElementById("baseUri").textContent = window.location.origin + "/it-tools/";
+document.getElementById("baseUri").textContent = REDIRECT_URI;
 initTheme();
 loadTools();
 </script>
