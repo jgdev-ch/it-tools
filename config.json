@@ -5,7 +5,7 @@
       "name": "License Audit",
       "description": "Identify inactive M365 license holders. Find users who haven't signed in recently and surface recoverable seats.",
       "icon": "📊",
-      "status": "beta",
+      "status": "live",
       "path": "tools/license-audit/",
       "permissions": ["User.Read.All", "AuditLog.Read.All"],
       "accent": "#1a56db",
@@ -27,8 +27,8 @@
       "name": "MFA Status Report",
       "description": "Audit MFA registration status across your tenant. Surface users with weak or missing authentication methods.",
       "icon": "🔑",
-      "status": "beta",
-      "path": "tools/mfa-status/",
+      "status": "coming-soon",
+      "path": "",
       "permissions": ["UserAuthMethod.Read.All"],
       "accent": "#92400e",
       "iconBg": "#fef3c7"
@@ -43,6 +43,18 @@
       "permissions": ["User.Read.All", "Directory.Read.All"],
       "accent": "#5b21b6",
       "iconBg": "#ede9fe"
+    },
+    {
+      "id": "finance-dashboard",
+      "name": "Finance Dashboard",
+      "description": "Full M365 license spend breakdown, seat utilisation analysis, department cost attribution, and 12-month projections with scenario modelling.",
+      "icon": "💰",
+      "status": "live",
+      "path": "tools/finance-dashboard/",
+      "permissions": ["User.Read.All", "AuditLog.Read.All", "Directory.Read.All"],
+      "accent": "#92400e",
+      "iconBg": "#fef3c7",
+      "financeOnly": true
     }
   ]
 }
