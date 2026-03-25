@@ -298,8 +298,8 @@
 <script src="../../shared/auth.js"></script>
 <script>
 
-const TOOL_SCOPES    = ["User.Read.All","AuditLog.Read.All","Directory.Read.All","Group.Read.All"];
-const FINANCE_GROUP  = "SG-IT-Tools-Finance-View";
+const TOOL_SCOPES      = ["User.Read.All","AuditLog.Read.All","Directory.Read.All"];
+const FINANCE_GROUP_ID = "ff9c3232-251f-4570-9564-340039d17aa9";
 
 // ── Cost data ──────────────────────────────────────────────────────────────────
 let _costData = { costs: {}, free_skus: [] };
@@ -342,15 +342,11 @@ const SKU_NAMES = {
 function skuName(sku) { return SKU_NAMES[sku] || sku; }
 
 // ── Finance gate ───────────────────────────────────────────────────────────────
+// Uses hardcoded Object ID — no Group.Read.All required.
 async function checkFinanceAccess() {
   try {
-    const enc = encodeURIComponent(`displayName eq '${FINANCE_GROUP}'`);
-    const res = await ITTools.graph.get(`https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`);
-    const groups = res.value || [];
-    if (!groups.length) return false;
-    const groupId = groups[0].id;
     const memberships = await ITTools.graph.getAll(`https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`);
-    return memberships.some(m => m.id === groupId);
+    return memberships.some(m => m.id === FINANCE_GROUP_ID);
   } catch(_) { return false; }
 }
 
