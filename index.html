@@ -484,55 +484,6 @@ function showSignedOut() {
   document.getElementById("signInBtn").style.display  = "";
 }
 
-// ── Card lock / unlock ────────────────────────────────────────────────────────
-function unlockCard(gateKey) {
-  // Replace the locked div with a proper clickable anchor
-  const locked = document.querySelector(`[data-gate="${gateKey}"]`);
-  if (!locked) return;
-
-  const path      = locked.dataset.path;
-  const accent    = locked.dataset.accent;
-  const iconBg    = locked.dataset.iconbg;
-  const icon      = locked.dataset.icon;
-  const status    = locked.dataset.status;
-  const name      = locked.dataset.name;
-  const desc      = locked.dataset.desc;
-  const tags      = locked.dataset.tags;
-
-  locked.outerHTML = `
-    <a class="tool-card" href="${path}"
-       style="--card-accent:${accent};--icon-bg:${iconBg}"
-       data-gate="${gateKey}">
-      <div class="tool-card-header">
-        <div class="tool-icon">${icon}</div>
-        ${badgeHtml(status)}
-      </div>
-      <div class="tool-name">${name}</div>
-      <div class="tool-desc">${desc}</div>
-      <div class="tool-tags">${tags}</div>
-    </a>`;
-}
-
-function lockCard(gateKey) {
-  // Re-lock if signed out — find unlocked card and restore locked state
-  const card = document.querySelector(`[data-gate="${gateKey}"]`);
-  if (!card || card.classList.contains("locked")) return;
-
-  // Re-render as locked using stored data attributes
-  const path   = card.getAttribute("href");
-  const accent = card.style.getPropertyValue("--card-accent") ||
-                 card.style.cssText.match(/--card-accent:([^;]+)/)?.[1] || "";
-  const iconBg = card.style.getPropertyValue("--icon-bg") ||
-                 card.style.cssText.match(/--icon-bg:([^;]+)/)?.[1] || "";
-  const icon   = card.dataset.icon   || card.querySelector(".tool-icon")?.innerHTML || "";
-  const name   = card.dataset.name   || card.querySelector(".tool-name")?.textContent || "";
-  const desc   = card.dataset.desc   || card.querySelector(".tool-desc")?.textContent || "";
-  const status = card.dataset.status || "live";
-  const tags   = card.dataset.tags   || card.querySelector(".tool-tags")?.innerHTML || "";
-
-  card.outerHTML = buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, tags });
-}
-
 // ── Card HTML builders ────────────────────────────────────────────────────────
 const STATUS_LABELS = {
   "live":"Live","beta":"Beta","in-development":"In Development",
@@ -542,13 +493,18 @@ function badgeHtml(status) {
   return `<span class="status-badge badge-${status}">${STATUS_LABELS[status] || status}</span>`;
 }
 
-function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, tags }) {
-  return `<div class="tool-card locked"
-      data-gate="${gateKey}" data-path="${path}"
-      data-accent="${accent}" data-iconbg="${iconBg}"
+// perms is a plain array e.g. ["User.Read.All","AuditLog.Read.All"]
+function tagsHtml(perms) {
+  return (perms || []).map(p => `<span class="tag">${p}</span>`).join("");
+}
+
+function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, perms }) {
+  // perms stored as pipe-delimited string in data attr — no HTML, no quote issues
+  const permsStr = (perms || []).join("|");
+  return `<div class="tool-card locked" id="gate-${gateKey}"
+      data-path="${path}" data-accent="${accent}" data-iconbg="${iconBg}"
       data-icon="${icon}" data-status="${status}"
-      data-name="${name}" data-desc="${desc}"
-      data-tags="${tags}"
+      data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
       style="--card-accent:${accent};--icon-bg:${iconBg}">
     <div class="lock-badge">🔒 Restricted access</div>
     <div class="tool-card-header">
@@ -557,12 +513,12 @@ function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, de
     </div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
-    <div class="tool-tags">${tags}</div>
+    <div class="tool-tags">${tagsHtml(perms)}</div>
     <div class="lock-hint">Sign in to unlock if you have access</div>
   </div>`;
 }
 
-function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, tags }) {
+function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, perms }) {
   return `<a class="tool-card" href="${path}"
       style="--card-accent:${accent};--icon-bg:${iconBg}">
     <div class="tool-card-header">
@@ -571,9 +527,55 @@ function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, tags })
     </div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
-    <div class="tool-tags">${tags}</div>
+    <div class="tool-tags">${tagsHtml(perms)}</div>
   </a>`;
 }
+
+// ── Card lock / unlock ────────────────────────────────────────────────────────
+function unlockCard(gateKey) {
+  // Target by stable id — only exists on locked cards, never on live cards
+  const locked = document.getElementById(`gate-${gateKey}`);
+  if (!locked) return; // Already unlocked or not rendered yet
+
+  const path   = locked.dataset.path;
+  const accent = locked.dataset.accent;
+  const iconBg = locked.dataset.iconbg;
+  const icon   = locked.dataset.icon;
+  const status = locked.dataset.status;
+  const name   = locked.dataset.name;
+  const desc   = locked.dataset.desc;
+  const perms  = locked.dataset.perms ? locked.dataset.perms.split("|") : [];
+
+  locked.outerHTML = buildLiveCard({ path, accent, iconBg, icon, status, name, desc, perms });
+}
+
+function lockCard(gateKey) {
+  // On sign-out, restore the locked state. The live card has no id so we
+  // find it by href matching the gate's path stored in GROUP_GATES config.
+  // Simplest approach: re-render the whole grid so locked cards come back.
+  // We achieve this by storing gate metadata in GROUP_GATES itself.
+  const meta = _gateCardMeta[gateKey];
+  if (!meta) return;
+
+  // Find the live card — it will be an <a> whose href matches the tool path
+  const live = document.querySelector(`a.tool-card[href="${meta.path}"]`);
+  if (!live) return;
+
+  live.outerHTML = buildLockedCard({
+    gateKey,
+    path:   meta.path,
+    accent: meta.accent,
+    iconBg: meta.iconBg,
+    icon:   meta.icon,
+    status: meta.status,
+    name:   meta.name,
+    desc:   meta.desc,
+    perms:  meta.perms,
+  });
+}
+
+// Populated during loadTools() so lockCard() has the data it needs on sign-out
+const _gateCardMeta = {};
 
 // ── Group membership check (checkMemberObjects — one call, no pagination) ─────
 async function checkMembership(token, groupId) {
@@ -683,34 +685,25 @@ async function loadTools() {
     const clickable = ["live", "beta"];
 
     grid.innerHTML = data.tools.map(tool => {
-      const tags = (tool.permissions || []).map(p => `<span class="tag">${p}</span>`).join("");
+      const perms = tool.permissions || [];
 
-      // Gated tool — render locked card
+      // Gated tool — render locked card and store meta for sign-out re-lock
       if (tool.financeOnly) {
-        return buildLockedCard({
-          gateKey: "finance",
-          path:    tool.path,
-          accent:  tool.accent,
-          iconBg:  tool.iconBg,
-          icon:    tool.icon,
-          status:  tool.status,
-          name:    tool.name,
-          desc:    tool.description,
-          tags,
-        });
+        const meta = {
+          path:   tool.path,   accent: tool.accent, iconBg: tool.iconBg,
+          icon:   tool.icon,   status: tool.status, name:   tool.name,
+          desc:   tool.description,                 perms,
+        };
+        _gateCardMeta["finance"] = meta;
+        return buildLockedCard({ gateKey: "finance", ...meta });
       }
 
       // Standard clickable tool
       if (clickable.includes(tool.status) && tool.path) {
         return buildLiveCard({
-          path:   tool.path,
-          accent: tool.accent,
-          iconBg: tool.iconBg,
-          icon:   tool.icon,
-          status: tool.status,
-          name:   tool.name,
-          desc:   tool.description,
-          tags,
+          path: tool.path, accent: tool.accent, iconBg: tool.iconBg,
+          icon: tool.icon, status: tool.status, name:   tool.name,
+          desc: tool.description, perms,
         });
       }
 
@@ -722,7 +715,7 @@ async function loadTools() {
         </div>
         <div class="tool-name">${tool.name}</div>
         <div class="tool-desc">${tool.description}</div>
-        <div class="tool-tags">${tags}</div>
+        <div class="tool-tags">${tagsHtml(perms)}</div>
       </div>`;
 
     }).join("");
