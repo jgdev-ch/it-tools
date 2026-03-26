@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>IT Tools — M365 Admin Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<script src="shared/auth.js"></script>
 <link rel="stylesheet" href="shared/styles.css"/>
 <style>
 /* ── Hub topbar (unique: has sign-in btn + GitHub link) ── */
@@ -267,10 +268,7 @@
 
 <script>
 // ── Constants ─────────────────────────────────────────────────────────────────
-const CLIENT_ID    = "6d881af5-d626-4df6-8969-69f1f0292772";
-const TENANT_ID    = "683d57e7-70bf-4bc4-b88d-bd8905a0c39a";
-const REDIRECT_URI = window.location.origin + "/it-tools/";
-const HUB_SCOPES   = ["User.Read"];
+// Auth handled by shared/auth.js (ITTools.auth) — same MSAL config as all tool pages.
 
 // Group gates — keyed by the config `financeOnly` / `requiredGroup` field.
 // Add new group Object IDs here as more gated tools are built.
@@ -280,23 +278,6 @@ const GROUP_GATES = {
     localKey: "it-tools-finance-unlocked",
   }
 };
-
-let _msalApp = null;
-
-// ── MSAL singleton ────────────────────────────────────────────────────────────
-async function getMsal() {
-  if (_msalApp) return _msalApp;
-  _msalApp = new msal.PublicClientApplication({
-    auth: {
-      clientId:    CLIENT_ID,
-      authority:   `https://login.microsoftonline.com/${TENANT_ID}`,
-      redirectUri: REDIRECT_URI,
-    },
-    cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
-  });
-  await _msalApp.initialize();
-  return _msalApp;
-}
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 function initTheme() {
@@ -453,16 +434,10 @@ async function hubSignIn() {
   btn.textContent = "Signing in…";
 
   try {
-    const app = await getMsal();
-    const res = await app.loginPopup({ scopes: HUB_SCOPES });
-    showSignedIn(res.account);
-
-    // Acquire token then check all group gates
-    try {
-      const tokenRes = await app.acquireTokenSilent({ scopes: HUB_SCOPES, account: res.account });
-      await runGateChecks(tokenRes.accessToken);
-    } catch(_) {}
-
+    const acct  = await ITTools.auth.signIn();
+    showSignedIn(acct);
+    const token = await ITTools.auth.getToken();
+    await runGateChecks(token);
   } catch(_) {
     // User cancelled or popup blocked — silent fail
   } finally {
@@ -481,27 +456,32 @@ async function hubSignIn() {
 // ── Hub sign-out ──────────────────────────────────────────────────────────────
 async function hubSignOut() {
   try {
-    const app      = await getMsal();
-    const accounts = app.getAllAccounts();
-    if (accounts.length) await app.logoutPopup({ account: accounts[0] });
-  } catch(_) {}
-  clearAllGates();
-  showSignedOut();
+    await ITTools.auth.signOut();
+  } catch(_) {
+    // signOut callback still fires; clear gates regardless
+    clearAllGates();
+    showSignedOut();
+  }
 }
 
 // ── Silent session restore on load ────────────────────────────────────────────
 async function trySilentRestore() {
-  try {
-    const app      = await getMsal();
-    const accounts = app.getAllAccounts();
-    if (!accounts.length) return;
-
-    const res = await app.acquireTokenSilent({ scopes: HUB_SCOPES, account: accounts[0] });
-    showSignedIn(accounts[0]);
-    await runGateChecks(res.accessToken);
-  } catch(_) {
-    // No valid cached session — silent fail, locked state stays
-  }
+  // Uses shared/auth.js so hub and tool pages share the same MSAL cache —
+  // signing in here means tool pages (e.g. Finance Dashboard) won't ask again.
+  await ITTools.auth.init({
+    scopes: [],
+    onSignIn: async acct => {
+      showSignedIn(acct);
+      try {
+        const token = await ITTools.auth.getToken();
+        await runGateChecks(token);
+      } catch(_) {}
+    },
+    onSignOut: () => {
+      clearAllGates();
+      showSignedOut();
+    }
+  });
 }
 
 // ── Render tools from config ──────────────────────────────────────────────────
@@ -574,7 +554,7 @@ async function loadTools() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-document.getElementById("baseUri").textContent = REDIRECT_URI;
+document.getElementById("baseUri").textContent = ITTools.auth.redirectUri();
 initTheme();
 loadTools();
 </script>
