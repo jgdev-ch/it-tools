@@ -58,7 +58,7 @@
   cursor: pointer; font-family: inherit; transition: all .12s;
 }
 .btn-signout.show { display: block; }
-.btn-signout:hover { background: var(--red-light); color: var(--red); border-color: var(--red); }
+.btn-signout:hover { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
 
 /* ── Page shell ── */
 .hub-shell { max-width: 860px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
@@ -148,9 +148,9 @@
 .skeleton-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; height: 110px;
-  animation: shimmer 1.5s infinite;
+  animation: hub-shimmer 1.5s infinite;
 }
-@keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@keyframes hub-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 
 /* ── Section label ── */
 .section-label {
