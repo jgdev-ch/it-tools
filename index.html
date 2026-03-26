@@ -339,74 +339,64 @@ function badgeHtml(status) {
   return `<span class="status-badge badge-${status}">${STATUS_LABELS[status] || status}</span>`;
 }
 
+const RIBBON_LABELS = { "live":"Live", "beta":"Beta", "coming-soon":"Soon", "in-development":"Dev", "deprecated":"Depr." };
+const RIBBON_CLASS  = { "live":"ribbon-live", "beta":"ribbon-beta", "coming-soon":"ribbon-soon", "in-development":"ribbon-soon", "deprecated":"ribbon-soon" };
+
+function ribbonHtml(status) {
+  const cls   = RIBBON_CLASS[status]  || "ribbon-soon";
+  const label = RIBBON_LABELS[status] || status;
+  return `<div class="tool-ribbon ${cls}">${label}</div>`;
+}
+
 // perms is a plain array e.g. ["User.Read.All","AuditLog.Read.All"]
 function tagsHtml(perms) {
   return (perms || []).map(p => `<span class="tag">${p}</span>`).join("");
 }
 
 function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, perms }) {
-  // perms stored as pipe-delimited string in data attr — no HTML, no quote issues
   const permsStr = (perms || []).join("|");
   return `<div class="tool-card locked" id="gate-${gateKey}"
       data-path="${path}" data-accent="${accent}" data-iconbg="${iconBg}"
       data-icon="${icon}" data-status="${status}"
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
-      style="--card-accent:${accent};--icon-bg:${iconBg}">
-    <div class="lock-badge">🔒 Restricted access</div>
-    <div class="tool-card-header">
-      <div class="tool-icon">${icon}</div>
-      ${badgeHtml(status)}
-    </div>
+      style="--icon-bg:${iconBg}">
+    <div class="tool-ribbon ribbon-finance">Finance</div>
+    <div class="tool-icon">${icon}</div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
-    <div class="tool-tags">${tagsHtml(perms)}</div>
-    <div class="lock-hint">Sign in to unlock if you have access</div>
+    <div class="lock-hint">🔒 Sign in to unlock if you have access</div>
   </div>`;
 }
 
-function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, perms }) {
-  return `<a class="tool-card" href="${path}"
-      style="--card-accent:${accent};--icon-bg:${iconBg}">
-    <div class="tool-card-header">
-      <div class="tool-icon">${icon}</div>
-      ${badgeHtml(status)}
-    </div>
+function buildLiveCard({ path, accent, iconBg, icon, status, name, desc }) {
+  return `<a class="tool-card" href="${path}" style="--icon-bg:${iconBg}">
+    ${ribbonHtml(status)}
+    <div class="tool-icon">${icon}</div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
-    <div class="tool-tags">${tagsHtml(perms)}</div>
   </a>`;
 }
 
 // ── Card lock / unlock ────────────────────────────────────────────────────────
 function unlockCard(gateKey) {
-  // Target by stable id — only exists on locked cards, never on live cards
   const locked = document.getElementById(`gate-${gateKey}`);
-  if (!locked) return; // Already unlocked or not rendered yet
+  if (!locked) return;
 
-  const path   = locked.dataset.path;
-  const accent = locked.dataset.accent;
-  const iconBg = locked.dataset.iconbg;
-  const icon   = locked.dataset.icon;
-  const status = locked.dataset.status;
-  const name   = locked.dataset.name;
-  const desc   = locked.dataset.desc;
-  const perms  = locked.dataset.perms ? locked.dataset.perms.split("|") : [];
-
-  locked.outerHTML = buildLiveCard({ path, accent, iconBg, icon, status, name, desc, perms });
+  locked.outerHTML = buildLiveCard({
+    path:   locked.dataset.path,
+    iconBg: locked.dataset.iconbg,
+    icon:   locked.dataset.icon,
+    status: locked.dataset.status,
+    name:   locked.dataset.name,
+    desc:   locked.dataset.desc,
+  });
 }
 
 function lockCard(gateKey) {
-  // On sign-out, restore the locked state. The live card has no id so we
-  // find it by href matching the gate's path stored in GROUP_GATES config.
-  // Simplest approach: re-render the whole grid so locked cards come back.
-  // We achieve this by storing gate metadata in GROUP_GATES itself.
   const meta = _gateCardMeta[gateKey];
   if (!meta) return;
-
-  // Find the live card — it will be an <a> whose href matches the tool path
   const live = document.querySelector(`a.tool-card[href="${meta.path}"]`);
   if (!live) return;
-
   live.outerHTML = buildLockedCard({
     gateKey,
     path:   meta.path,
