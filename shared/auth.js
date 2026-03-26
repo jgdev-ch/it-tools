@@ -46,7 +46,7 @@ ITTools.auth = (() => {
           authority:   `https://login.microsoftonline.com/${ITTools.TENANT_ID}`,
           redirectUri: window.location.origin + window.location.pathname,
         },
-        cache: { cacheLocation: "sessionStorage" }
+        cache: { cacheLocation: "localStorage" }
       });
       await tmp.initialize();
       await tmp.handleRedirectPromise();
