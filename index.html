@@ -99,6 +99,7 @@
 .tool-card.no-hover:hover { transform: none; box-shadow: none; border-color: var(--border); }
 .tool-card.locked { border-style: dashed; cursor: default; }
 .tool-card.locked:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.tool-card.locked:hover .tool-desc { opacity: 0; } /* keep lock-hint visible, not desc */
 
 /* ── Corner ribbon ── */
 .tool-ribbon {
@@ -269,6 +270,11 @@
 <script>
 // ── Constants ─────────────────────────────────────────────────────────────────
 // Auth handled by shared/auth.js (ITTools.auth) — same MSAL config as all tool pages.
+
+// Scopes needed by any tool reachable from the hub.
+// Requesting them here means the finance dashboard can acquire tokens silently
+// (no second sign-in popup) because the access token is already cached.
+const HUB_TOOL_SCOPES = ["User.Read.All", "AuditLog.Read.All", "Directory.Read.All"];
 
 // Group gates — keyed by the config `financeOnly` / `requiredGroup` field.
 // Add new group Object IDs here as more gated tools are built.
@@ -469,7 +475,7 @@ async function trySilentRestore() {
   // Uses shared/auth.js so hub and tool pages share the same MSAL cache —
   // signing in here means tool pages (e.g. Finance Dashboard) won't ask again.
   await ITTools.auth.init({
-    scopes: [],
+    scopes: HUB_TOOL_SCOPES,
     onSignIn: async acct => {
       showSignedIn(acct);
       try {
