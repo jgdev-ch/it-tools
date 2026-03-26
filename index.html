@@ -39,6 +39,8 @@
 .btn-signin:hover { background: var(--blue-light); color: var(--blue-dark); border-color: var(--blue); }
 .btn-signin.loading { opacity: .55; pointer-events: none; }
 
+/* Overrides shared/styles.css .user-chip (which defaults to display:flex) —
+   hub uses display:none + .show toggle for sign-in state management */
 .user-chip {
   display: none; align-items: center; gap: 7px;
   background: var(--surface3); border-radius: 20px;
@@ -108,7 +110,6 @@
 .ribbon-beta    { background: var(--blue-light);   color: var(--blue-dark); }
 .ribbon-soon    { background: var(--surface3);     color: var(--muted2); }
 .ribbon-finance { background: var(--amber-light);  color: var(--amber); }
-.ribbon-locked  { background: var(--surface3);     color: var(--muted2); }
 
 /* ── Card body ── */
 .tool-icon {
@@ -341,10 +342,10 @@ function ribbonHtml(status) {
   return `<div class="tool-ribbon ${cls}">${label}</div>`;
 }
 
-function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, perms }) {
+function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms }) {
   const permsStr = (perms || []).join("|");
   return `<div class="tool-card locked" id="gate-${gateKey}"
-      data-path="${path}" data-accent="${accent}" data-iconbg="${iconBg}"
+      data-path="${path}" data-iconbg="${iconBg}"
       data-icon="${icon}" data-status="${status}"
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
       style="--icon-bg:${iconBg}">
@@ -388,7 +389,6 @@ function lockCard(gateKey) {
   live.outerHTML = buildLockedCard({
     gateKey,
     path:   meta.path,
-    accent: meta.accent,
     iconBg: meta.iconBg,
     icon:   meta.icon,
     status: meta.status,
@@ -514,7 +514,7 @@ async function loadTools() {
       // Gated tool — render locked card and store meta for sign-out re-lock
       if (tool.financeOnly) {
         const meta = {
-          path:   tool.path,   accent: tool.accent, iconBg: tool.iconBg,
+          path:   tool.path,   iconBg: tool.iconBg,
           icon:   tool.icon,   status: tool.status, name:   tool.name,
           desc:   tool.description,                 perms,
         };
@@ -532,13 +532,16 @@ async function loadTools() {
       }
 
       // Non-clickable (coming-soon, in-development, deprecated)
+      const overlayLabel = tool.status === "deprecated" ? "Deprecated"
+        : tool.status === "in-development" ? "In Development"
+        : "Coming Soon";
       return `<div class="tool-card no-hover" style="--icon-bg:${tool.iconBg}">
         ${ribbonHtml(tool.status)}
         <div class="tool-icon">${tool.icon}</div>
         <div class="tool-name">${tool.name}</div>
         <div class="tool-desc">${tool.description}</div>
         <div class="tool-overlay">
-          <div class="tool-overlay-pill">Coming Soon</div>
+          <div class="tool-overlay-pill">${overlayLabel}</div>
         </div>
       </div>`;
 
