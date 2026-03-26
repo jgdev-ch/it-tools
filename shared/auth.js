@@ -59,7 +59,7 @@ ITTools.auth = (() => {
         authority:   `https://login.microsoftonline.com/${ITTools.TENANT_ID}`,
         redirectUri: window.location.origin + window.location.pathname,
       },
-      cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
+      cache: { cacheLocation: "localStorage", storeAuthStateInCookie: false }
     });
 
     await _msal.initialize();
