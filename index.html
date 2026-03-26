@@ -331,13 +331,6 @@ function showSignedOut() {
 }
 
 // ── Card HTML builders ────────────────────────────────────────────────────────
-const STATUS_LABELS = {
-  "live":"Live","beta":"Beta","in-development":"In Development",
-  "coming-soon":"Coming Soon","deprecated":"Deprecated"
-};
-function badgeHtml(status) {
-  return `<span class="status-badge badge-${status}">${STATUS_LABELS[status] || status}</span>`;
-}
 
 const RIBBON_LABELS = { "live":"Live", "beta":"Beta", "coming-soon":"Soon", "in-development":"Dev", "deprecated":"Depr." };
 const RIBBON_CLASS  = { "live":"ribbon-live", "beta":"ribbon-beta", "coming-soon":"ribbon-soon", "in-development":"ribbon-soon", "deprecated":"ribbon-soon" };
@@ -346,11 +339,6 @@ function ribbonHtml(status) {
   const cls   = RIBBON_CLASS[status]  || "ribbon-soon";
   const label = RIBBON_LABELS[status] || status;
   return `<div class="tool-ribbon ${cls}">${label}</div>`;
-}
-
-// perms is a plain array e.g. ["User.Read.All","AuditLog.Read.All"]
-function tagsHtml(perms) {
-  return (perms || []).map(p => `<span class="tag">${p}</span>`).join("");
 }
 
 function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, perms }) {
@@ -544,14 +532,14 @@ async function loadTools() {
       }
 
       // Non-clickable (coming-soon, in-development, deprecated)
-      return `<div class="tool-card disabled" style="--card-accent:${tool.accent};--icon-bg:${tool.iconBg}">
-        <div class="tool-card-header">
-          <div class="tool-icon">${tool.icon}</div>
-          ${badgeHtml(tool.status)}
-        </div>
+      return `<div class="tool-card no-hover" style="--icon-bg:${tool.iconBg}">
+        ${ribbonHtml(tool.status)}
+        <div class="tool-icon">${tool.icon}</div>
         <div class="tool-name">${tool.name}</div>
         <div class="tool-desc">${tool.description}</div>
-        <div class="tool-tags">${tagsHtml(perms)}</div>
+        <div class="tool-overlay">
+          <div class="tool-overlay-pill">Coming Soon</div>
+        </div>
       </div>`;
 
     }).join("");
