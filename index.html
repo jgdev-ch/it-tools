@@ -551,10 +551,18 @@ async function loadTools() {
     //     Updates topbar user chip and re-validates all gates
     trySilentRestore();
 
+    // Update title bar count pill
+    const total  = data.tools.length;
+    const active = data.tools.filter(t => t.status === "live" || t.status === "beta").length;
+    const pill   = document.getElementById("toolCountPill");
+    if (pill) pill.textContent = `${total} tools · ${active} active`;
+
   } catch(e) {
     grid.innerHTML = `<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-size:13px">
       Could not load tools config. Make sure config.json is in the repo root.
     </div>`;
+    const pill = document.getElementById("toolCountPill");
+    if (pill) pill.textContent = "";
   }
 }
 
