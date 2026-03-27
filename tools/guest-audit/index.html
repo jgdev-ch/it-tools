@@ -203,13 +203,17 @@ async function runScan() {
   try {
     guests = await graphWithRetry(() => ITTools.graph.getAll(url));
   } catch(fetchErr) {
+    // Re-throw auth/permission errors — don't fall back on 403/401
+    if (fetchErr.message && (fetchErr.message.includes("403") || fetchErr.message.includes("401"))) {
+      throw fetchErr;
+    }
     // Fallback: fetch without server-side filter, filter client-side
     setPhase("Fallback: fetching all users and filtering client-side…");
     const all = await graphWithRetry(() =>
       ITTools.graph.getAll(
         "https://graph.microsoft.com/v1.0/users"
         + "?$select=id,displayName,userPrincipalName,companyName,department,"
-        + "accountEnabled,assignedLicenses,signInActivity,createdDateTime&$top=999"
+        + "accountEnabled,assignedLicenses,signInActivity,createdDateTime,userType&$top=999"
       )
     );
     guests = all.filter(u => u.userType === "Guest");
@@ -262,6 +266,7 @@ async function runScan() {
     };
   });
 
+  if (_cancelled) { setPhase(null); return; }
   renderStats(allGuests, threshold);
   renderTable(allGuests);
   setPhase(null);
