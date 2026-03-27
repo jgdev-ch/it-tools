@@ -97,6 +97,7 @@
 .tool-card:hover { border-color: var(--border-mid); box-shadow: var(--shadow-md); text-decoration: none; }
 .tool-card.no-hover { cursor: default; }
 .tool-card.no-hover:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.tool-card.no-hover:hover .tool-desc { opacity: 0; }
 .tool-card.locked { border-style: dashed; cursor: default; }
 .tool-card.locked:hover { transform: none; box-shadow: none; border-color: var(--border); }
 .tool-card.locked:hover .tool-desc { opacity: 0; } /* keep lock-hint visible, not desc */
