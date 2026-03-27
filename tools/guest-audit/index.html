@@ -140,6 +140,14 @@
 <script>
 const TOOL_SCOPES = ["User.Read.All", "User.ReadWrite.All", "Directory.Read.All", "AuditLog.Read.All"];
 
+function esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "Guest Access Audit", hubRelPath: "../../" });
@@ -439,7 +447,7 @@ function renderTable(guests) {
   }
 
   const rows = sorted.map(g => {
-    const search = [g.displayName, g.upn, g.companyName, g.department].join(" ").toLowerCase();
+    const search = [g.displayName, g.upn, g.companyName, g.department].join(" ").toLowerCase().replace(/"/g, "");
     const disabledBtns = g.accountEnabled
       ? `<button class="btn-action btn-disable" id="dis-${g.id}" onclick="promptDisable('${g.id}')">Disable</button>`
       : `<button class="btn-action btn-enable"  id="ena-${g.id}" onclick="promptEnable('${g.id}')">Enable</button>`;
@@ -449,17 +457,17 @@ function renderTable(guests) {
         <div class="user-cell">
           <div class="avatar ${avatarClass(g)}">${initials(g.displayName)}</div>
           <div>
-            <div class="user-name">${g.displayName || "(no name)"}</div>
-            <div class="user-upn">${g.upn}</div>
+            <div class="user-name">${esc(g.displayName) || "(no name)"}</div>
+            <div class="user-upn">${esc(g.upn)}</div>
             ${riskBadges(g)}
           </div>
         </div>
       </td>
-      <td>${g.companyName ? g.companyName : `<span style="color:var(--muted2)">—</span>`}</td>
+      <td>${g.companyName ? esc(g.companyName) : `<span style="color:var(--muted2)">—</span>`}</td>
       <td>${g.isNever ? `<span style="color:var(--muted2)">Never</span>` : fmtDate(g.lastSignIn)}</td>
       <td>${ageBadge(g)}</td>
       <td>${fmtDate(g.created)}</td>
-      <td><button class="btn-groups" onclick="openGroupModal('${g.id}','${g.displayName.replace(/'/g,"\\'")}')">View</button></td>
+      <td><button class="btn-groups" data-uid="${esc(g.id)}" data-name="${esc(g.displayName)}" onclick="openGroupModal(this.dataset.uid, this.dataset.name)">View</button></td>
       <td>${g.licenseCount > 0 ? `<span class="pill-active" style="background:var(--blue-light);color:var(--blue-dark)">${g.licenseCount}</span>` : `<span style="color:var(--muted2)">None</span>`}</td>
       <td id="acct-${g.id}">${g.accountEnabled ? `<span class="pill-active">Active</span>` : `<span class="pill-disabled">Disabled</span>`}</td>
       <td>
@@ -502,6 +510,10 @@ function renderTable(guests) {
       </table>
     </div>
   </div>`;
+}
+
+function exportCsv() {
+  // stub — implemented in Task 8
 }
 </script>
 </body>
