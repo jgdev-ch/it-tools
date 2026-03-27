@@ -130,6 +130,33 @@ function cancelScan() {
   b.style.display = "block";
 }
 
+// ── Graph retry ────────────────────────────────────────────────────────────────
+async function graphWithRetry(fn, maxRetries = 5) {
+  let attempt = 0;
+  while (true) {
+    try { return await fn(); }
+    catch(e) {
+      attempt++;
+      const isRateLimit = e.message && (
+        e.message.includes("429") || e.message.includes("Rate limited") ||
+        e.message.includes("Too Many Requests") || e.message.includes("503")
+      );
+      if (!isRateLimit || attempt > maxRetries) throw e;
+      const waitSec = Math.min(60, Math.pow(2, attempt));
+      setPhase(`Rate limited — retrying in ${waitSec}s…`);
+      await countdownEta(waitSec);
+    }
+  }
+}
+
+async function countdownEta(seconds) {
+  const line = document.getElementById("phaseText");
+  for (let s = seconds; s > 0; s--) {
+    if (line) line.textContent = `Rate limited — resuming in ${s}s…`;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
 async function startScan() {
   document.getElementById("errBanner").style.display  = "none";
   document.getElementById("infoBanner").style.display = "none";
@@ -154,8 +181,100 @@ async function startScan() {
 }
 
 async function runScan() {
-  // Placeholder — implemented in Task 3
+  const threshold = parseInt(document.getElementById("staleSelect").value, 10);
+  const dept      = document.getElementById("deptFilter").value.trim();
+
+  // Build URL — filter server-side by userType eq 'Guest'
+  let url = "https://graph.microsoft.com/v1.0/users"
+    + "?$filter=userType eq 'Guest'"
+    + "&$select=id,displayName,userPrincipalName,companyName,department,"
+    + "accountEnabled,assignedLicenses,signInActivity,createdDateTime"
+    + "&$top=999&$count=true";
+
+  if (dept) {
+    url = "https://graph.microsoft.com/v1.0/users"
+      + `?$filter=userType eq 'Guest' and department eq '${dept.replace(/'/g, "''")}'`
+      + "&$select=id,displayName,userPrincipalName,companyName,department,"
+      + "accountEnabled,assignedLicenses,signInActivity,createdDateTime"
+      + "&$top=999&$count=true";
+  }
+
+  let guests;
+  try {
+    guests = await graphWithRetry(() => ITTools.graph.getAll(url));
+  } catch(fetchErr) {
+    // Fallback: fetch without server-side filter, filter client-side
+    setPhase("Fallback: fetching all users and filtering client-side…");
+    const all = await graphWithRetry(() =>
+      ITTools.graph.getAll(
+        "https://graph.microsoft.com/v1.0/users"
+        + "?$select=id,displayName,userPrincipalName,companyName,department,"
+        + "accountEnabled,assignedLicenses,signInActivity,createdDateTime&$top=999"
+      )
+    );
+    guests = all.filter(u => u.userType === "Guest");
+    if (dept) guests = guests.filter(u => (u.department||"").toLowerCase().includes(dept.toLowerCase()));
+  }
+
+  if (!guests.length) {
+    const b = document.getElementById("infoBanner");
+    b.textContent   = "No guest accounts found in your tenant.";
+    b.className     = "banner info";
+    b.style.display = "block";
+    setPhase(null);
+    return;
+  }
+
+  const now = Date.now();
+  allGuests = guests.map(u => {
+    const lastSignIn = u.signInActivity?.lastSignInDateTime || null;
+    const created    = u.createdDateTime || null;
+    let daysInactive = null;
+    if (lastSignIn) {
+      daysInactive = Math.floor((now - new Date(lastSignIn).getTime()) / 86400000);
+    }
+    const createdDaysAgo = created
+      ? Math.floor((now - new Date(created).getTime()) / 86400000)
+      : null;
+
+    const isNever       = lastSignIn === null;
+    const isStale       = daysInactive !== null && daysInactive > threshold;
+    const isLicensed    = (u.assignedLicenses || []).length > 0;
+    const isOldInvite   = isNever && createdDaysAgo !== null && createdDaysAgo > 365;
+
+    return {
+      id:            u.id,
+      displayName:   u.displayName || "",
+      upn:           u.userPrincipalName || "",
+      companyName:   u.companyName || "",
+      department:    u.department || "",
+      accountEnabled: u.accountEnabled !== false,
+      licenseCount:  (u.assignedLicenses || []).length,
+      lastSignIn,
+      daysInactive,
+      created,
+      createdDaysAgo,
+      isNever,
+      isStale,
+      isLicensed,
+      isOldInvite,
+      threshold,
+    };
+  });
+
+  renderStats(allGuests, threshold);
+  renderTable(allGuests);
   setPhase(null);
+}
+
+function renderStats(guests, threshold) {
+  // stub — implemented in Task 4
+}
+
+function renderTable(guests) {
+  // stub — implemented in Task 5
+  document.getElementById("tableSection").innerHTML =
+    `<div class="card"><p style="padding:1rem;color:var(--muted)">${guests.length} guests fetched — table rendering coming in next task.</p></div>`;
 }
 </script>
 </body>
