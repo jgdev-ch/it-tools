@@ -32,7 +32,7 @@
 
 <script src="../../shared/auth.js"></script>
 <script>
-const TOOL_SCOPES = ["User.Read.All", "Directory.Read.All", "AuditLog.Read.All"];
+const TOOL_SCOPES = ["User.Read.All", "User.ReadWrite.All", "Directory.Read.All", "AuditLog.Read.All"];
 
 async function init() {
   ITTools.theme.init();
@@ -43,7 +43,7 @@ async function init() {
   await ITTools.auth.init({
     scopes: TOOL_SCOPES,
     onSignIn: acct => {
-      _sessionFound = true;
+      _sessionFound = true; // must remain first — flag is read synchronously after init() resolves
       document.getElementById("appScreen").style.display = "block";
       ITTools.ui.setUser(acct);
     },
