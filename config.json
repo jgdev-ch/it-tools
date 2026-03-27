@@ -40,7 +40,7 @@
       "icon": "🛡️",
       "status": "beta",
       "path": "tools/guest-audit/",
-      "permissions": ["User.Read.All", "Directory.Read.All"],
+      "permissions": ["User.Read.All", "User.ReadWrite.All", "Directory.Read.All", "AuditLog.Read.All"],
       "accent": "#5b21b6",
       "iconBg": "#ede9fe"
     },

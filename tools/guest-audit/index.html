@@ -146,6 +146,7 @@
   }
   .confirm-modal-icon.warn   { background: var(--amber-light); }
   .confirm-modal-icon.danger { background: var(--red-light); }
+  .confirm-modal-icon.ok     { background: var(--green-light); }
   .confirm-modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
   .confirm-modal-body  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.25rem; }
   .confirm-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
@@ -165,6 +166,7 @@
   .btn-confirm-ok:disabled { opacity: .5; cursor: not-allowed; }
   .btn-confirm-ok.warn   { background: var(--amber); }
   .btn-confirm-ok.danger { background: var(--red); }
+  .btn-confirm-ok.ok     { background: var(--green); }
 </style>
 </head>
 <body>
@@ -315,9 +317,11 @@ async function graphWithRetry(fn, maxRetries = 5) {
         e.message.includes("Too Many Requests") || e.message.includes("503")
       );
       if (!isRateLimit || attempt > maxRetries) throw e;
+      if (_cancelled) throw new Error("Scan cancelled");
       const waitSec = Math.min(60, Math.pow(2, attempt));
       setPhase(`Rate limited — retrying in ${waitSec}s…`);
       await countdownEta(waitSec);
+      if (_cancelled) throw new Error("Scan cancelled");
     }
   }
 }
@@ -325,6 +329,7 @@ async function graphWithRetry(fn, maxRetries = 5) {
 async function countdownEta(seconds) {
   const line = document.getElementById("phaseText");
   for (let s = seconds; s > 0; s--) {
+    if (_cancelled) return;
     if (line) line.textContent = `Rate limited — resuming in ${s}s…`;
     await new Promise(r => setTimeout(r, 1000));
   }
@@ -341,6 +346,7 @@ async function startScan() {
   try {
     await runScan();
   } catch(e) {
+    if (e.message === "Scan cancelled") { setPhase(null); return; }
     const banner = document.getElementById("errBanner");
     if (e.message && e.message.includes("403")) {
       banner.textContent = "Permission denied — check Graph API consents in your Entra app registration (User.Read.All, User.ReadWrite.All, Directory.Read.All, AuditLog.Read.All).";
@@ -548,7 +554,7 @@ function renderTable(guests) {
   }
 
   const rows = sorted.map(g => {
-    const search = [g.displayName, g.upn, g.companyName, g.department].join(" ").toLowerCase().replace(/"/g, "");
+    const search = esc([g.displayName, g.upn, g.companyName, g.department].join(" ").toLowerCase());
     const disabledBtns = g.accountEnabled
       ? `<button class="btn-action btn-disable" id="dis-${g.id}" onclick="promptDisable('${g.id}')">Disable</button>`
       : `<button class="btn-action btn-enable"  id="ena-${g.id}" onclick="promptEnable('${g.id}')">Enable</button>`;
@@ -703,16 +709,14 @@ function promptEnable(userId) {
   const guest = allGuests.find(g => g.id === userId);
   if (!guest) return;
   _pendingAction = { type: "enable", userId, displayName: guest.displayName };
-  document.getElementById("confirmIcon").className   = "confirm-modal-icon";
-  document.getElementById("confirmIcon").style.background = "var(--green-light)";
+  document.getElementById("confirmIcon").className  = "confirm-modal-icon ok";
   document.getElementById("confirmIcon").textContent = "✅";
   document.getElementById("confirmTitle").textContent = `Enable ${guest.displayName}?`;
   document.getElementById("confirmBody").textContent  =
     "This will restore their sign-in access. The account will become active again.";
   const btn = document.getElementById("confirmOkBtn");
   btn.textContent  = "Enable account";
-  btn.className    = "btn-confirm-ok";
-  btn.style.background = "var(--green)";
+  btn.className    = "btn-confirm-ok ok";
   btn.disabled     = false;
   document.getElementById("confirmModal").classList.add("show");
 }
