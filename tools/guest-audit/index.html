@@ -11,6 +11,20 @@
   .page-header { margin-bottom: 1.5rem; }
   .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-header p  { font-size: 13px; color: var(--muted); }
+
+  /* ── Controls ── */
+  .controls-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .controls-row .field { flex:1 1 180px; margin-bottom:0; }
+
+  /* ── Cancel button ── */
+  .btn-cancel {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: transparent; color: var(--red); border: 1.5px solid var(--red-border);
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: all .12s; display: none; align-items: center; gap: 6px;
+  }
+  .btn-cancel:hover { background: var(--red-light); }
+  .btn-cancel.show  { display: inline-flex; }
 </style>
 </head>
 <body>
@@ -25,6 +39,33 @@
     </div>
 
     <div class="banner error" id="errBanner" style="display:none"></div>
+
+    <!-- Configure -->
+    <div class="card">
+      <div class="card-title">Configure scan</div>
+      <div class="controls-row">
+        <div class="field">
+          <label class="field-label">Stale threshold</label>
+          <select id="staleSelect">
+            <option value="30">30 days</option>
+            <option value="60">60 days</option>
+            <option value="90" selected>90 days</option>
+            <option value="180">180 days</option>
+            <option value="365">365 days</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Department filter</label>
+          <input type="text" id="deptFilter" placeholder="Leave blank for all"/>
+        </div>
+        <button class="btn btn-primary" id="scanBtn" onclick="startScan()">Run Scan</button>
+        <button class="btn-cancel" id="cancelBtn" onclick="cancelScan()">✕ Cancel</button>
+      </div>
+      <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
+    </div>
+
+    <!-- Stats (shown after scan) -->
+    <div class="stats-row" id="statsRow" style="display:none"></div>
 
     <div id="tableSection"></div>
   </div>
@@ -53,6 +94,67 @@ async function init() {
 }
 
 init();
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allGuests  = [];
+let sortCol    = "daysInactive";
+let sortDir    = -1;
+let _cancelled = false;
+
+// ── Phase UI ──────────────────────────────────────────────────────────────────
+function setPhase(msg) {
+  const line   = document.getElementById("phaseLine");
+  const btn    = document.getElementById("scanBtn");
+  const cancel = document.getElementById("cancelBtn");
+  if (msg) {
+    line.classList.add("show");
+    document.getElementById("phaseText").textContent = msg;
+    btn.disabled    = true;
+    btn.textContent = "Scanning…";
+    cancel.classList.add("show");
+  } else {
+    line.classList.remove("show");
+    btn.disabled    = false;
+    btn.textContent = "Run Scan";
+    cancel.classList.remove("show");
+  }
+}
+
+function cancelScan() {
+  _cancelled = true;
+  setPhase(null);
+  const b = document.getElementById("errBanner");
+  b.textContent   = "⚠ Scan cancelled — partial results shown below.";
+  b.className     = "banner warn";
+  b.style.display = "block";
+}
+
+async function startScan() {
+  document.getElementById("errBanner").style.display = "none";
+  document.getElementById("statsRow").style.display  = "none";
+  document.getElementById("tableSection").innerHTML  = "";
+  allGuests  = [];
+  _cancelled = false;
+  setPhase("Fetching guest accounts…");
+  try {
+    await runScan();
+  } catch(e) {
+    const banner = document.getElementById("errBanner");
+    if (e.message && e.message.includes("403")) {
+      banner.textContent = "Permission denied — check Graph API consents in your Entra app registration (User.Read.All, User.ReadWrite.All, Directory.Read.All, AuditLog.Read.All).";
+    } else {
+      banner.textContent = e.message || "An unexpected error occurred.";
+    }
+    banner.className     = "banner error";
+    banner.style.display = "block";
+    setPhase(null);
+  }
+}
+
+async function runScan() {
+  // Placeholder — implemented in Task 3
+  setPhase(null);
+}
 </script>
 </body>
 </html>
