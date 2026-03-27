@@ -123,6 +123,48 @@
     font-size: 13px; border-bottom: 1px solid var(--border);
   }
   .group-item:last-child { border-bottom: none; }
+
+  /* ── Confirm modal ── */
+  .confirm-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1100; padding: 1rem;
+    opacity: 0; pointer-events: none; transition: opacity .15s;
+  }
+  .confirm-modal-overlay.show { opacity: 1; pointer-events: all; }
+  .confirm-modal-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 2rem; max-width: 440px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    transform: translateY(10px); transition: transform .15s;
+  }
+  .confirm-modal-overlay.show .confirm-modal-card { transform: translateY(0); }
+  .confirm-modal-icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+    margin-bottom: 1rem;
+  }
+  .confirm-modal-icon.warn   { background: var(--amber-light); }
+  .confirm-modal-icon.danger { background: var(--red-light); }
+  .confirm-modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .confirm-modal-body  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.25rem; }
+  .confirm-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-confirm-cancel {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--border);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; color: var(--muted); transition: all .12s;
+  }
+  .btn-confirm-cancel:hover { background: var(--surface2); }
+  .btn-confirm-ok {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    border: none; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: background .12s;
+  }
+  .btn-confirm-ok:hover    { opacity: .88; }
+  .btn-confirm-ok:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-confirm-ok.warn   { background: var(--amber); }
+  .btn-confirm-ok.danger { background: var(--red); }
 </style>
 </head>
 <body>
@@ -176,6 +218,19 @@
         <div class="modal-body" id="groupModalBody"></div>
         <div class="modal-actions">
           <button class="btn-modal-cancel" onclick="closeGroupModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation modal -->
+    <div class="confirm-modal-overlay" id="confirmModal">
+      <div class="confirm-modal-card">
+        <div class="confirm-modal-icon" id="confirmIcon"></div>
+        <div class="confirm-modal-title" id="confirmTitle"></div>
+        <div class="confirm-modal-body"  id="confirmBody"></div>
+        <div class="confirm-modal-actions">
+          <button class="btn-confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
+          <button class="btn-confirm-ok"     id="confirmOkBtn" onclick="executeConfirm()"></button>
         </div>
       </div>
     </div>
@@ -597,6 +652,143 @@ async function openGroupModal(userId, displayName) {
 // Close modal on overlay click
 document.getElementById("groupModal").addEventListener("click", e => {
   if (e.target === document.getElementById("groupModal")) closeGroupModal();
+});
+
+// ── Actions ────────────────────────────────────────────────────────────────────
+let _pendingAction = null; // { type: 'disable'|'enable'|'delete', userId, displayName }
+
+function closeConfirmModal() {
+  document.getElementById("confirmModal").classList.remove("show");
+  _pendingAction = null;
+}
+
+function promptDisable(userId) {
+  const guest = allGuests.find(g => g.id === userId);
+  if (!guest) return;
+  _pendingAction = { type: "disable", userId, displayName: guest.displayName };
+  document.getElementById("confirmIcon").className  = "confirm-modal-icon warn";
+  document.getElementById("confirmIcon").textContent = "⚠️";
+  document.getElementById("confirmTitle").textContent = `Disable ${guest.displayName}?`;
+  document.getElementById("confirmBody").textContent  =
+    "This will block their sign-in. The account will remain in the tenant and can be re-enabled later.";
+  const btn = document.getElementById("confirmOkBtn");
+  btn.textContent  = "Disable account";
+  btn.className    = "btn-confirm-ok warn";
+  btn.disabled     = false;
+  document.getElementById("confirmModal").classList.add("show");
+}
+
+function promptEnable(userId) {
+  const guest = allGuests.find(g => g.id === userId);
+  if (!guest) return;
+  _pendingAction = { type: "enable", userId, displayName: guest.displayName };
+  document.getElementById("confirmIcon").className   = "confirm-modal-icon";
+  document.getElementById("confirmIcon").style.background = "var(--green-light)";
+  document.getElementById("confirmIcon").textContent = "✅";
+  document.getElementById("confirmTitle").textContent = `Enable ${guest.displayName}?`;
+  document.getElementById("confirmBody").textContent  =
+    "This will restore their sign-in access. The account will become active again.";
+  const btn = document.getElementById("confirmOkBtn");
+  btn.textContent  = "Enable account";
+  btn.className    = "btn-confirm-ok";
+  btn.style.background = "var(--green)";
+  btn.disabled     = false;
+  document.getElementById("confirmModal").classList.add("show");
+}
+
+function promptDelete(userId) {
+  const guest = allGuests.find(g => g.id === userId);
+  if (!guest) return;
+  _pendingAction = { type: "delete", userId, displayName: guest.displayName };
+  document.getElementById("confirmIcon").className  = "confirm-modal-icon danger";
+  document.getElementById("confirmIcon").textContent = "🗑️";
+  document.getElementById("confirmTitle").textContent = `Permanently delete ${guest.displayName}?`;
+  document.getElementById("confirmBody").textContent  =
+    "This cannot be undone. The account will be permanently removed from the tenant.";
+  const btn = document.getElementById("confirmOkBtn");
+  btn.textContent  = "Delete account";
+  btn.className    = "btn-confirm-ok danger";
+  btn.disabled     = false;
+  document.getElementById("confirmModal").classList.add("show");
+}
+
+async function executeConfirm() {
+  if (!_pendingAction) return;
+  const { type, userId, displayName } = _pendingAction;
+  const okBtn = document.getElementById("confirmOkBtn");
+  okBtn.disabled = true;
+  closeConfirmModal();
+
+  const errEl = document.getElementById(`err-${userId}`);
+  if (errEl) errEl.textContent = "";
+
+  try {
+    if (type === "disable" || type === "enable") {
+      const enabled = type === "enable";
+      // PATCH /users/{id} with { accountEnabled: boolean }
+      await ITTools.graph.patch(`/users/${userId}`, { accountEnabled: enabled });
+
+      // Update local state
+      const g = allGuests.find(g => g.id === userId);
+      if (g) g.accountEnabled = enabled;
+
+      // Update Account pill
+      const acctEl = document.getElementById(`acct-${userId}`);
+      if (acctEl) acctEl.innerHTML = enabled
+        ? `<span class="pill-active">Active</span>`
+        : `<span class="pill-disabled">Disabled</span>`;
+
+      // Swap disable/enable buttons
+      const disBtn = document.getElementById(`dis-${userId}`);
+      const enaBtn = document.getElementById(`ena-${userId}`);
+      if (enabled) {
+        // Account re-enabled: show Disable, hide Enable
+        if (enaBtn) enaBtn.remove();
+        const actionsDiv = document.querySelector(`tr[data-id="${userId}"] td:last-child div`);
+        if (actionsDiv && !document.getElementById(`dis-${userId}`)) {
+          const newDisBtn = document.createElement("button");
+          newDisBtn.id        = `dis-${userId}`;
+          newDisBtn.className = "btn-action btn-disable";
+          newDisBtn.textContent = "Disable";
+          newDisBtn.onclick   = () => promptDisable(userId);
+          actionsDiv.insertBefore(newDisBtn, actionsDiv.firstChild);
+        }
+      } else {
+        // Account disabled: hide Disable, show Enable
+        if (disBtn) disBtn.remove();
+        const actionsDiv = document.querySelector(`tr[data-id="${userId}"] td:last-child div`);
+        if (actionsDiv && !document.getElementById(`ena-${userId}`)) {
+          const newEnaBtn = document.createElement("button");
+          newEnaBtn.id        = `ena-${userId}`;
+          newEnaBtn.className = "btn-action btn-enable";
+          newEnaBtn.textContent = "Enable";
+          newEnaBtn.onclick   = () => promptEnable(userId);
+          actionsDiv.insertBefore(newEnaBtn, actionsDiv.firstChild);
+        }
+      }
+
+    } else if (type === "delete") {
+      // DELETE /users/{id}
+      await ITTools.graph.del(`/users/${userId}`);
+
+      // Remove from local state and DOM
+      allGuests = allGuests.filter(g => g.id !== userId);
+      const row = document.querySelector(`tr[data-id="${userId}"]`);
+      if (row) row.remove();
+
+      // Update stats
+      const threshold = parseInt(document.getElementById("staleSelect").value, 10);
+      renderStats(allGuests, threshold);
+    }
+  } catch(e) {
+    if (errEl) errEl.textContent = e.message || "Action failed";
+    okBtn.disabled = false;
+  }
+}
+
+// Close confirm modal on overlay click
+document.getElementById("confirmModal").addEventListener("click", e => {
+  if (e.target === document.getElementById("confirmModal")) closeConfirmModal();
 });
 </script>
 </body>
