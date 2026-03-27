@@ -9,8 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Push to preview repo
+        env:
+          TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
         run: |
-          git remote add preview https://x-access-token:${{ secrets.PREVIEW_DEPLOY_TOKEN }}@github.com/jgdev-ch/it-tools-preview.git
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git remote add preview https://${TOKEN}@github.com/jgdev-ch/it-tools-preview.git
           git push preview HEAD:main --force
