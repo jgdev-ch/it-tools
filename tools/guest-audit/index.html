@@ -12,6 +12,8 @@
   .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-header p  { font-size: 13px; color: var(--muted); }
 
+  #authScreen { display:none; }
+
   /* ── Controls ── */
   .controls-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
   .controls-row .field { flex:1 1 180px; margin-bottom:0; }
@@ -173,6 +175,25 @@
 
 <div id="topbar"></div>
 
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:22px">👥</div>
+    <h1>Guest Access Audit</h1>
+    <p>Sign in with your Microsoft 365 admin account to audit B2B guest accounts across your tenant.</p>
+    <button class="btn-ms" onclick="doSignIn()">
+      <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authErr"></div>
+    <p class="auth-note">Requires <strong>User.Read.All</strong>, <strong>User.ReadWrite.All</strong>, <strong>Directory.Read.All</strong>, and <strong>AuditLog.Read.All</strong>.</p>
+  </div>
+</div>
+
 <div id="appScreen" style="display:none">
   <div class="shell">
     <div class="page-header">
@@ -261,12 +282,33 @@ async function init() {
     scopes: TOOL_SCOPES,
     onSignIn: acct => {
       _sessionFound = true; // must remain first — flag is read synchronously after init() resolves
-      document.getElementById("appScreen").style.display = "block";
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
     },
-    onSignOut: () => { window.location.href = "../../"; }
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+    }
   });
-  if (!_sessionFound) { window.location.href = "../../"; }
+  if (!_sessionFound) {
+    document.getElementById("authScreen").style.display = "flex";
+  }
+}
+
+async function doSignIn() {
+  const errEl = document.getElementById("authErr");
+  errEl.style.display = "none";
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+  } catch(e) {
+    errEl.textContent   = e.message;
+    errEl.style.display = "block";
+  }
 }
 
 init();
@@ -598,7 +640,7 @@ function renderTable(guests) {
         <button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="exportCsv()">Export CSV</button>
       </div>
     </div>
-    <div style="overflow-x:auto">
+    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
       <table>
         <thead>
           <tr>
