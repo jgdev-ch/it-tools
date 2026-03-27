@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Guest Access Audit — IT Tools</title>
+<script src="../../shared/msal-browser.min.js"></script>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<style>
+  .shell { max-width: 1060px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .page-header { margin-bottom: 1.5rem; }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-header p  { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<div id="appScreen" style="display:none">
+  <div class="shell">
+    <div class="page-header">
+      <h1>Guest Access Audit</h1>
+      <p>Identify stale B2B guest accounts — review last sign-in, group memberships, and license exposure.</p>
+    </div>
+
+    <div class="banner error" id="errBanner" style="display:none"></div>
+
+    <div id="tableSection"></div>
+  </div>
+</div>
+
+<script src="../../shared/auth.js"></script>
+<script>
+const TOOL_SCOPES = ["User.Read.All", "Directory.Read.All", "AuditLog.Read.All"];
+
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "Guest Access Audit", hubRelPath: "../../" });
+  ITTools.ui.syncThemeIcon();
+
+  let _sessionFound = false;
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: acct => {
+      _sessionFound = true;
+      document.getElementById("appScreen").style.display = "block";
+      ITTools.ui.setUser(acct);
+    },
+    onSignOut: () => { window.location.href = "../../"; }
+  });
+  if (!_sessionFound) { window.location.href = "../../"; }
+}
+
+init();
+</script>
+</body>
+</html>
