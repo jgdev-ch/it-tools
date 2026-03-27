@@ -340,7 +340,7 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
       data-icon="${icon}" data-status="${status}"
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
       style="--icon-bg:${iconBg}">
-    <div class="tool-ribbon ribbon-finance">Finance</div>
+    ${ribbonHtml(status)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
