@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>License Audit — IT Tools</title>
+<title>M365 M365 License Audit — IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -162,7 +162,7 @@
         <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
       </svg>
     </div>
-    <h1>License Audit</h1>
+    <h1>M365 License Audit</h1>
     <p>Sign in with your Microsoft 365 admin account to audit license assignments and identify inactive users.</p>
     <button class="btn-ms" onclick="doSignIn()">
       <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
@@ -185,7 +185,7 @@
 
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-        <h1 style="margin-bottom:0">License Audit</h1>
+        <h1 style="margin-bottom:0">M365 License Audit</h1>
         <span class="finance-badge" id="financeIndicator">💰 Finance View</span>
       </div>
       <p>Identify inactive M365 license holders, surface recoverable seats, and remove licenses directly.</p>
@@ -451,7 +451,7 @@ let _removalCount   = 0;
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "License Audit", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "M365 License Audit", hubRelPath: "../../" });
   ITTools.ui.syncThemeIcon();
 
   await ITTools.auth.init({

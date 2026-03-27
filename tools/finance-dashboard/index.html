@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Finance Dashboard — IT Tools</title>
+<title>License Spend — IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
@@ -148,7 +148,7 @@
   <!-- Page header -->
   <div class="page-header">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
-      <h1 style="margin-bottom:0">Finance Dashboard</h1>
+      <h1 style="margin-bottom:0">License Spend</h1>
       <span class="finance-badge">💰 Finance View</span>
     </div>
     <p>Full M365 license spend analysis, seat utilisation, department breakdown, and 12-month cost projections.</p>
@@ -975,7 +975,7 @@ function exportInactive() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "Finance Dashboard", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "License Spend", hubRelPath: "../../" });
   ITTools.ui.syncThemeIcon();
   await loadCosts();
 
