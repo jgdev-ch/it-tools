@@ -38,8 +38,12 @@ ITTools.auth = (() => {
   async function init({ scopes = [], onSignIn, onSignOut } = {}) {
     _scopes = [...ITTools.BASE_SCOPES, ...scopes];
 
+    console.log("[ITTools.auth] init — page:", window.location.pathname,
+                "| opener?", !!(window.opener && window.opener !== window));
+
     // If we're inside an MSAL popup callback, hand off and stop
     if (window.opener && window.opener !== window) {
+      console.log("[ITTools.auth] popup callback detected — handing off");
       const tmp = new msal.PublicClientApplication({
         auth: {
           clientId:    ITTools.CLIENT_ID,
@@ -66,10 +70,20 @@ ITTools.auth = (() => {
 
     try {
       const r = await _msal.handleRedirectPromise();
-      if (r) return; // popup handled
-    } catch (_) {}
+      console.log("[ITTools.auth] handleRedirectPromise result:", r);
+      if (r) {
+        console.log("[ITTools.auth] redirect result found — using it");
+        _account = r.account;
+        onSignIn?.(_account);
+        ITTools.auth._onSignOut = onSignOut;
+        return;
+      }
+    } catch (e) {
+      console.warn("[ITTools.auth] handleRedirectPromise error:", e);
+    }
 
     const accounts = _msal.getAllAccounts();
+    console.log("[ITTools.auth] getAllAccounts:", accounts.length, accounts.map(a => a.username));
     if (accounts.length > 0) {
       _account = accounts[0];
       onSignIn?.(_account);
