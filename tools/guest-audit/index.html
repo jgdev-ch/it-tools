@@ -614,7 +614,28 @@ function renderTable(guests) {
 }
 
 function exportCsv() {
-  // stub — implemented in Task 8
+  if (!allGuests.length) return;
+  const today = new Date().toISOString().slice(0, 10);
+  ITTools.csv.download(
+    `Guest_Access_Audit_${today}.csv`,
+    allGuests.map(g => ({
+      "Display Name":     g.displayName,
+      "UPN":              g.upn,
+      "Company":          g.companyName,
+      "Department":       g.department,
+      "Last Sign-In":     g.isNever ? "Never" : (g.lastSignIn || ""),
+      "Days Inactive":    g.isNever ? "Never" : (g.daysInactive ?? ""),
+      "Created":          g.created ? fmtDate(g.created) : "",
+      "Licenses":         g.licenseCount,
+      "Account Status":   g.accountEnabled ? "Active" : "Disabled",
+      "Risk Signals":     [
+        g.isNever     ? "Never signed in" : "",
+        g.isStale     ? "Stale"           : "",
+        g.isLicensed  ? "Licensed"        : "",
+        g.isOldInvite ? "Old invite"      : "",
+      ].filter(Boolean).join("; "),
+    }))
+  );
 }
 
 // ── Group modal ────────────────────────────────────────────────────────────────
