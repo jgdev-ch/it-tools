@@ -89,6 +89,40 @@
 
   /* ── Inline row error ── */
   .row-error { font-size:11px; color:var(--red); margin-top:3px; }
+
+  /* ── Group modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
+    opacity: 0; pointer-events: none; transition: opacity .15s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 2rem; max-width: 480px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    transform: translateY(10px); transition: transform .15s;
+    max-height: 80vh; display: flex; flex-direction: column;
+  }
+  .modal-overlay.show .modal-card { transform: translateY(0); }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+  .modal-sub   { font-size: 12px; color: var(--muted); margin-bottom: 1rem; }
+  .modal-body  { flex: 1; overflow-y: auto; }
+  .modal-actions { display:flex; justify-content:flex-end; margin-top:1.25rem; }
+  .btn-modal-cancel {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--border);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; color: var(--muted); transition: all .12s;
+  }
+  .btn-modal-cancel:hover { background: var(--surface2); }
+  .group-list { list-style: none; padding: 0; margin: 0; }
+  .group-item {
+    padding: 8px 10px; border-radius: var(--radius-sm);
+    font-size: 13px; border-bottom: 1px solid var(--border);
+  }
+  .group-item:last-child { border-bottom: none; }
 </style>
 </head>
 <body>
@@ -133,6 +167,18 @@
     <div class="stats-row" id="statsRow" style="display:none"></div>
 
     <div id="tableSection"></div>
+
+    <!-- Group modal -->
+    <div class="modal-overlay" id="groupModal">
+      <div class="modal-card">
+        <div class="modal-title" id="groupModalTitle"></div>
+        <div class="modal-sub">Group memberships</div>
+        <div class="modal-body" id="groupModalBody"></div>
+        <div class="modal-actions">
+          <button class="btn-modal-cancel" onclick="closeGroupModal()">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -515,6 +561,43 @@ function renderTable(guests) {
 function exportCsv() {
   // stub — implemented in Task 8
 }
+
+// ── Group modal ────────────────────────────────────────────────────────────────
+function closeGroupModal() {
+  document.getElementById("groupModal").classList.remove("show");
+}
+
+async function openGroupModal(userId, displayName) {
+  const modal = document.getElementById("groupModal");
+  const title = document.getElementById("groupModalTitle");
+  const body  = document.getElementById("groupModalBody");
+
+  title.textContent = displayName;
+  body.innerHTML    = `<div style="display:flex;align-items:center;gap:8px;padding:1rem 0"><div class="spinner"></div><span style="font-size:13px;color:var(--muted)">Loading groups…</span></div>`;
+  modal.classList.add("show");
+
+  try {
+    const data = await graphWithRetry(() =>
+      ITTools.graph.getAll(
+        `https://graph.microsoft.com/v1.0/users/${userId}/memberOf?$select=id,displayName`
+      )
+    );
+    if (!data.length) {
+      body.innerHTML = `<p style="font-size:13px;color:var(--muted);padding:0.5rem 0">Not a member of any groups.</p>`;
+      return;
+    }
+    body.innerHTML = `<ul class="group-list">${data.map(g =>
+      `<li class="group-item">${esc(g.displayName || g.id)}</li>`
+    ).join("")}</ul>`;
+  } catch(e) {
+    body.innerHTML = `<p style="font-size:13px;color:var(--red);padding:0.5rem 0">Could not load groups — ${esc(e.message)}</p>`;
+  }
+}
+
+// Close modal on overlay click
+document.getElementById("groupModal").addEventListener("click", e => {
+  if (e.target === document.getElementById("groupModal")) closeGroupModal();
+});
 </script>
 </body>
 </html>
