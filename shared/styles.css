@@ -6,6 +6,8 @@
  * Usage: <link rel="stylesheet" href="../../shared/styles.css"/>
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..700;1,300..700&display=swap');
+
 /* ─────────────────────────────────────────────────────────────
    RESET
 ───────────────────────────────────────────────────────────── */
@@ -108,7 +110,7 @@
    BASE
 ───────────────────────────────────────────────────────────── */
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
