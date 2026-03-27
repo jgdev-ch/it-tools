@@ -7,7 +7,7 @@
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
-  .shell { max-width: 1060px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .shell { max-width: 1540px; margin: 0 auto; padding: 1.75rem 1.25rem; }
   .page-header { margin-bottom: 1.5rem; }
   .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-header p  { font-size: 13px; color: var(--muted); }
@@ -27,6 +27,20 @@
   }
   .btn-cancel:hover { background: var(--red-light); }
   .btn-cancel.show  { display: inline-flex; }
+
+  /* ── Table column widths ── */
+  table { table-layout: fixed; width: 100%; }
+  table th:nth-child(1), table td:nth-child(1) { min-width: 220px; }  /* Guest */
+  table th:nth-child(2), table td:nth-child(2) { width: 130px; }      /* Company */
+  table th:nth-child(3), table td:nth-child(3) { width: 108px; }      /* Last Sign-In */
+  table th:nth-child(4), table td:nth-child(4) { width: 100px; }      /* Days Inactive */
+  table th:nth-child(5), table td:nth-child(5) { width: 108px; }      /* Created */
+  table th:nth-child(6), table td:nth-child(6) { width: 68px; }       /* Groups */
+  table th:nth-child(7), table td:nth-child(7) { width: 82px; }       /* Licenses */
+  table th:nth-child(8), table td:nth-child(8) { width: 90px; }       /* Account */
+  table th:nth-child(9), table td:nth-child(9) { width: 148px; }      /* Actions */
+  table td { word-break: break-word; }
+  table td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* Company truncate */
 
   /* ── Guest cell ── */
   .user-cell  { display:flex; align-items:center; gap:10px; }
@@ -640,7 +654,7 @@ function renderTable(guests) {
         <button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="exportCsv()">Export CSV</button>
       </div>
     </div>
-    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
+    <div style="overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
       <table>
         <thead>
           <tr>
