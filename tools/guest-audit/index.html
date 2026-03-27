@@ -25,6 +25,70 @@
   }
   .btn-cancel:hover { background: var(--red-light); }
   .btn-cancel.show  { display: inline-flex; }
+
+  /* ── Guest cell ── */
+  .user-cell  { display:flex; align-items:center; gap:10px; }
+  .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .avatar.never { background:var(--red-light);   color:var(--red); }
+  .avatar.stale { background:var(--amber-light); color:var(--amber); }
+  .avatar.ok    { background:var(--blue-light);  color:var(--blue-dark); }
+  .user-name { font-size:13px; font-weight:600; }
+  .user-upn  { font-size:11px; color:var(--muted); }
+
+  /* ── Age badge ── */
+  .age-never    { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .age-critical { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .age-warning  { background:var(--amber-light); color:var(--amber); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .age-ok       { background:var(--green-light); color:var(--green); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+
+  /* ── Account status pills ── */
+  .pill-active   { display:inline-block; background:var(--green-light); color:var(--green); border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700; }
+  .pill-disabled { display:inline-block; background:var(--red-light);   color:var(--red);   border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700; }
+
+  /* ── Risk badges ── */
+  .risk-badge {
+    display:inline-flex; align-items:center; gap:3px;
+    padding:2px 7px; border-radius:20px; font-size:10px; font-weight:700;
+    margin:1px; white-space:nowrap;
+  }
+  .risk-never    { background:var(--red-light);   color:var(--red); }
+  .risk-stale    { background:var(--amber-light);  color:var(--amber); }
+  .risk-licensed { background:var(--blue-light);   color:var(--blue-dark); }
+  .risk-old-invite { background:var(--surface3);   color:var(--muted); border:1px solid var(--border); }
+
+  /* ── Action buttons ── */
+  .btn-action {
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    background: transparent; font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all .12s; white-space: nowrap;
+  }
+  .btn-disable {
+    border: 1px solid var(--amber-border); color: var(--amber);
+  }
+  .btn-disable:hover { background: var(--amber-light); }
+  .btn-disable:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-enable {
+    border: 1px solid var(--green-border); color: var(--green);
+  }
+  .btn-enable:hover { background: var(--green-light); }
+  .btn-enable:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-delete {
+    border: 1px solid var(--red-border); color: var(--red);
+  }
+  .btn-delete:hover { background: var(--red-light); }
+  .btn-delete:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Groups button ── */
+  .btn-groups {
+    padding: 3px 10px; border-radius: var(--radius-sm);
+    background: var(--surface2); border: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: all .12s;
+  }
+  .btn-groups:hover { background: var(--surface3); }
+
+  /* ── Inline row error ── */
+  .row-error { font-size:11px; color:var(--red); margin-top:3px; }
 </style>
 </head>
 <body>
@@ -276,6 +340,71 @@ function sc(color, label, value, sub) {
   return `<div class="stat ${color}"><div class="stat-label">${label}</div><div class="stat-value">${value}</div>${sub ? `<div class="stat-sub">${sub}</div>` : ""}</div>`;
 }
 
+function sortGuests(guests) {
+  return [...guests].sort((a, b) => {
+    if (sortCol === "daysInactive") {
+      const av = a.isNever ? Infinity : (a.daysInactive ?? -1);
+      const bv = b.isNever ? Infinity : (b.daysInactive ?? -1);
+      return sortDir * (bv - av);
+    }
+    if (sortCol === "licenseCount") return sortDir * (b.licenseCount - a.licenseCount);
+    if (sortCol === "accountEnabled") return sortDir * ((a.accountEnabled ? 1 : 0) - (b.accountEnabled ? 1 : 0));
+    const av = a[sortCol] || "", bv = b[sortCol] || "";
+    return sortDir * av.toString().toLowerCase().localeCompare(bv.toString().toLowerCase());
+  });
+}
+
+function thSortIcon(col) {
+  if (col !== sortCol) return "";
+  return sortDir === 1 ? " ▲" : " ▼";
+}
+
+function filterGuestTbl(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("#guestBody tr").forEach(tr => {
+    tr.style.display = tr.dataset.search.includes(q) ? "" : "none";
+  });
+}
+
+function setSortCol(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = -1; }
+  renderTable(allGuests);
+  filterGuestTbl(document.querySelector('input[type="search"]')?.value || "");
+}
+
+function ageBadge(g) {
+  if (g.isNever) return `<span class="age-never">Never</span>`;
+  const d = g.daysInactive;
+  if (d > g.threshold) return `<span class="age-critical">${d}d</span>`;
+  if (d > 30)          return `<span class="age-warning">${d}d</span>`;
+  return `<span class="age-ok">${d}d</span>`;
+}
+
+function riskBadges(g) {
+  let html = "";
+  if (g.isNever)     html += `<span class="risk-badge risk-never">Never signed in</span>`;
+  if (g.isStale)     html += `<span class="risk-badge risk-stale">Stale</span>`;
+  if (g.isLicensed)  html += `<span class="risk-badge risk-licensed">Licensed</span>`;
+  if (g.isOldInvite) html += `<span class="risk-badge risk-old-invite">Old invite</span>`;
+  return html;
+}
+
+function avatarClass(g) {
+  if (g.isNever) return "never";
+  if (g.isStale) return "stale";
+  return "ok";
+}
+
+function initials(name) {
+  return name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
+}
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
 function renderStats(guests, threshold) {
   const total    = guests.length;
   const never    = guests.filter(g => g.isNever).length;
@@ -292,9 +421,87 @@ function renderStats(guests, threshold) {
 }
 
 function renderTable(guests) {
-  // stub — implemented in Task 5
-  document.getElementById("tableSection").innerHTML =
-    `<div class="card"><p style="padding:1rem;color:var(--muted)">${guests.length} guests fetched — table rendering coming in next task.</p></div>`;
+  const sec = document.getElementById("tableSection");
+
+  if (!guests.length) {
+    sec.innerHTML = `<div class="card"><div class="empty-state">
+      <div class="empty-icon">👥</div>
+      <div class="empty-title">No guest accounts found</div>
+      <div class="empty-sub">No guest accounts found in your tenant.</div>
+    </div></div>`;
+    return;
+  }
+
+  const sorted = sortGuests(guests);
+
+  function thBtn(col, label) {
+    return `<th class="sortable${col === sortCol ? " sorted" : ""}" onclick="setSortCol('${col}')">${label}${thSortIcon(col)}</th>`;
+  }
+
+  const rows = sorted.map(g => {
+    const search = [g.displayName, g.upn, g.companyName, g.department].join(" ").toLowerCase();
+    const disabledBtns = g.accountEnabled
+      ? `<button class="btn-action btn-disable" id="dis-${g.id}" onclick="promptDisable('${g.id}')">Disable</button>`
+      : `<button class="btn-action btn-enable"  id="ena-${g.id}" onclick="promptEnable('${g.id}')">Enable</button>`;
+    return `
+    <tr data-id="${g.id}" data-search="${search}">
+      <td>
+        <div class="user-cell">
+          <div class="avatar ${avatarClass(g)}">${initials(g.displayName)}</div>
+          <div>
+            <div class="user-name">${g.displayName || "(no name)"}</div>
+            <div class="user-upn">${g.upn}</div>
+            ${riskBadges(g)}
+          </div>
+        </div>
+      </td>
+      <td>${g.companyName ? g.companyName : `<span style="color:var(--muted2)">—</span>`}</td>
+      <td>${g.isNever ? `<span style="color:var(--muted2)">Never</span>` : fmtDate(g.lastSignIn)}</td>
+      <td>${ageBadge(g)}</td>
+      <td>${fmtDate(g.created)}</td>
+      <td><button class="btn-groups" onclick="openGroupModal('${g.id}','${g.displayName.replace(/'/g,"\\'")}')">View</button></td>
+      <td>${g.licenseCount > 0 ? `<span class="pill-active" style="background:var(--blue-light);color:var(--blue-dark)">${g.licenseCount}</span>` : `<span style="color:var(--muted2)">None</span>`}</td>
+      <td id="acct-${g.id}">${g.accountEnabled ? `<span class="pill-active">Active</span>` : `<span class="pill-disabled">Disabled</span>`}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${disabledBtns}
+          <button class="btn-action btn-delete" id="del-${g.id}" onclick="promptDelete('${g.id}')">Delete</button>
+        </div>
+        <div class="row-error" id="err-${g.id}"></div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  sec.innerHTML = `
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px">
+      <div class="card-title" style="margin-bottom:0">
+        ${guests.length} guest account${guests.length !== 1 ? "s" : ""}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="search" placeholder="Filter by name, email, company…" style="padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:inherit;font-size:13px;width:220px" oninput="filterGuestTbl(this.value)"/>
+        <button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="exportCsv()">Export CSV</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            ${thBtn("displayName","Guest")}
+            ${thBtn("companyName","Company")}
+            ${thBtn("lastSignIn","Last Sign-In")}
+            ${thBtn("daysInactive","Days Inactive")}
+            ${thBtn("created","Created")}
+            <th>Groups</th>
+            ${thBtn("licenseCount","Licenses")}
+            ${thBtn("accountEnabled","Account")}
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="guestBody">${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
 }
 </script>
 </body>
