@@ -39,13 +39,14 @@
     </div>
 
     <div class="banner error" id="errBanner" style="display:none"></div>
+    <div class="banner info"  id="infoBanner" style="display:none"></div>
 
     <!-- Configure -->
     <div class="card">
       <div class="card-title">Configure scan</div>
       <div class="controls-row">
         <div class="field">
-          <label class="field-label">Stale threshold</label>
+          <label class="field-label" for="staleSelect">Stale threshold</label>
           <select id="staleSelect">
             <option value="30">30 days</option>
             <option value="60">60 days</option>
@@ -55,7 +56,7 @@
           </select>
         </div>
         <div class="field">
-          <label class="field-label">Department filter</label>
+          <label class="field-label" for="deptFilter">Department filter</label>
           <input type="text" id="deptFilter" placeholder="Leave blank for all"/>
         </div>
         <button class="btn btn-primary" id="scanBtn" onclick="startScan()">Run Scan</button>
@@ -123,15 +124,16 @@ function setPhase(msg) {
 function cancelScan() {
   _cancelled = true;
   setPhase(null);
-  const b = document.getElementById("errBanner");
+  const b = document.getElementById("infoBanner");
   b.textContent   = "⚠ Scan cancelled — partial results shown below.";
-  b.className     = "banner warn";
+  b.className     = "banner info";
   b.style.display = "block";
 }
 
 async function startScan() {
-  document.getElementById("errBanner").style.display = "none";
-  document.getElementById("statsRow").style.display  = "none";
+  document.getElementById("errBanner").style.display  = "none";
+  document.getElementById("infoBanner").style.display = "none";
+  document.getElementById("statsRow").style.display   = "none";
   document.getElementById("tableSection").innerHTML  = "";
   allGuests  = [];
   _cancelled = false;
