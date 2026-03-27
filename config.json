@@ -2,8 +2,8 @@
   "tools": [
     {
       "id": "license-audit",
-      "name": "License Audit",
-      "description": "Identify inactive M365 license holders. Find users who haven't signed in recently and surface recoverable seats.",
+      "name": "M365 License Audit",
+      "description": "Surface inactive license holders and recover unused seats before your next renewal.",
       "icon": "📊",
       "status": "beta",
       "path": "tools/license-audit/",
@@ -14,7 +14,7 @@
     {
       "id": "group-import",
       "name": "Group Import",
-      "description": "Bulk-add users to an Entra ID security group from a CSV. Dry-run preview, full audit log, and CSV export.",
+      "description": "Bulk-add users to Entra ID security groups from CSV — with dry-run preview and audit log.",
       "icon": "👥",
       "status": "live",
       "path": "tools/group-import/",
@@ -25,7 +25,7 @@
     {
       "id": "mfa-status",
       "name": "MFA Status Report",
-      "description": "Audit MFA registration status across your tenant. Surface users with weak or missing authentication methods.",
+      "description": "Audit MFA coverage across your tenant and surface users with weak or missing auth methods.",
       "icon": "🔑",
       "status": "beta",
       "path": "tools/mfa-status/",
@@ -36,7 +36,7 @@
     {
       "id": "guest-audit",
       "name": "Guest Access Audit",
-      "description": "Review all B2B guest accounts in your tenant — last sign-in, group memberships, and licence assignments.",
+      "description": "Identify stale B2B guest accounts — review last sign-in, group memberships, and license exposure across your tenant.",
       "icon": "🛡️",
       "status": "coming-soon",
       "path": "",
@@ -46,8 +46,8 @@
     },
     {
       "id": "finance-dashboard",
-      "name": "Finance Dashboard",
-      "description": "Full M365 license spend breakdown, seat utilisation analysis, department cost attribution, and 12-month projections with scenario modelling.",
+      "name": "License Spend",
+      "description": "Analyze M365 license costs by SKU and department, identify inactive seat waste, and model 12-month budget scenarios.",
       "icon": "💰",
       "status": "beta",
       "path": "tools/finance-dashboard/",

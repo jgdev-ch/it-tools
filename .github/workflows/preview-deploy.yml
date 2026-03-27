@@ -1,0 +1,16 @@
+name: Deploy to Preview
+
+on:
+  push:
+    branches: [testing]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push to preview repo
+        run: |
+          git remote add preview https://x-access-token:${{ secrets.PREVIEW_DEPLOY_TOKEN }}@github.com/jgdev-ch/it-tools-preview.git
+          git push preview HEAD:main --force
