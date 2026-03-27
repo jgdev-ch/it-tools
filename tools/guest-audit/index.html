@@ -272,8 +272,23 @@ async function runScan() {
   setPhase(null);
 }
 
+function sc(color, label, value, sub) {
+  return `<div class="stat ${color}"><div class="stat-label">${label}</div><div class="stat-value">${value}</div>${sub ? `<div class="stat-sub">${sub}</div>` : ""}</div>`;
+}
+
 function renderStats(guests, threshold) {
-  // stub — implemented in Task 4
+  const total    = guests.length;
+  const never    = guests.filter(g => g.isNever).length;
+  const stale    = guests.filter(g => g.isStale).length;
+  const licensed = guests.filter(g => g.isLicensed).length;
+
+  const row = document.getElementById("statsRow");
+  row.innerHTML =
+    sc("gray",  "Total Guests",    total,    null) +
+    sc("red",   "Never Signed In", never,    never > 0 ? "null signInActivity" : "none found") +
+    sc("amber", "Stale Accounts",  stale,    `inactive >${threshold}d`) +
+    sc("blue",  "Licensed Guests", licensed, licensed > 0 ? "review exposure" : "no licenses");
+  row.style.display = "flex";
 }
 
 function renderTable(guests) {
