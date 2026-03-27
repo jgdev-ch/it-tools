@@ -30,8 +30,8 @@
 
   /* ── Table column widths ── */
   table { table-layout: fixed; width: 100%; }
-  table th:nth-child(1), table td:nth-child(1) { min-width: 220px; }  /* Guest */
-  table th:nth-child(2), table td:nth-child(2) { width: 130px; }      /* Company */
+  table th:nth-child(1), table td:nth-child(1) { width: 200px; }      /* Guest */
+  table th:nth-child(2), table td:nth-child(2) { width: 110px; }      /* Company */
   table th:nth-child(3), table td:nth-child(3) { width: 108px; }      /* Last Sign-In */
   table th:nth-child(4), table td:nth-child(4) { width: 100px; }      /* Days Inactive */
   table th:nth-child(5), table td:nth-child(5) { width: 108px; }      /* Created */
@@ -39,17 +39,17 @@
   table th:nth-child(7), table td:nth-child(7) { width: 82px; }       /* Licenses */
   table th:nth-child(8), table td:nth-child(8) { width: 90px; }       /* Account */
   table th:nth-child(9), table td:nth-child(9) { width: 148px; }      /* Actions */
-  table td { word-break: break-word; }
   table td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* Company truncate */
 
   /* ── Guest cell ── */
-  .user-cell  { display:flex; align-items:center; gap:10px; }
+  .user-cell  { display:flex; align-items:center; gap:10px; min-width:0; }
+  .user-info  { min-width:0; flex:1; }
   .avatar     { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
   .avatar.never { background:var(--red-light);   color:var(--red); }
   .avatar.stale { background:var(--amber-light); color:var(--amber); }
   .avatar.ok    { background:var(--blue-light);  color:var(--blue-dark); }
-  .user-name { font-size:13px; font-weight:600; }
-  .user-upn  { font-size:11px; color:var(--muted); }
+  .user-name { font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .user-upn  { font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   /* ── Age badge ── */
   .age-never    { background:var(--red-light);   color:var(--red);   border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
@@ -619,7 +619,7 @@ function renderTable(guests) {
       <td>
         <div class="user-cell">
           <div class="avatar ${avatarClass(g)}">${initials(g.displayName)}</div>
-          <div>
+          <div class="user-info">
             <div class="user-name">${esc(g.displayName) || "(no name)"}</div>
             <div class="user-upn">${esc(g.upn)}</div>
             ${riskBadges(g)}
