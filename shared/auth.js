@@ -109,10 +109,18 @@ ITTools.auth = (() => {
     if (!_account) throw new Error("Not signed in.");
     try {
       const r = await _msal.acquireTokenSilent({ scopes: _scopes, account: _account });
+      console.log("[ITTools.auth] acquireTokenSilent OK");
       return r.accessToken;
-    } catch (_) {
-      const r = await _msal.acquireTokenPopup({ scopes: _scopes, account: _account });
-      return r.accessToken;
+    } catch (silentErr) {
+      console.warn("[ITTools.auth] acquireTokenSilent failed:", silentErr.errorCode, silentErr.message);
+      try {
+        const r = await _msal.acquireTokenPopup({ scopes: _scopes, account: _account });
+        console.log("[ITTools.auth] acquireTokenPopup OK");
+        return r.accessToken;
+      } catch (popupErr) {
+        console.error("[ITTools.auth] acquireTokenPopup failed:", popupErr.errorCode, popupErr.message);
+        throw popupErr;
+      }
     }
   }
 
