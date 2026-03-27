@@ -474,9 +474,11 @@ async function hubSignOut() {
 async function trySilentRestore() {
   // Uses shared/auth.js so hub and tool pages share the same MSAL cache —
   // signing in here means tool pages (e.g. Finance Dashboard) won't ask again.
+  let sessionFound = false;
   await ITTools.auth.init({
     scopes: HUB_TOOL_SCOPES,
     onSignIn: async acct => {
+      sessionFound = true;
       showSignedIn(acct);
       try {
         const token = await ITTools.auth.getToken();
@@ -488,6 +490,10 @@ async function trySilentRestore() {
       showSignedOut();
     }
   });
+  // No active session — clear any stale localStorage unlock flags and re-lock cards
+  if (!sessionFound) {
+    clearAllGates();
+  }
 }
 
 // ── Render tools from config ──────────────────────────────────────────────────
