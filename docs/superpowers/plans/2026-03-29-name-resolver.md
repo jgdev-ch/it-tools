@@ -1,0 +1,1350 @@
+# Name Resolver Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build a single-file read-only tool that resolves a list of names (CSV/Excel/paste) to emails via Microsoft Graph, producing an email-only CSV ready to feed into the Group Import tool.
+
+**Architecture:** Single `tools/name-resolver/index.html` — no build step. Follows the same 3-step sidebar-wizard pattern as Group Import. Uses shared `auth.js` helpers (`ITTools.auth`, `ITTools.graph`, `ITTools.ui`, `ITTools.csv`). SheetJS loaded from CDN at runtime for Excel support; tool degrades gracefully if CDN is unreachable.
+
+**Tech Stack:** Vanilla JS (ES2020), MSAL via `shared/msal-browser.min.js`, Microsoft Graph v1.0 `$search` with `ConsistencyLevel: eventual`, SheetJS CDN (`xlsx.full.min.js`), shared `auth.js`.
+
+---
+
+## File Map
+
+| Action | Path | Responsibility |
+|--------|------|----------------|
+| Create | `tools/name-resolver/index.html` | Entire tool — auth gate, 3-step wizard, all JS/CSS |
+| Modify | `config.json` | Register tool so hub card renders |
+
+`shared/auth.js`, `shared/styles.css`, and `shared/msal-browser.min.js` are **not modified**.
+
+---
+
+## Task 1: Scaffold — auth gate, sidebar, step navigation shell
+
+Creates the file with the complete structure but no real functionality yet. Every later task adds code inside this shell.
+
+**Files:**
+- Create: `tools/name-resolver/index.html`
+
+- [ ] **Step 1: Create the file with full HTML scaffold**
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Name Resolver — IT Tools</title>
+<script src="../../shared/msal-browser.min.js"></script>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<style>
+  /* ── Layout ── */
+  .app-body    { display:flex; min-height:calc(100vh - 56px); }
+  .sidebar     { width:240px; background:var(--surface); border-right:1px solid var(--border); padding:1.5rem 1rem; flex-shrink:0; position:sticky; top:56px; height:calc(100vh - 56px); overflow-y:auto; }
+  .sidebar-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted2); margin-bottom:.75rem; padding-left:4px; }
+  .step-item   { display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border-radius:6px; margin-bottom:2px; cursor:pointer; transition:background .12s; }
+  .step-item:hover { background:var(--surface3); }
+  .step-item.active { background:var(--blue-light); }
+  .step-bullet { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-top:1px; border:1.5px solid var(--border-mid); color:var(--muted); background:var(--surface2); transition:all .15s; }
+  .step-item.active .step-bullet { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .step-item.done   .step-bullet { background:var(--green-light); border-color:var(--green-border); color:var(--green); font-size:0; }
+  .step-item.done   .step-bullet::after { content:"✓"; font-size:11px; font-weight:700; }
+  .step-title  { font-size:13px; font-weight:600; color:var(--text); }
+  .step-item.active .step-title { color:var(--blue-dark); }
+  .step-sub    { font-size:11px; color:var(--muted); margin-top:1px; line-height:1.4; }
+  .sidebar-divider { height:1px; background:var(--border); margin:1rem 0; }
+  .sidebar-tip { background:var(--surface3); border-radius:6px; padding:10px 12px; font-size:11px; color:var(--muted); line-height:1.5; }
+  .sidebar-tip strong { display:block; font-size:11px; color:var(--text); margin-bottom:4px; }
+
+  .main-content { flex:1; padding:1.5rem; max-width:760px; }
+  .section      { display:none; }
+  .section.active { display:block; }
+  .section-hdr  { margin-bottom:1.5rem; }
+  .section-hdr h2 { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .section-hdr p  { font-size:13px; color:var(--muted); line-height:1.6; }
+
+  /* ── Input mode tabs ── */
+  .input-tabs   { display:flex; gap:4px; margin-bottom:12px; }
+  .input-tab    { padding:5px 14px; border-radius:6px; font-size:12px; font-weight:600; border:1.5px solid var(--border); background:var(--surface2); color:var(--muted); cursor:pointer; transition:all .12s; }
+  .input-tab:hover   { border-color:var(--blue-mid); color:var(--blue-mid); }
+  .input-tab.active  { border-color:var(--blue); background:var(--blue-light); color:var(--blue-dark); }
+  .input-tab.disabled { opacity:.4; pointer-events:none; }
+
+  /* ── File drop / paste ── */
+  .file-loaded { display:flex; align-items:center; gap:10px; background:var(--green-light); border:1px solid var(--green-border); border-radius:6px; padding:10px 12px; margin-top:10px; }
+  .file-loaded-name  { font-size:13px; font-weight:600; color:var(--green); flex:1; }
+  .file-loaded-count { font-size:11px; color:var(--muted); }
+  .file-loaded-clear { background:none; border:none; cursor:pointer; color:var(--muted2); font-size:14px; padding:0 2px; }
+  .paste-area { width:100%; height:120px; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:12px; font-family:inherit; resize:vertical; background:var(--surface2); color:var(--text); }
+  .paste-area:focus { outline:none; border-color:var(--blue); }
+
+  /* ── Column mapping ── */
+  .col-pills    { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .col-pill     { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1.5px solid var(--border); background:var(--surface2); cursor:pointer; color:var(--muted); transition:all .12s; }
+  .col-pill:hover    { border-color:var(--blue-mid); color:var(--blue-mid); background:var(--blue-light); }
+  .col-pill.selected { border-color:var(--blue); background:var(--blue-light); color:var(--blue-dark); }
+  .col-pill.auto::after { content:" ✦"; font-size:10px; }
+  .mode-select  { font-size:13px; border:1px solid var(--border); border-radius:6px; padding:6px 10px; background:var(--surface2); color:var(--text); cursor:pointer; }
+  .col-row      { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  .col-label    { font-size:12px; font-weight:600; color:var(--muted); min-width:60px; }
+
+  /* ── Preview ── */
+  .preview-list { max-height:150px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; margin-top:8px; }
+  .preview-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid var(--border); font-size:12px; }
+  .preview-item:last-child { border-bottom:none; }
+  .preview-dot  { width:6px; height:6px; border-radius:50%; background:var(--blue); flex-shrink:0; }
+
+  /* ── Results table ── */
+  .res-tbl-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:8px; }
+  .res-tbl      { width:100%; border-collapse:collapse; font-size:12px; }
+  .res-tbl th   { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted2); padding:8px 10px; border-bottom:1px solid var(--border); background:var(--surface2); }
+  .res-tbl td   { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .res-tbl tbody tr:last-child td { border-bottom:none; }
+  .res-tbl tbody tr.row-matched   { background:var(--surface); }
+  .res-tbl tbody tr.row-ambiguous { background:#fffbeb; }
+  .res-tbl tbody tr.row-notfound  { background:#fff5f5; }
+  .res-tbl tbody tr.row-skipped   { background:var(--surface2); }
+  .res-tbl tbody tr.row-expand    { background:#fffbeb; }
+  .res-tbl tbody tr.row-pending   { background:var(--surface); opacity:.6; }
+
+  /* ── Status badges ── */
+  .badge        { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap; }
+  .badge-green  { background:var(--green-light);  color:var(--green);  border:1px solid var(--green-border); }
+  .badge-amber  { background:var(--amber-light);  color:var(--amber);  border:1px solid var(--amber-border); }
+  .badge-red    { background:#fee2e2;             color:var(--red);    border:1px solid #fca5a5; }
+  .badge-grey   { background:var(--surface3);     color:var(--muted);  border:1px solid var(--border); }
+  .badge-blue   { background:var(--blue-light);   color:var(--blue-dark); border:1px solid #93c5fd; }
+
+  /* ── Inline disambiguation expand ── */
+  .disambig-cell { padding:0 !important; }
+  .disambig-panel { background:#fffbeb; border-top:1px solid var(--amber-border); padding:10px 12px; }
+  .disambig-hdr   { font-size:11px; font-weight:700; color:var(--amber); margin-bottom:8px; }
+  .cand-row       { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; border:1.5px solid var(--border); background:var(--surface); margin-bottom:6px; cursor:pointer; transition:all .12s; }
+  .cand-row:hover { border-color:var(--blue); background:var(--blue-light); }
+  .cand-row.chosen { border-color:var(--green-border); background:var(--green-light); }
+  .cand-radio     { width:14px; height:14px; border-radius:50%; border:1.5px solid var(--border-mid); background:var(--surface); flex-shrink:0; }
+  .cand-row.chosen .cand-radio { background:var(--green); border-color:var(--green); }
+  .cand-name      { font-size:12px; font-weight:600; flex:1; }
+  .cand-meta      { font-size:11px; color:var(--muted); }
+  .cand-badge     { flex-shrink:0; }
+  .disambig-actions { display:flex; gap:8px; margin-top:4px; }
+  .btn-skip       { padding:5px 14px; border-radius:6px; border:1px solid var(--border); background:var(--surface); font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; font-family:inherit; }
+  .btn-skip:hover { background:var(--surface3); }
+  .btn-confirm    { padding:5px 14px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .btn-confirm:hover { background:var(--blue-dark); }
+  .btn-retry      { padding:3px 9px; border-radius:5px; border:1px solid var(--border); background:transparent; font-size:11px; color:var(--muted); cursor:pointer; font-family:inherit; }
+  .btn-retry:hover { color:var(--blue-dark); border-color:var(--blue); }
+
+  /* ── Progress ── */
+  .progress-wrap { margin:4px 0; }
+  .progress-meta { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .progress-track { height:6px; background:var(--surface3); border-radius:3px; overflow:hidden; }
+  .progress-fill  { height:100%; background:var(--blue); border-radius:3px; transition:width .3s; width:0%; }
+
+  /* ── Tally ── */
+  .tally-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .tally-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center; }
+  .tally-num  { font-size:22px; font-weight:700; }
+  .tally-lbl  { font-size:11px; color:var(--muted); margin-top:2px; }
+  .tally-green { border-color:var(--green-border); background:var(--green-light); }
+  .tally-green .tally-num { color:var(--green); }
+  .tally-amber { border-color:var(--amber-border); background:var(--amber-light); }
+  .tally-amber .tally-num { color:var(--amber); }
+  .tally-red   { border-color:#fca5a5; background:#fee2e2; }
+  .tally-red   .tally-num { color:var(--red); }
+
+  #authScreen { display:flex; }
+  @media (max-width:640px) { .sidebar { display:none; } .main-content { padding:1rem; } .tally-grid { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<!-- Auth gate -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--blue)" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </div>
+    <h1>Name Resolver</h1>
+    <p>Sign in with your M365 admin account to look up users by name and export an email list for Group Import.</p>
+    <button class="btn-ms" onclick="doSignIn()">
+      <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authErr"></div>
+    <p class="auth-note">Requires <strong>User.Read.All</strong> and <strong>Directory.Read.All</strong>.</p>
+    <button class="redirect-toggle" onclick="toggleUri()">Show redirect URI for app registration</button>
+    <div class="redirect-box" id="uriBox" style="display:none"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="appScreen" style="display:none">
+  <div class="app-body">
+
+    <nav class="sidebar">
+      <div class="sidebar-lbl">Steps</div>
+      <div class="step-item active" id="nav1" onclick="gotoStep(1)">
+        <div class="step-bullet" id="bul1">1</div>
+        <div><div class="step-title">Upload &amp; Map</div><div class="step-sub" id="sub1">Choose file &amp; columns</div></div>
+      </div>
+      <div class="step-item" id="nav2" onclick="gotoStep(2)">
+        <div class="step-bullet" id="bul2">2</div>
+        <div><div class="step-title">Resolve</div><div class="step-sub" id="sub2">Look up names in tenant</div></div>
+      </div>
+      <div class="step-item" id="nav3" onclick="gotoStep(3)">
+        <div class="step-bullet" id="bul3">3</div>
+        <div><div class="step-title">Download</div><div class="step-sub" id="sub3">Export email CSV</div></div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-tip">
+        <strong>How it works</strong>
+        Upload a name list (CSV, Excel, or paste). The tool searches your tenant via Graph and resolves each name to an email — ready to drop into Group Import.
+      </div>
+    </nav>
+
+    <main class="main-content">
+
+      <!-- STEP 1 -->
+      <div class="section active" id="step1">
+        <div class="section-hdr">
+          <h2>Upload &amp; Map</h2>
+          <p>Upload a name list or paste names directly. The tool will detect columns and normalise them for lookup.</p>
+        </div>
+        <div class="banner error" id="s1Err" style="display:none"></div>
+        <!-- content added in Task 2 & 3 -->
+        <div class="btn-row">
+          <button class="btn btn-primary" id="s1Btn" onclick="s1Next()" disabled>Continue to Resolve →</button>
+          <span id="s1Msg" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="section" id="step2">
+        <div class="section-hdr">
+          <h2>Resolve names</h2>
+          <p>Searches your tenant via Microsoft Graph. Ambiguous names expand inline so you can pick the right person.</p>
+        </div>
+        <div class="banner error" id="s2Err" style="display:none"></div>
+        <!-- content added in Task 5 & 6 -->
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="gotoStep(1)">← Back</button>
+          <button class="btn btn-primary" id="s2Btn" onclick="gotoStep(3)" disabled>Continue to Download →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="section" id="step3">
+        <div class="section-hdr">
+          <h2>Download</h2>
+          <p>Your email list is ready. Download the CSV or copy to clipboard, then drop it into Group Import.</p>
+        </div>
+        <!-- content added in Task 7 -->
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="gotoStep(2)">← Back</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="../../shared/auth.js"></script>
+<script>
+const TOOL_SCOPES = ["User.Read.All", "Directory.Read.All"];
+
+// ── State ─────────────────────────────────────────────────────
+const st = {
+  inputName: "",      // file name or "pasted text"
+  rawNames:  [],      // normalised, deduped names ready for lookup
+  results:   [],      // parallel array to rawNames; each: {status, email, candidates, chosenIdx}
+                      // status: "pending"|"matched"|"ambiguous"|"notfound"|"skipped"|"chosen"
+};
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "Name Resolver", hubRelPath: "../../" });
+  ITTools.ui.syncThemeIcon();
+
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: acct => {
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+    }
+  });
+}
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent = e.message; el.style.display = "block";
+  }
+}
+
+function toggleUri() {
+  const b = document.getElementById("uriBox");
+  b.textContent = ITTools.auth.redirectUri();
+  b.style.display = b.style.display === "none" ? "block" : "none";
+}
+
+// ── Step navigation ───────────────────────────────────────────
+function gotoStep(n) {
+  if (n >= 2 && !st.rawNames.length) { showErr("s1Err", "Complete Step 1 first."); return; }
+  [1,2,3].forEach(i => {
+    document.getElementById("step"+i).classList.toggle("active", i===n);
+    document.getElementById("nav"+i).classList.toggle("active", i===n);
+  });
+  window.scrollTo(0,0);
+}
+
+function markDone(n) {
+  document.getElementById("nav"+n).classList.remove("active");
+  document.getElementById("nav"+n).classList.add("done");
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.className = "banner error"; el.style.display = msg ? "block" : "none";
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
+```
+
+- [ ] **Step 2: Open the tool in your browser**
+
+Navigate to `tools/name-resolver/index.html` (via preview server or file://). You should see:
+- Microsoft sign-in card with search icon and "Name Resolver" heading
+- After sign-in: three-step sidebar + empty step 1 with a disabled "Continue" button
+- Theme toggle works in the topbar
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tools/name-resolver/index.html
+git commit -m "feat(name-resolver): scaffold auth gate, sidebar, step navigation"
+```
+
+---
+
+## Task 2: Step 1 — File input (CSV, Excel, paste)
+
+Adds the three input modes to step 1 and parses each into a flat array of raw strings (one per row/line). Name detection comes in Task 3; here we just get the data in.
+
+**Files:**
+- Modify: `tools/name-resolver/index.html`
+
+- [ ] **Step 1: Add SheetJS CDN script tag (with load detection) to `<head>`, after the msal script tag**
+
+```html
+<script>
+  window._sheetjsOk = false;
+</script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"
+        onload="window._sheetjsOk=true"
+        onerror="document.getElementById('tabExcel')?.classList.add('disabled')"></script>
+```
+
+- [ ] **Step 2: Replace the step 1 comment `<!-- content added in Task 2 & 3 -->` with the input UI**
+
+```html
+        <div class="card">
+          <div class="card-title">Source</div>
+          <div class="input-tabs">
+            <div class="input-tab active" id="tabFile"  onclick="setMode('file')" >File (CSV)</div>
+            <div class="input-tab"        id="tabExcel" onclick="setMode('excel')">Excel (.xlsx)</div>
+            <div class="input-tab"        id="tabPaste" onclick="setMode('paste')">Paste names</div>
+          </div>
+
+          <!-- File / Excel drop zone (shared) -->
+          <div id="dropZone">
+            <div class="file-drop" id="fileDrop"
+                 ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+              <div style="font-size:28px;margin-bottom:8px">📄</div>
+              <p id="dropHint">Drag &amp; drop a CSV, or <strong style="cursor:pointer" onclick="document.getElementById('fileIn').click()">browse</strong></p>
+              <p style="font-size:11px;color:var(--muted2);margin-top:4px" id="dropTypes">.csv files only</p>
+              <input type="file" id="fileIn" accept=".csv" style="display:none" onchange="handleFileInput(event)"/>
+            </div>
+            <div class="file-loaded" id="fileLoaded" style="display:none">
+              <span style="font-size:16px">✅</span>
+              <span class="file-loaded-name"  id="fileName"></span>
+              <span class="file-loaded-count" id="fileCount"></span>
+              <button class="file-loaded-clear" onclick="clearInput()">✕</button>
+            </div>
+          </div>
+
+          <!-- Paste zone -->
+          <div id="pasteZone" style="display:none">
+            <textarea class="paste-area" id="pasteIn" placeholder="One name per line&#10;e.g.&#10;Sarah Johnson&#10;Mark Davies&#10;Ali Hassan" oninput="handlePaste()"></textarea>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">One name per line. Comma-separated inline lists are also accepted.</div>
+          </div>
+        </div>
+```
+
+- [ ] **Step 3: Add input-mode and parsing JS inside the `<script>` block, before `window.onload = init`**
+
+```javascript
+// ── Input mode ────────────────────────────────────────────────
+let _mode = "file";   // "file" | "excel" | "paste"
+let _parsedRows = []; // array of plain objects from CSV/Excel
+
+function setMode(m) {
+  _mode = m;
+  ["file","excel","paste"].forEach(t => {
+    document.getElementById("tab"+t.charAt(0).toUpperCase()+t.slice(1))
+      ?.classList.toggle("active", t===m);
+  });
+  document.getElementById("dropZone").style.display  = m !== "paste" ? "block" : "none";
+  document.getElementById("pasteZone").style.display = m === "paste" ? "block" : "none";
+  if (m === "excel") {
+    document.getElementById("fileIn").accept = ".xlsx,.xls";
+    document.getElementById("dropHint").innerHTML = 'Drag &amp; drop an Excel file, or <strong style="cursor:pointer" onclick="document.getElementById(\'fileIn\').click()">browse</strong>';
+    document.getElementById("dropTypes").textContent = ".xlsx / .xls files only";
+    document.getElementById("fileDrop").ondrop = e => { e.preventDefault(); dragLeave(); handleFileDrop(e.dataTransfer.files[0]); };
+  } else if (m === "file") {
+    document.getElementById("fileIn").accept = ".csv";
+    document.getElementById("dropHint").innerHTML = 'Drag &amp; drop a CSV, or <strong style="cursor:pointer" onclick="document.getElementById(\'fileIn\').click()">browse</strong>';
+    document.getElementById("dropTypes").textContent = ".csv files only";
+    document.getElementById("fileDrop").ondrop = e => { e.preventDefault(); dragLeave(); handleFileDrop(e.dataTransfer.files[0]); };
+  }
+  clearInput();
+}
+
+function dragOver(e)  { e.preventDefault(); document.getElementById("fileDrop").classList.add("drag-over"); }
+function dragLeave()  { document.getElementById("fileDrop").classList.remove("drag-over"); }
+function dropFile(e)  { e.preventDefault(); dragLeave(); handleFileDrop(e.dataTransfer.files[0]); }
+function handleFileInput(e) { handleFileDrop(e.target.files[0]); }
+
+function handleFileDrop(file) {
+  if (!file) return;
+  const name = file.name.toLowerCase();
+  if (_mode === "file" && !name.endsWith(".csv")) { showErr("s1Err","Please upload a .csv file."); return; }
+  if (_mode === "excel" && !name.match(/\.xlsx?$/)) { showErr("s1Err","Please upload an .xlsx or .xls file."); return; }
+  showErr("s1Err","");
+  if (_mode === "excel") { loadExcel(file); return; }
+  const reader = new FileReader();
+  reader.onload = e => loadCSVText(file.name, e.target.result);
+  reader.readAsText(file);
+}
+
+function loadCSVText(name, text) {
+  try {
+    const parsed = ITTools.csv.parse(text);
+    _parsedRows = parsed.rows;
+    showFileLoaded(name, parsed.rows.length);
+    renderColumnMapper(parsed.headers, parsed.rows);
+  } catch(e) { showErr("s1Err", e.message); }
+}
+
+function loadExcel(file) {
+  if (!window._sheetjsOk) { showErr("s1Err","Excel library not loaded. Use CSV or paste instead."); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type:"array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval:"" });
+      if (!data.length) { showErr("s1Err","Excel sheet appears to be empty."); return; }
+      _parsedRows = data;
+      showFileLoaded(file.name, data.length);
+      renderColumnMapper(Object.keys(data[0]), data);
+    } catch(e) { showErr("s1Err","Could not read Excel file: " + e.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function handlePaste() {
+  const raw = document.getElementById("pasteIn").value.trim();
+  if (!raw) { _parsedRows = []; updateS1([]); return; }
+  // One name per line; fall back to comma-split if no newlines found
+  const lines = raw.includes("\n")
+    ? raw.split(/\r?\n/)
+    : raw.split(",");
+  const names = lines.map(l => l.trim()).filter(l => l);
+  // Treat as single-column "Name" for the column mapper
+  _parsedRows = names.map(n => ({ Name: n }));
+  renderColumnMapper(["Name"], _parsedRows);
+}
+
+function showFileLoaded(name, count) {
+  document.getElementById("fileDrop").style.display   = "none";
+  document.getElementById("fileLoaded").style.display = "flex";
+  document.getElementById("fileName").textContent     = name;
+  document.getElementById("fileCount").textContent    = count + " rows";
+}
+
+function clearInput() {
+  _parsedRows = [];
+  document.getElementById("fileLoaded").style.display = "none";
+  document.getElementById("fileDrop").style.display   = "block";
+  document.getElementById("fileIn").value             = "";
+  document.getElementById("pasteIn").value            = "";
+  const mc = document.getElementById("mapCard");
+  if (mc) mc.style.display = "none";
+  updateS1([]);
+}
+```
+
+- [ ] **Step 4: Verify in browser**
+
+  - CSV mode: drop a CSV with any columns → file-loaded badge appears, row count shown
+  - Excel mode: tab switches drop hint text; if SheetJS loads, .xlsx drag works
+  - Paste mode: typing in the textarea should call handlePaste without errors (column mapper not wired yet — that's Task 3)
+  - Clear button (✕) resets the UI
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tools/name-resolver/index.html
+git commit -m "feat(name-resolver): add CSV/Excel/paste input modes"
+```
+
+---
+
+## Task 3: Step 1 — Name column detection and mapping UI
+
+Adds the column mapper card below the file input. Detects which columns look like names, lets the user configure the mapping mode (full name / first+last / etc.), and builds the final deduped name list.
+
+**Files:**
+- Modify: `tools/name-resolver/index.html`
+
+- [ ] **Step 1: Add the column mapper card HTML inside step 1, between the source card and the `btn-row`**
+
+```html
+        <div class="card" id="mapCard" style="display:none">
+          <div class="card-title">Name columns</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:10px">
+            Select how names appear in your file. Auto-detected columns are marked ✦.
+          </p>
+
+          <div class="field" style="margin-bottom:12px">
+            <label class="field-label">Format</label>
+            <select class="mode-select" id="modeSelect" onchange="onModeChange()">
+              <option value="full">Full name in one column</option>
+              <option value="first_last">First name + Last name columns</option>
+              <option value="last_first">Last name + First name columns (reversed)</option>
+              <option value="last_comma_first">"Last, First" in one column</option>
+              <option value="last_only">Last name only</option>
+            </select>
+          </div>
+
+          <!-- Single-column picker (full / last_comma_first / last_only) -->
+          <div id="singlePicker">
+            <label class="field-label">Column</label>
+            <div class="col-pills" id="singlePills"></div>
+          </div>
+
+          <!-- Two-column picker (first_last / last_first) -->
+          <div id="dualPicker" style="display:none">
+            <div class="col-row">
+              <span class="col-label" id="dualLabel1">First name</span>
+              <div class="col-pills" id="dualPills1"></div>
+            </div>
+            <div class="col-row" style="margin-top:8px">
+              <span class="col-label" id="dualLabel2">Last name</span>
+              <div class="col-pills" id="dualPills2"></div>
+            </div>
+          </div>
+
+          <div id="previewWrap" style="display:none;margin-top:14px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Preview — first 5 names</div>
+            <div class="preview-list" id="previewList"></div>
+          </div>
+        </div>
+```
+
+- [ ] **Step 2: Add name column detection and mapping JS inside `<script>`, before `window.onload = init`**
+
+```javascript
+// ── Column detection ──────────────────────────────────────────
+const NAME_SCORES = {
+  full: ["displayname","fullname","name","preferredname"],
+  first: ["firstname","givenname","first","given","forename"],
+  last:  ["lastname","surname","familyname","last","family","sn"],
+};
+
+function scoreHeader(h, bucket) {
+  const l = h.toLowerCase().replace(/[\s_\-\.]/g, "");
+  if (NAME_SCORES[bucket].includes(l)) return 10;
+  if (NAME_SCORES[bucket].some(k => l.includes(k))) return 5;
+  return 0;
+}
+
+function bestCol(headers, bucket) {
+  return headers.reduce((best, h) =>
+    scoreHeader(h, bucket) > scoreHeader(best, bucket) ? h : best, headers[0]);
+}
+
+function detectMode(headers) {
+  const hLow = headers.map(h => h.toLowerCase().replace(/[\s_\-\.]/g,""));
+  const hasFirst = headers.some(h => scoreHeader(h,"first") >= 5);
+  const hasLast  = headers.some(h => scoreHeader(h,"last")  >= 5);
+  if (hasFirst && hasLast) return "first_last";
+  if (headers.some(h => scoreHeader(h,"full") >= 10)) return "full";
+  return "full";
+}
+
+// ── Column mapper rendering ───────────────────────────────────
+let _selCol1 = "", _selCol2 = "";
+
+function renderColumnMapper(headers, rows) {
+  document.getElementById("mapCard").style.display = "block";
+  const mode = detectMode(headers);
+  document.getElementById("modeSelect").value = mode;
+  _renderPickersForMode(mode, headers);
+  _updatePreview(rows);
+}
+
+function onModeChange() {
+  const mode = document.getElementById("modeSelect").value;
+  _renderPickersForMode(mode, Object.keys(_parsedRows[0] || {}));
+  _updatePreview(_parsedRows);
+}
+
+function _renderPickersForMode(mode, headers) {
+  const dual = ["first_last","last_first"].includes(mode);
+  document.getElementById("singlePicker").style.display = dual ? "none" : "block";
+  document.getElementById("dualPicker").style.display   = dual ? "block" : "none";
+
+  if (dual) {
+    const l1 = mode === "first_last" ? "First name" : "Last name";
+    const l2 = mode === "first_last" ? "Last name"  : "First name";
+    const b1 = mode === "first_last" ? "first" : "last";
+    const b2 = mode === "first_last" ? "last"  : "first";
+    document.getElementById("dualLabel1").textContent = l1;
+    document.getElementById("dualLabel2").textContent = l2;
+    const auto1 = bestCol(headers, b1);
+    const auto2 = bestCol(headers, b2);
+    _selCol1 = auto1; _selCol2 = auto2;
+    _renderPills("dualPills1", headers, auto1, c => { _selCol1 = c; _updatePreview(_parsedRows); });
+    _renderPills("dualPills2", headers, auto2, c => { _selCol2 = c; _updatePreview(_parsedRows); });
+  } else {
+    const auto = bestCol(headers, mode === "last_only" ? "last" : "full");
+    _selCol1 = auto; _selCol2 = "";
+    _renderPills("singlePills", headers, auto, c => { _selCol1 = c; _updatePreview(_parsedRows); });
+  }
+}
+
+function _renderPills(containerId, headers, autoCol, onSelect) {
+  document.getElementById(containerId).innerHTML = headers.map(h =>
+    `<div class="col-pill${h===autoCol?" auto selected":""}" data-col="${h}"
+          onclick="__pillClick(this,'${containerId}')">${h}</div>`
+  ).join("");
+  // Store callback
+  document.getElementById(containerId)._onSelect = onSelect;
+}
+
+function __pillClick(el, containerId) {
+  document.querySelectorAll(`#${containerId} .col-pill`).forEach(p => p.classList.remove("selected"));
+  el.classList.add("selected");
+  document.getElementById(containerId)._onSelect(el.dataset.col);
+}
+
+function buildNames(rows) {
+  const mode = document.getElementById("modeSelect").value;
+  let names = rows.map(row => {
+    let name = "";
+    switch (mode) {
+      case "full":
+      case "last_only":
+        name = String(row[_selCol1] ?? "");
+        break;
+      case "last_comma_first": {
+        const raw = String(row[_selCol1] ?? "");
+        const parts = raw.split(",").map(p => p.trim());
+        name = parts.length >= 2 ? parts[1] + " " + parts[0] : raw;
+        break;
+      }
+      case "first_last":
+        name = [String(row[_selCol1]??""), String(row[_selCol2]??"")].filter(Boolean).join(" ");
+        break;
+      case "last_first":
+        name = [String(row[_selCol2]??""), String(row[_selCol1]??"")].filter(Boolean).join(" ");
+        break;
+    }
+    // Normalise: trim, collapse whitespace
+    return name.replace(/\s+/g," ").trim();
+  }).filter(n => n);
+
+  // Deduplicate (case-insensitive key, preserve original casing)
+  const seen = new Set();
+  return names.filter(n => {
+    const k = n.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+function _updatePreview(rows) {
+  const names = buildNames(rows);
+  const preview = names.slice(0,5);
+  document.getElementById("previewList").innerHTML = preview.map(n =>
+    `<div class="preview-item"><div class="preview-dot"></div><span>${n}</span></div>`
+  ).join("");
+  document.getElementById("previewWrap").style.display = preview.length ? "block" : "none";
+  updateS1(names);
+}
+
+function updateS1(names) {
+  const count = names.length;
+  document.getElementById("s1Btn").disabled = count === 0;
+  document.getElementById("s1Msg").textContent = count > 0 ? count + " names ready" : "";
+}
+
+function s1Next() {
+  const names = buildNames(_parsedRows);
+  if (!names.length) { showErr("s1Err","No names found."); return; }
+  st.rawNames = names;
+  st.results  = names.map(() => ({ status:"pending", email:"", candidates:[], chosenIdx:-1 }));
+  markDone(1);
+  document.getElementById("sub1").textContent = names.length + " names ready";
+  gotoStep(2);
+  initResolveStep();
+}
+```
+
+- [ ] **Step 3: Verify column mapping in browser**
+
+  - Upload a CSV with a `First Name` + `Last Name` column → mode auto-selects "first_last", correct pills highlighted ✦
+  - Upload a CSV with a `Display Name` column → mode selects "full"
+  - Change mode dropdown → pickers update, preview refreshes
+  - Preview shows real names from the file
+  - "Continue" button enables when names are ready; count shown in sidebar after clicking
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add tools/name-resolver/index.html
+git commit -m "feat(name-resolver): name column detection and mapping UI"
+```
+
+---
+
+## Task 4: Graph lookup engine
+
+Adds the `lookupName` function (direct fetch with retry-after support) and the `resolveBatch` batcher. These are pure logic — no UI yet.
+
+**Files:**
+- Modify: `tools/name-resolver/index.html`
+
+- [ ] **Step 1: Add lookup engine JS inside `<script>`, before `window.onload = init`**
+
+```javascript
+// ── Graph lookup engine ───────────────────────────────────────
+const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+const BATCH_SIZE = 5;
+
+/**
+ * Look up a single display name via Graph $search.
+ * Returns array of candidate objects: { displayName, email, department, userType }
+ * Throws on auth errors; handles 429 with Retry-After wait.
+ * onThrottle(seconds) is called when rate-limited so UI can show countdown.
+ */
+async function lookupName(name, onThrottle) {
+  const searchVal = '"displayName:' + name.replace(/"/g, '') + '"';
+  const url = GRAPH_BASE + "/users?$search=" + encodeURIComponent(searchVal) +
+    "&$top=10&$select=displayName,mail,userPrincipalName,department,userType";
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let token;
+    try { token = await ITTools.auth.getToken(); }
+    catch(e) { throw new Error("__AUTH__"); } // signal auth failure
+
+    const res = await fetch(url, {
+      headers: { Authorization: "Bearer " + token, ConsistencyLevel: "eventual" }
+    });
+
+    if (res.status === 429) {
+      const wait = parseInt(res.headers.get("Retry-After") || "10", 10);
+      onThrottle?.(wait);
+      await new Promise(r => setTimeout(r, wait * 1000));
+      continue;
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error?.message || "Graph error " + res.status);
+    }
+
+    const data = await res.json();
+    return (data.value || []).map(u => ({
+      displayName: u.displayName || "",
+      email:       u.mail || u.userPrincipalName || "",
+      department:  u.department || "",
+      userType:    u.userType || "Member",
+    }));
+  }
+  throw new Error("Rate-limited after retries. Try again in a moment.");
+}
+
+/**
+ * Resolve all names in st.rawNames in batches of BATCH_SIZE.
+ * Calls onProgress(done, total) after each batch.
+ * Calls onThrottle(seconds) when rate-limited.
+ * Returns early if onError() returns true (signals auth re-auth needed).
+ */
+async function resolveBatch({ onProgress, onThrottle, onRowDone, onAuthError }) {
+  const names = st.rawNames;
+  let done = 0;
+
+  for (let i = 0; i < names.length; i += BATCH_SIZE) {
+    const chunk = names.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(
+      chunk.map(name => lookupName(name, onThrottle))
+    );
+
+    for (let j = 0; j < settled.length; j++) {
+      const r      = settled[j];
+      const rowIdx = i + j;
+      if (r.status === "rejected") {
+        if (r.reason?.message === "__AUTH__") { onAuthError?.(); return; }
+        st.results[rowIdx].status = "notfound";
+        st.results[rowIdx].email  = "";
+      } else {
+        const candidates = r.value;
+        if (candidates.length === 0) {
+          st.results[rowIdx].status = "notfound";
+        } else if (candidates.length === 1) {
+          st.results[rowIdx].status = "matched";
+          st.results[rowIdx].email  = candidates[0].email;
+        } else {
+          st.results[rowIdx].status     = "ambiguous";
+          st.results[rowIdx].candidates = candidates;
+        }
+      }
+      onRowDone?.(rowIdx);
+    }
+
+    done += chunk.length;
+    onProgress?.(Math.min(done, names.length), names.length);
+  }
+}
+```
+
+- [ ] **Step 2: Verify the engine compiles (no JS syntax errors)**
+
+Open the tool, open DevTools console. No errors on load. You can test manually in the console after signing in:
+
+```javascript
+lookupName("your own name", s => console.log("throttle", s))
+  .then(r => console.log(r))
+  .catch(e => console.error(e));
+```
+
+Expected: array of candidate objects with `displayName`, `email`, `department`, `userType`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tools/name-resolver/index.html
+git commit -m "feat(name-resolver): Graph lookup engine with retry-after batching"
+```
+
+---
+
+## Task 5: Step 2 — Run UI and results table
+
+Wires the resolve button and progress bar, runs the batch, and renders the results table with status badges. Disambiguation expand comes in Task 6.
+
+**Files:**
+- Modify: `tools/name-resolver/index.html`
+
+- [ ] **Step 1: Replace the step 2 comment `<!-- content added in Task 5 & 6 -->` with the run UI**
+
+```html
+        <div class="card" id="runCard">
+          <div class="card-title">Run lookup</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:12px" id="runMeta"></div>
+          <div class="btn-row" style="margin:0">
+            <button class="btn btn-primary" id="btnRun" onclick="startResolve()">▶ Start Lookup</button>
+          </div>
+        </div>
+
+        <div class="card" id="progCard" style="display:none">
+          <div class="progress-wrap">
+            <div class="progress-meta">
+              <span id="progLabel">Resolving…</span>
+              <span id="progPct">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+          </div>
+        </div>
+
+        <div id="resultsWrap" style="display:none;margin-top:1rem">
+          <div class="res-tbl-wrap">
+            <table class="res-tbl">
+              <thead>
+                <tr>
+                  <th style="width:36%">Input name</th>
+                  <th style="width:22%">Status</th>
+                  <th>Resolved email</th>
+                  <th style="width:60px"></th>
+                </tr>
+              </thead>
+              <tbody id="resTbody"></tbody>
+            </table>
+          </div>
+        </div>
+```
+
+- [ ] **Step 2: Add step 2 run and table JS inside `<script>`, before `window.onload = init`**
+
+```javascript
+// ── Step 2: Resolve UI ────────────────────────────────────────
+function initResolveStep() {
+  document.getElementById("runMeta").textContent = st.rawNames.length + " names to look up.";
+  document.getElementById("runCard").style.display    = "block";
+  document.getElementById("progCard").style.display   = "none";
+  document.getElementById("resultsWrap").style.display = "none";
+  document.getElementById("btnRun").disabled = false;
+  document.getElementById("s2Btn").disabled  = true;
+}
+
+async function startResolve() {
+  document.getElementById("btnRun").disabled  = true;
+  document.getElementById("progCard").style.display    = "block";
+  document.getElementById("resultsWrap").style.display = "block";
+  showErr("s2Err", "");
+
+  // Pre-render all rows as pending
+  const tbody = document.getElementById("resTbody");
+  tbody.innerHTML = st.rawNames.map((name, i) => renderRow(i)).join("");
+
+  await resolveBatch({
+    onProgress: (done, total) => {
+      const pct = Math.round(done / total * 100);
+      document.getElementById("progFill").style.width = pct + "%";
+      document.getElementById("progPct").textContent  = pct + "%";
+      document.getElementById("progLabel").textContent = done + " of " + total + " resolved…";
+    },
+    onThrottle: (secs) => {
+      document.getElementById("progLabel").textContent = "Rate limit — retrying in " + secs + "s…";
+    },
+    onRowDone: (idx) => {
+      const tr = document.getElementById("row-" + idx);
+      if (tr) tr.outerHTML = renderRow(idx);
+    },
+    onAuthError: () => {
+      showErr("s2Err", "Session expired — please sign out and sign back in to continue.");
+    }
+  });
+
+  document.getElementById("progLabel").textContent = "Done";
+  checkAllResolved();
+}
+
+function renderRow(i) {
+  const name = st.rawNames[i];
+  const r    = st.results[i];
+  let statusHtml = "", emailHtml = "", actionHtml = "";
+
+  if (r.status === "pending") {
+    statusHtml = `<span class="badge badge-blue">…</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+  } else if (r.status === "matched" || r.status === "chosen") {
+    statusHtml = `<span class="badge badge-green">✓ Matched</span>`;
+    emailHtml  = `<span class="mono text-xs">${r.email}</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  } else if (r.status === "ambiguous") {
+    const n = r.candidates.length;
+    statusHtml = `<span class="badge badge-amber">⚠ ${n} matches</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  } else if (r.status === "notfound") {
+    statusHtml = `<span class="badge badge-red">✕ Not found</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  } else if (r.status === "skipped") {
+    statusHtml = `<span class="badge badge-grey">— Skipped</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  }
+
+  const rowClass = {
+    pending:"row-pending", matched:"row-matched", chosen:"row-matched",
+    ambiguous:"row-ambiguous", notfound:"row-notfound", skipped:"row-skipped"
+  }[r.status] || "";
+
+  // Append disambig expand row for ambiguous (renderDisambigPanel defined below)
+  const expandRow = r.status === "ambiguous"
+    ? `<tr id="expand-${i}" class="row-expand"><td colspan="4" class="disambig-cell">${renderDisambigPanel(i)}</td></tr>`
+    : "";
+
+  return `<tr id="row-${i}" class="${rowClass}">
+    <td><strong style="font-size:12px">${name}</strong></td>
+    <td>${statusHtml}</td>
+    <td>${emailHtml}</td>
+    <td style="text-align:right">${actionHtml}</td>
+  </tr>${expandRow}`;
+}
+
+function checkAllResolved() {
+  const pending = st.results.some(r => r.status === "ambiguous" || r.status === "pending");
+  document.getElementById("s2Btn").disabled = pending;
+  if (!pending) markDone(2);
+}
+
+// renderDisambigPanel is defined here (not Task 6) because renderRow calls it directly.
+// The onclick handlers (__candClick, confirmChoice, skipRow) are wired in Task 6.
+function renderDisambigPanel(i) {
+  const r = st.results[i];
+  const candidateHtml = r.candidates.map((c, j) => `
+    <div class="cand-row" id="cand-${i}-${j}" onclick="__candClick(${i},${j})">
+      <div class="cand-radio"></div>
+      <div style="flex:1;min-width:0">
+        <div class="cand-name">${c.displayName}</div>
+        <div class="cand-meta">${c.email}${c.department ? " · " + c.department : ""}</div>
+      </div>
+      <span class="badge ${c.userType==='Guest'?'badge-amber':'badge-grey'} cand-badge">${c.userType||"Member"}</span>
+    </div>`).join("");
+
+  return `<div class="disambig-panel">
+    <div class="disambig-hdr">Which "${st.rawNames[i]}"? Pick one or skip:</div>
+    ${candidateHtml}
+    <div class="disambig-actions">
+      <button class="btn-skip" onclick="skipRow(${i})">Skip this name</button>
+      <button class="btn-confirm" id="confirmBtn-${i}" onclick="confirmChoice(${i})" disabled>Confirm selection</button>
+    </div>
+  </div>`;
+}
+
+async function retryRow(i) {
+  st.results[i] = { status:"pending", email:"", candidates:[], chosenIdx:-1 };
+  const tr = document.getElementById("row-"+i);
+  if (tr) tr.outerHTML = renderRow(i);
+  const exp = document.getElementById("expand-"+i);
+  if (exp) exp.remove();
+
+  try {
+    const candidates = await lookupName(st.rawNames[i], secs => {
+      document.getElementById("s2Err") &&
+        showErr("s2Err", "Rate limit — retrying in " + secs + "s…");
+    });
+    if (candidates.length === 0) {
+      st.results[i].status = "notfound";
+    } else if (candidates.length === 1) {
+      st.results[i].status = "matched";
+      st.results[i].email  = candidates[0].email;
+    } else {
+      st.results[i].status     = "ambiguous";
+      st.results[i].candidates = candidates;
+    }
+  } catch(e) {
+    if (e.message === "__AUTH__") showErr("s2Err","Session expired. Please sign out and sign back in.");
+    else st.results[i].status = "notfound";
+  }
+
+  const tr2 = document.getElementById("row-"+i);
+  if (tr2) tr2.outerHTML = renderRow(i);
+  showErr("s2Err","");
+  checkAllResolved();
+}
+```
+
+- [ ] **Step 3: Verify resolve run in browser (requires sign-in)**
+
+  - Complete step 1 with a small test CSV (3–5 names including one you know exists in the tenant)
+  - On step 2: "X names to look up" shown, "Start Lookup" button enabled
+  - Click Start Lookup → progress bar fills, rows update from "…" to green/amber/red
+  - A name that exists shows green ✓ Matched with the email
+  - A name that doesn't exist shows red ✕ Not found
+  - ↻ retry button appears on resolved rows; clicking it re-runs the lookup for that row
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add tools/name-resolver/index.html
+git commit -m "feat(name-resolver): resolve run UI, progress bar, results table"
+```
+
+---
+
+## Task 6: Step 2 — Inline disambiguation interaction handlers
+
+`renderDisambigPanel` was added in Task 5 alongside `renderRow`. This task wires the click handlers so candidates can actually be selected, confirmed, and skipped.
+
+**Files:**
+- Modify: `tools/name-resolver/index.html`
+
+- [ ] **Step 1: Add disambiguation interaction JS inside `<script>`, before `window.onload = init`**
+
+```javascript
+// ── Disambiguation interaction handlers ───────────────────────
+let _pendingChoice = {}; // rowIdx → candidateIdx
+
+function __candClick(i, j) {
+  // Deselect all candidates for this row
+  const panel = document.getElementById("expand-" + i)?.querySelector(".disambig-panel");
+  if (!panel) return;
+  panel.querySelectorAll(".cand-row").forEach(el => el.classList.remove("chosen"));
+  document.getElementById("cand-"+i+"-"+j)?.classList.add("chosen");
+  _pendingChoice[i] = j;
+  document.getElementById("confirmBtn-"+i).disabled = false;
+}
+
+function confirmChoice(i) {
+  const j = _pendingChoice[i];
+  if (j === undefined) return;
+  const c = st.results[i].candidates[j];
+  st.results[i].status    = "chosen";
+  st.results[i].email     = c.email;
+  st.results[i].chosenIdx = j;
+
+  // Re-render main row (removes expand row too since renderRow only emits expand for ambiguous)
+  const tr = document.getElementById("row-"+i);
+  if (tr) tr.outerHTML = renderRow(i);
+  const exp = document.getElementById("expand-"+i);
+  if (exp) exp.remove();
+  delete _pendingChoice[i];
+  checkAllResolved();
+}
+
+function skipRow(i) {
+  st.results[i].status = "skipped";
+  st.results[i].email  = "";
+  const tr = document.getElementById("row-"+i);
+  if (tr) tr.outerHTML = renderRow(i);
+  const exp = document.getElementById("expand-"+i);
+  if (exp) exp.remove();
+  delete _pendingChoice[i];
+  checkAllResolved();
+}
+```
+
+- [ ] **Step 2: Verify disambiguation in browser**
+
+  - After a resolve run with an ambiguous name: amber ⚠ row has inline expand panel visible below it
+  - Candidates show display name, email, department, Member/Guest badge
+  - Clicking a candidate highlights it; "Confirm selection" button enables
+  - Clicking Confirm: row turns green ✓ Matched with the chosen email; expand panel removed
+  - Clicking "Skip this name": row turns grey — Skipped; expand panel removed
+  - "Continue to Download" button enables only after all ambiguous rows are resolved or skipped
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tools/name-resolver/index.html
+git commit -m "feat(name-resolver): inline disambiguation expand with candidate selection"
+```
+
+---
+
+## Task 7: Step 3 — Tally and download
+
+Adds the summary tally and the CSV download/clipboard export to step 3.
+
+**Files:**
+- Modify: `tools/name-resolver/index.html`
+
+- [ ] **Step 1: Replace the step 3 comment `<!-- content added in Task 7 -->` with tally + download UI**
+
+```html
+        <div class="card" id="tallyCard">
+          <div class="card-title">Summary</div>
+          <div class="tally-grid" id="tallyGrid"></div>
+        </div>
+
+        <div class="card" style="margin-top:1rem">
+          <div class="card-title">Export</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+            Single <code>email</code> column. Blank rows for not-found and skipped names — Group Import skips these automatically.
+          </p>
+          <div class="btn-row" style="margin:0">
+            <button class="btn btn-primary" onclick="downloadCSV()">⬇ Download CSV</button>
+            <button class="btn btn-secondary" onclick="copyToClipboard()">Copy to clipboard</button>
+          </div>
+          <div class="banner success" id="copyOk" style="display:none;margin-top:10px">Copied to clipboard.</div>
+        </div>
+```
+
+- [ ] **Step 2: Override `gotoStep` to populate the tally when navigating to step 3**
+
+Replace the existing `gotoStep` function with this version:
+
+```javascript
+function gotoStep(n) {
+  if (n >= 2 && !st.rawNames.length) { showErr("s1Err","Complete Step 1 first."); return; }
+  [1,2,3].forEach(i => {
+    document.getElementById("step"+i).classList.toggle("active", i===n);
+    document.getElementById("nav"+i).classList.toggle("active", i===n);
+  });
+  if (n === 3) renderTally();
+  window.scrollTo(0,0);
+}
+```
+
+- [ ] **Step 3: Add tally and download JS inside `<script>`, before `window.onload = init`**
+
+```javascript
+// ── Step 3: Download ──────────────────────────────────────────
+function renderTally() {
+  const matched  = st.results.filter(r => r.status==="matched" || r.status==="chosen").length;
+  const ambig    = st.results.filter(r => r.status==="chosen").length;   // subset of matched
+  const notfound = st.results.filter(r => r.status==="notfound").length;
+  const skipped  = st.results.filter(r => r.status==="skipped").length;
+  const total    = st.results.length;
+
+  document.getElementById("tallyGrid").innerHTML = `
+    <div class="tally-item tally-green">
+      <div class="tally-num">${matched}</div>
+      <div class="tally-lbl">Matched</div>
+    </div>
+    <div class="tally-item tally-amber">
+      <div class="tally-num">${ambig}</div>
+      <div class="tally-lbl">Disambiguated</div>
+    </div>
+    <div class="tally-item tally-red">
+      <div class="tally-num">${notfound}</div>
+      <div class="tally-lbl">Not found</div>
+    </div>
+    <div class="tally-item">
+      <div class="tally-num">${skipped}</div>
+      <div class="tally-lbl">Skipped</div>
+    </div>`;
+
+  document.getElementById("sub3").textContent = matched + " / " + total + " resolved";
+}
+
+function buildOutputRows() {
+  return st.rawNames.map((name, i) => ({
+    email: (st.results[i].status === "matched" || st.results[i].status === "chosen")
+      ? st.results[i].email
+      : ""
+  }));
+}
+
+function downloadCSV() {
+  ITTools.csv.download("name-resolver-output.csv", buildOutputRows());
+}
+
+function copyToClipboard() {
+  const text = buildOutputRows().map(r => r.email).join("\n");
+  navigator.clipboard.writeText(text).then(() => {
+    const el = document.getElementById("copyOk");
+    el.style.display = "block";
+    setTimeout(() => el.style.display = "none", 2500);
+  }).catch(() => showErr("s2Err","Clipboard copy failed. Use Download instead."));
+}
+```
+
+- [ ] **Step 4: Verify step 3 in browser**
+
+  - Complete a full run: upload names → resolve → continue to step 3
+  - Tally card shows correct counts; sidebar shows "X / Y resolved"
+  - Download CSV: file opens with a single `email` header; matched rows have emails, unresolved rows are blank
+  - Copy to clipboard: toast appears, clipboard contains newline-separated emails (blanks included)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tools/name-resolver/index.html
+git commit -m "feat(name-resolver): step 3 tally, CSV download, clipboard copy"
+```
+
+---
+
+## Task 8: Register tool in config.json
+
+Adds the hub card so the tool appears on the home page.
+
+**Files:**
+- Modify: `config.json`
+
+- [ ] **Step 1: Add the name-resolver entry to the `tools` array in `config.json`, after the `group-import` entry**
+
+```json
+    {
+      "id": "name-resolver",
+      "name": "Name Resolver",
+      "description": "Resolve a name list (CSV, Excel, or paste) to emails via Graph lookup — produces a ready-to-go CSV for Group Import.",
+      "icon": "🔍",
+      "status": "beta",
+      "path": "tools/name-resolver/",
+      "permissions": ["User.Read.All", "Directory.Read.All"],
+      "accent": "#1a56db",
+      "iconBg": "#e8f0fe"
+    },
+```
+
+- [ ] **Step 2: Verify hub card in browser**
+
+  Open `index.html` (the hub). A "Name Resolver" card with a 🔍 icon, blue accent, and beta badge should appear. Clicking it navigates to the tool.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add config.json
+git commit -m "feat(name-resolver): register tool in hub config"
+```
+
+---
+
+## Task 9: End-to-end smoke test + push to preview
+
+Full workflow test before pushing to the preview branch for real-tenant validation.
+
+- [ ] **Step 1: Prepare a test CSV with varied name formats**
+
+Create `test-names.csv`:
+```
+First Name,Last Name
+Sarah,Johnson
+Mark,Davies
+[a name you know has a duplicate in the tenant]
+[a name that doesn't exist]
+Ali,Hassan
+```
+
+- [ ] **Step 2: Full end-to-end run**
+
+  1. Open `tools/name-resolver/index.html`
+  2. Sign in → step 1 loads
+  3. Upload test CSV → mode auto-detects "first_last", correct pills ✦
+  4. Preview shows 5 names, "5 names ready" in the button row
+  5. Continue → step 2, "5 names to look up"
+  6. Start Lookup → progress bar fills, rows resolve
+  7. Any duplicate name: amber ⚠ with inline expand → pick the correct person → green ✓
+  8. Non-existent name: red ✕ Not found
+  9. Continue to Download → tally correct
+  10. Download CSV → file has `email` header, matched rows have emails, blanks for unresolved
+
+- [ ] **Step 3: Paste mode smoke test**
+
+  Switch to paste mode, type 3 names (one per line), run full lookup, download CSV.
+
+- [ ] **Step 4: Push to preview**
+
+```bash
+git push
+```
+
+Expected: GitHub Actions deploys to `https://jgdev-ch.github.io/it-tools-preview/` within ~60 seconds.
+
+- [ ] **Step 5: Test on preview URL with real MSAL auth**
+
+  Open `https://jgdev-ch.github.io/it-tools-preview/tools/name-resolver/`. Sign in, run the same smoke test. Confirm MSAL auth flow works on the hosted URL.
