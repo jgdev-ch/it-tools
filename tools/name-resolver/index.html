@@ -340,6 +340,7 @@
             <button class="btn btn-secondary" onclick="copyToClipboard()">Copy to clipboard</button>
           </div>
           <div class="banner success" id="copyOk" style="display:none;margin-top:10px">Copied to clipboard.</div>
+          <p id="s3Err" class="form-error" style="display:none"></p>
         </div>
         <div class="btn-row">
           <button class="btn btn-ghost" onclick="gotoStep(2)">← Back</button>
@@ -352,6 +353,12 @@
 
 <script src="../../shared/auth.js"></script>
 <script>
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s ?? '');
+  return d.innerHTML;
+}
+
 const TOOL_SCOPES = ["User.Read.All", "Directory.Read.All"];
 
 // ── State ─────────────────────────────────────────────────────
@@ -592,8 +599,8 @@ function _renderPickersForMode(mode, headers) {
 
 function _renderPills(containerId, headers, autoCol, onSelect) {
   document.getElementById(containerId).innerHTML = headers.map(h =>
-    `<div class="col-pill${h===autoCol?" auto selected":""}" data-col="${h}"
-          onclick="__pillClick(this,'${containerId}')">${h}</div>`
+    `<div class="col-pill${h===autoCol?" auto selected":""}" data-col="${esc(h)}"
+          onclick="__pillClick(this,'${containerId}')">${esc(h)}</div>`
   ).join("");
   document.getElementById(containerId)._onSelect = onSelect;
 }
@@ -642,7 +649,7 @@ function _updatePreview(rows) {
   const names = buildNames(rows);
   const preview = names.slice(0,5);
   document.getElementById("previewList").innerHTML = preview.map(n =>
-    `<div class="preview-item"><div class="preview-dot"></div><span>${n}</span></div>`
+    `<div class="preview-item"><div class="preview-dot"></div><span>${esc(n)}</span></div>`
   ).join("");
   document.getElementById("previewWrap").style.display = preview.length ? "block" : "none";
   updateS1(names);
@@ -678,7 +685,7 @@ const BATCH_SIZE = 5;
 async function lookupName(name, onThrottle) {
   const searchVal = '"displayName:' + name.replace(/"/g, '') + '"';
   const url = GRAPH_BASE + "/users?$search=" + encodeURIComponent(searchVal) +
-    "&$top=10&$select=displayName,mail,userPrincipalName,department,userType";
+    "&$top=10&$select=displayName,mail,userPrincipalName,department,userType&$count=true";
 
   for (let attempt = 0; attempt < 4; attempt++) {
     let token;
@@ -843,7 +850,7 @@ function renderRow(i) {
     : "";
 
   return `<tr id="row-${i}" class="${rowClass}">
-    <td><strong style="font-size:12px">${name}</strong></td>
+    <td><strong style="font-size:12px">${esc(name)}</strong></td>
     <td>${statusHtml}</td>
     <td>${emailHtml}</td>
     <td style="text-align:right">${actionHtml}</td>
@@ -858,14 +865,14 @@ function renderDisambigPanel(i) {
     <div class="cand-row" id="cand-${i}-${j}" onclick="__candClick(${i},${j})">
       <div class="cand-radio"></div>
       <div style="flex:1;min-width:0">
-        <div class="cand-name">${c.displayName}</div>
-        <div class="cand-meta">${c.email}${c.department ? " · " + c.department : ""}</div>
+        <div class="cand-name">${esc(c.displayName)}</div>
+        <div class="cand-meta">${esc(c.email)}${c.department ? " · " + esc(c.department) : ""}</div>
       </div>
-      <span class="badge ${c.userType==='Guest'?'badge-amber':'badge-grey'} cand-badge">${c.userType||"Member"}</span>
+      <span class="badge ${c.userType==='Guest'?'badge-amber':'badge-grey'} cand-badge">${esc(c.userType||"Member")}</span>
     </div>`).join("");
 
   return `<div class="disambig-panel">
-    <div class="disambig-hdr">Which "${st.rawNames[i]}"? Pick one or skip:</div>
+    <div class="disambig-hdr">Which &#x201C;${esc(st.rawNames[i])}&#x201D;? Pick one or skip:</div>
     ${candidateHtml}
     <div class="disambig-actions">
       <button class="btn-skip" onclick="skipRow(${i})">Skip this name</button>
@@ -901,7 +908,7 @@ async function retryRow(i) {
       st.results[i].candidates = candidates;
     }
   } catch(e) {
-    if (e.message === "__AUTH__") showErr("s2Err","Session expired. Please sign out and sign back in.");
+    if (e.message === "__AUTH__") { showErr("s2Err","Session expired. Please sign out and sign back in."); return; }
     else st.results[i].status = "notfound";
   }
 
@@ -1000,7 +1007,7 @@ function copyToClipboard() {
     const el = document.getElementById("copyOk");
     el.style.display = "block";
     setTimeout(() => el.style.display = "none", 2500);
-  }).catch(() => showErr("s2Err","Clipboard copy failed. Use Download instead."));
+  }).catch(() => showErr("s3Err","Clipboard copy failed. Use Download instead."));
 }
 
 window.onload = init;
