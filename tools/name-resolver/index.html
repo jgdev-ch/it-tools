@@ -896,6 +896,47 @@ async function retryRow(i) {
   checkAllResolved();
 }
 
+// ── Disambiguation interaction handlers ───────────────────────
+let _pendingChoice = {}; // rowIdx → candidateIdx
+
+function __candClick(i, j) {
+  // Deselect all candidates for this row
+  const panel = document.getElementById("expand-" + i)?.querySelector(".disambig-panel");
+  if (!panel) return;
+  panel.querySelectorAll(".cand-row").forEach(el => el.classList.remove("chosen"));
+  document.getElementById("cand-"+i+"-"+j)?.classList.add("chosen");
+  _pendingChoice[i] = j;
+  document.getElementById("confirmBtn-"+i).disabled = false;
+}
+
+function confirmChoice(i) {
+  const j = _pendingChoice[i];
+  if (j === undefined) return;
+  const c = st.results[i].candidates[j];
+  st.results[i].status    = "chosen";
+  st.results[i].email     = c.email;
+  st.results[i].chosenIdx = j;
+
+  // Re-render main row — status is now "chosen" so renderRow won't emit expand row
+  const tr = document.getElementById("row-"+i);
+  if (tr) tr.outerHTML = renderRow(i);
+  const exp = document.getElementById("expand-"+i);
+  if (exp) exp.remove();
+  delete _pendingChoice[i];
+  checkAllResolved();
+}
+
+function skipRow(i) {
+  st.results[i].status = "skipped";
+  st.results[i].email  = "";
+  const tr = document.getElementById("row-"+i);
+  if (tr) tr.outerHTML = renderRow(i);
+  const exp = document.getElementById("expand-"+i);
+  if (exp) exp.remove();
+  delete _pendingChoice[i];
+  checkAllResolved();
+}
+
 window.onload = init;
 </script>
 </body>
