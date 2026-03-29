@@ -280,7 +280,39 @@
           <p>Searches your tenant via Microsoft Graph. Ambiguous names expand inline so you can pick the right person.</p>
         </div>
         <div class="banner error" id="s2Err" style="display:none"></div>
-        <!-- content added in Task 5 & 6 -->
+        <div class="card" id="runCard">
+          <div class="card-title">Run lookup</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:12px" id="runMeta"></div>
+          <div class="btn-row" style="margin:0">
+            <button class="btn btn-primary" id="btnRun" onclick="startResolve()">▶ Start Lookup</button>
+          </div>
+        </div>
+
+        <div class="card" id="progCard" style="display:none">
+          <div class="progress-wrap">
+            <div class="progress-meta">
+              <span id="progLabel">Resolving…</span>
+              <span id="progPct">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+          </div>
+        </div>
+
+        <div id="resultsWrap" style="display:none;margin-top:1rem">
+          <div class="res-tbl-wrap">
+            <table class="res-tbl">
+              <thead>
+                <tr>
+                  <th style="width:36%">Input name</th>
+                  <th style="width:22%">Status</th>
+                  <th>Resolved email</th>
+                  <th style="width:60px"></th>
+                </tr>
+              </thead>
+              <tbody id="resTbody"></tbody>
+            </table>
+          </div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-ghost" onclick="gotoStep(1)">← Back</button>
           <button class="btn btn-primary" id="s2Btn" onclick="gotoStep(3)" disabled>Continue to Download →</button>
@@ -706,6 +738,162 @@ async function resolveBatch({ onProgress, onThrottle, onRowDone, onAuthError }) 
     done += chunk.length;
     onProgress?.(Math.min(done, names.length), names.length);
   }
+}
+
+// ── Step 2: Resolve UI ────────────────────────────────────────
+function initResolveStep() {
+  document.getElementById("runMeta").textContent = st.rawNames.length + " names to look up.";
+  document.getElementById("runCard").style.display    = "block";
+  document.getElementById("progCard").style.display   = "none";
+  document.getElementById("resultsWrap").style.display = "none";
+  document.getElementById("btnRun").disabled = false;
+  document.getElementById("s2Btn").disabled  = true;
+}
+
+async function startResolve() {
+  document.getElementById("btnRun").disabled  = true;
+  document.getElementById("progCard").style.display    = "block";
+  document.getElementById("resultsWrap").style.display = "block";
+  showErr("s2Err", "");
+
+  // Pre-render all rows as pending
+  const tbody = document.getElementById("resTbody");
+  tbody.innerHTML = st.rawNames.map((name, i) => renderRow(i)).join("");
+
+  await resolveBatch({
+    onProgress: (done, total) => {
+      const pct = Math.round(done / total * 100);
+      document.getElementById("progFill").style.width = pct + "%";
+      document.getElementById("progPct").textContent  = pct + "%";
+      document.getElementById("progLabel").textContent = done + " of " + total + " resolved…";
+    },
+    onThrottle: (secs) => {
+      document.getElementById("progLabel").textContent = "Rate limit — retrying in " + secs + "s…";
+    },
+    onRowDone: (idx) => {
+      // Replace just this row (and any expand row) by rebuilding from its id
+      const tr = document.getElementById("row-" + idx);
+      if (tr) {
+        // Remove stale expand row if present
+        const exp = document.getElementById("expand-" + idx);
+        if (exp) exp.remove();
+        tr.outerHTML = renderRow(idx);
+      }
+    },
+    onAuthError: () => {
+      showErr("s2Err", "Session expired — please sign out and sign back in to continue.");
+    }
+  });
+
+  document.getElementById("progLabel").textContent = "Done";
+  checkAllResolved();
+}
+
+function renderRow(i) {
+  const name = st.rawNames[i];
+  const r    = st.results[i];
+  let statusHtml = "", emailHtml = "", actionHtml = "";
+
+  if (r.status === "pending") {
+    statusHtml = `<span class="badge badge-blue">…</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+  } else if (r.status === "matched" || r.status === "chosen") {
+    statusHtml = `<span class="badge badge-green">✓ Matched</span>`;
+    emailHtml  = `<span class="mono text-xs">${r.email}</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  } else if (r.status === "ambiguous") {
+    const n = r.candidates.length;
+    statusHtml = `<span class="badge badge-amber">⚠ ${n} matches</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  } else if (r.status === "notfound") {
+    statusHtml = `<span class="badge badge-red">✕ Not found</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  } else if (r.status === "skipped") {
+    statusHtml = `<span class="badge badge-grey">— Skipped</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
+  }
+
+  const rowClass = {
+    pending:"row-pending", matched:"row-matched", chosen:"row-matched",
+    ambiguous:"row-ambiguous", notfound:"row-notfound", skipped:"row-skipped"
+  }[r.status] || "";
+
+  // renderDisambigPanel defined below — appended inline for ambiguous rows
+  const expandRow = r.status === "ambiguous"
+    ? `<tr id="expand-${i}" class="row-expand"><td colspan="4" class="disambig-cell">${renderDisambigPanel(i)}</td></tr>`
+    : "";
+
+  return `<tr id="row-${i}" class="${rowClass}">
+    <td><strong style="font-size:12px">${name}</strong></td>
+    <td>${statusHtml}</td>
+    <td>${emailHtml}</td>
+    <td style="text-align:right">${actionHtml}</td>
+  </tr>${expandRow}`;
+}
+
+// renderDisambigPanel renders the expand panel HTML for an ambiguous row.
+// Interaction handlers (__candClick, confirmChoice, skipRow) are wired in Task 6.
+function renderDisambigPanel(i) {
+  const r = st.results[i];
+  const candidateHtml = r.candidates.map((c, j) => `
+    <div class="cand-row" id="cand-${i}-${j}" onclick="__candClick(${i},${j})">
+      <div class="cand-radio"></div>
+      <div style="flex:1;min-width:0">
+        <div class="cand-name">${c.displayName}</div>
+        <div class="cand-meta">${c.email}${c.department ? " · " + c.department : ""}</div>
+      </div>
+      <span class="badge ${c.userType==='Guest'?'badge-amber':'badge-grey'} cand-badge">${c.userType||"Member"}</span>
+    </div>`).join("");
+
+  return `<div class="disambig-panel">
+    <div class="disambig-hdr">Which "${st.rawNames[i]}"? Pick one or skip:</div>
+    ${candidateHtml}
+    <div class="disambig-actions">
+      <button class="btn-skip" onclick="skipRow(${i})">Skip this name</button>
+      <button class="btn-confirm" id="confirmBtn-${i}" onclick="confirmChoice(${i})" disabled>Confirm selection</button>
+    </div>
+  </div>`;
+}
+
+function checkAllResolved() {
+  const pending = st.results.some(r => r.status === "ambiguous" || r.status === "pending");
+  document.getElementById("s2Btn").disabled = pending;
+  if (!pending) markDone(2);
+}
+
+async function retryRow(i) {
+  st.results[i] = { status:"pending", email:"", candidates:[], chosenIdx:-1 };
+  const exp = document.getElementById("expand-" + i);
+  if (exp) exp.remove();
+  const tr = document.getElementById("row-" + i);
+  if (tr) tr.outerHTML = renderRow(i);
+
+  try {
+    const candidates = await lookupName(st.rawNames[i], secs => {
+      showErr("s2Err", "Rate limit — retrying in " + secs + "s…");
+    });
+    if (candidates.length === 0) {
+      st.results[i].status = "notfound";
+    } else if (candidates.length === 1) {
+      st.results[i].status = "matched";
+      st.results[i].email  = candidates[0].email;
+    } else {
+      st.results[i].status     = "ambiguous";
+      st.results[i].candidates = candidates;
+    }
+  } catch(e) {
+    if (e.message === "__AUTH__") showErr("s2Err","Session expired. Please sign out and sign back in.");
+    else st.results[i].status = "notfound";
+  }
+
+  showErr("s2Err","");
+  const tr2 = document.getElementById("row-" + i);
+  if (tr2) tr2.outerHTML = renderRow(i);
+  // renderRow for ambiguous will append the expand row via outerHTML replacement
+  checkAllResolved();
 }
 
 window.onload = init;
