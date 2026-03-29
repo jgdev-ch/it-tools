@@ -617,6 +617,97 @@ function s1Next() {
   initResolveStep();
 }
 
+// ── Graph lookup engine ───────────────────────────────────────
+const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+const BATCH_SIZE = 5;
+
+/**
+ * Look up a single display name via Graph $search.
+ * Returns array of candidate objects: { displayName, email, department, userType }
+ * Handles 429 with Retry-After wait. Throws "__AUTH__" string on auth failure.
+ * onThrottle(seconds) is called when rate-limited so UI can show countdown.
+ */
+async function lookupName(name, onThrottle) {
+  const searchVal = '"displayName:' + name.replace(/"/g, '') + '"';
+  const url = GRAPH_BASE + "/users?$search=" + encodeURIComponent(searchVal) +
+    "&$top=10&$select=displayName,mail,userPrincipalName,department,userType";
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let token;
+    try { token = await ITTools.auth.getToken(); }
+    catch(e) { throw new Error("__AUTH__"); }
+
+    const res = await fetch(url, {
+      headers: { Authorization: "Bearer " + token, ConsistencyLevel: "eventual" }
+    });
+
+    if (res.status === 429) {
+      const wait = parseInt(res.headers.get("Retry-After") || "10", 10);
+      onThrottle?.(wait);
+      await new Promise(r => setTimeout(r, wait * 1000));
+      continue;
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error?.message || "Graph error " + res.status);
+    }
+
+    const data = await res.json();
+    return (data.value || []).map(u => ({
+      displayName: u.displayName || "",
+      email:       u.mail || u.userPrincipalName || "",
+      department:  u.department || "",
+      userType:    u.userType || "Member",
+    }));
+  }
+  throw new Error("Rate-limited after retries. Try again in a moment.");
+}
+
+/**
+ * Resolve all names in st.rawNames in batches of BATCH_SIZE (5 concurrent).
+ * Updates st.results in-place as each name resolves.
+ * Calls onProgress(done, total) after each batch.
+ * Calls onThrottle(seconds) when rate-limited.
+ * Calls onRowDone(rowIdx) after each individual row resolves.
+ * Calls onAuthError() and returns early on auth failure.
+ */
+async function resolveBatch({ onProgress, onThrottle, onRowDone, onAuthError }) {
+  const names = st.rawNames;
+  let done = 0;
+
+  for (let i = 0; i < names.length; i += BATCH_SIZE) {
+    const chunk = names.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(
+      chunk.map(name => lookupName(name, onThrottle))
+    );
+
+    for (let j = 0; j < settled.length; j++) {
+      const r      = settled[j];
+      const rowIdx = i + j;
+      if (r.status === "rejected") {
+        if (r.reason?.message === "__AUTH__") { onAuthError?.(); return; }
+        st.results[rowIdx].status = "notfound";
+        st.results[rowIdx].email  = "";
+      } else {
+        const candidates = r.value;
+        if (candidates.length === 0) {
+          st.results[rowIdx].status = "notfound";
+        } else if (candidates.length === 1) {
+          st.results[rowIdx].status = "matched";
+          st.results[rowIdx].email  = candidates[0].email;
+        } else {
+          st.results[rowIdx].status     = "ambiguous";
+          st.results[rowIdx].candidates = candidates;
+        }
+      }
+      onRowDone?.(rowIdx);
+    }
+
+    done += chunk.length;
+    onProgress?.(Math.min(done, names.length), names.length);
+  }
+}
+
 window.onload = init;
 </script>
 </body>
