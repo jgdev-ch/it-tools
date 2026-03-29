@@ -325,7 +325,22 @@
           <h2>Download</h2>
           <p>Your email list is ready. Download the CSV or copy to clipboard, then drop it into Group Import.</p>
         </div>
-        <!-- content added in Task 7 -->
+        <div class="card" id="tallyCard">
+          <div class="card-title">Summary</div>
+          <div class="tally-grid" id="tallyGrid"></div>
+        </div>
+
+        <div class="card" style="margin-top:1rem">
+          <div class="card-title">Export</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+            Single <code>email</code> column. Blank rows for not-found and skipped names — Group Import skips these automatically.
+          </p>
+          <div class="btn-row" style="margin:0">
+            <button class="btn btn-primary" onclick="downloadCSV()">⬇ Download CSV</button>
+            <button class="btn btn-secondary" onclick="copyToClipboard()">Copy to clipboard</button>
+          </div>
+          <div class="banner success" id="copyOk" style="display:none;margin-top:10px">Copied to clipboard.</div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-ghost" onclick="gotoStep(2)">← Back</button>
         </div>
@@ -393,6 +408,7 @@ function gotoStep(n) {
     document.getElementById("step"+i).classList.toggle("active", i===n);
     document.getElementById("nav"+i).classList.toggle("active", i===n);
   });
+  if (n === 3) renderTally();
   window.scrollTo(0,0);
 }
 
@@ -935,6 +951,56 @@ function skipRow(i) {
   if (exp) exp.remove();
   delete _pendingChoice[i];
   checkAllResolved();
+}
+
+// ── Step 3: Download ──────────────────────────────────────────
+function renderTally() {
+  const matched  = st.results.filter(r => r.status==="matched" || r.status==="chosen").length;
+  const ambig    = st.results.filter(r => r.status==="chosen").length;
+  const notfound = st.results.filter(r => r.status==="notfound").length;
+  const skipped  = st.results.filter(r => r.status==="skipped").length;
+  const total    = st.results.length;
+
+  document.getElementById("tallyGrid").innerHTML = `
+    <div class="tally-item tally-green">
+      <div class="tally-num">${matched}</div>
+      <div class="tally-lbl">Matched</div>
+    </div>
+    <div class="tally-item tally-amber">
+      <div class="tally-num">${ambig}</div>
+      <div class="tally-lbl">Disambiguated</div>
+    </div>
+    <div class="tally-item tally-red">
+      <div class="tally-num">${notfound}</div>
+      <div class="tally-lbl">Not found</div>
+    </div>
+    <div class="tally-item">
+      <div class="tally-num">${skipped}</div>
+      <div class="tally-lbl">Skipped</div>
+    </div>`;
+
+  document.getElementById("sub3").textContent = matched + " / " + total + " resolved";
+}
+
+function buildOutputRows() {
+  return st.rawNames.map((name, i) => ({
+    email: (st.results[i].status === "matched" || st.results[i].status === "chosen")
+      ? st.results[i].email
+      : ""
+  }));
+}
+
+function downloadCSV() {
+  ITTools.csv.download("name-resolver-output.csv", buildOutputRows());
+}
+
+function copyToClipboard() {
+  const text = buildOutputRows().map(r => r.email).join("\n");
+  navigator.clipboard.writeText(text).then(() => {
+    const el = document.getElementById("copyOk");
+    el.style.display = "block";
+    setTimeout(() => el.style.display = "none", 2500);
+  }).catch(() => showErr("s2Err","Clipboard copy failed. Use Download instead."));
 }
 
 window.onload = init;
