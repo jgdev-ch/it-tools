@@ -23,6 +23,17 @@
       "iconBg": "#d1fae5"
     },
     {
+      "id": "name-resolver",
+      "name": "Name Resolver",
+      "description": "Resolve a name list (CSV, Excel, or paste) to emails via Graph lookup — produces a ready-to-go CSV for Group Import.",
+      "icon": "🔍",
+      "status": "beta",
+      "path": "tools/name-resolver/",
+      "permissions": ["User.Read.All", "Directory.Read.All"],
+      "accent": "#1a56db",
+      "iconBg": "#e8f0fe"
+    },
+    {
       "id": "mfa-status",
       "name": "MFA Status Report",
       "description": "Audit MFA coverage across your tenant and surface users with weak or missing auth methods.",
