@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Name Resolver — IT Tools</title>
+<script src="../../shared/msal-browser.min.js"></script>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<style>
+  /* ── Layout ── */
+  .app-body    { display:flex; min-height:calc(100vh - 56px); }
+  .sidebar     { width:240px; background:var(--surface); border-right:1px solid var(--border); padding:1.5rem 1rem; flex-shrink:0; position:sticky; top:56px; height:calc(100vh - 56px); overflow-y:auto; }
+  .sidebar-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted2); margin-bottom:.75rem; padding-left:4px; }
+  .step-item   { display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border-radius:6px; margin-bottom:2px; cursor:pointer; transition:background .12s; }
+  .step-item:hover { background:var(--surface3); }
+  .step-item.active { background:var(--blue-light); }
+  .step-bullet { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-top:1px; border:1.5px solid var(--border-mid); color:var(--muted); background:var(--surface2); transition:all .15s; }
+  .step-item.active .step-bullet { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .step-item.done   .step-bullet { background:var(--green-light); border-color:var(--green-border); color:var(--green); font-size:0; }
+  .step-item.done   .step-bullet::after { content:"✓"; font-size:11px; font-weight:700; }
+  .step-title  { font-size:13px; font-weight:600; color:var(--text); }
+  .step-item.active .step-title { color:var(--blue-dark); }
+  .step-sub    { font-size:11px; color:var(--muted); margin-top:1px; line-height:1.4; }
+  .sidebar-divider { height:1px; background:var(--border); margin:1rem 0; }
+  .sidebar-tip { background:var(--surface3); border-radius:6px; padding:10px 12px; font-size:11px; color:var(--muted); line-height:1.5; }
+  .sidebar-tip strong { display:block; font-size:11px; color:var(--text); margin-bottom:4px; }
+
+  .main-content { flex:1; padding:1.5rem; max-width:760px; }
+  .section      { display:none; }
+  .section.active { display:block; }
+  .section-hdr  { margin-bottom:1.5rem; }
+  .section-hdr h2 { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .section-hdr p  { font-size:13px; color:var(--muted); line-height:1.6; }
+
+  /* ── Input mode tabs ── */
+  .input-tabs   { display:flex; gap:4px; margin-bottom:12px; }
+  .input-tab    { padding:5px 14px; border-radius:6px; font-size:12px; font-weight:600; border:1.5px solid var(--border); background:var(--surface2); color:var(--muted); cursor:pointer; transition:all .12s; }
+  .input-tab:hover   { border-color:var(--blue-mid); color:var(--blue-mid); }
+  .input-tab.active  { border-color:var(--blue); background:var(--blue-light); color:var(--blue-dark); }
+  .input-tab.disabled { opacity:.4; pointer-events:none; }
+
+  /* ── File drop / paste ── */
+  .file-loaded { display:flex; align-items:center; gap:10px; background:var(--green-light); border:1px solid var(--green-border); border-radius:6px; padding:10px 12px; margin-top:10px; }
+  .file-loaded-name  { font-size:13px; font-weight:600; color:var(--green); flex:1; }
+  .file-loaded-count { font-size:11px; color:var(--muted); }
+  .file-loaded-clear { background:none; border:none; cursor:pointer; color:var(--muted2); font-size:14px; padding:0 2px; }
+  .paste-area { width:100%; height:120px; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:12px; font-family:inherit; resize:vertical; background:var(--surface2); color:var(--text); }
+  .paste-area:focus { outline:none; border-color:var(--blue); }
+
+  /* ── Column mapping ── */
+  .col-pills    { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .col-pill     { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1.5px solid var(--border); background:var(--surface2); cursor:pointer; color:var(--muted); transition:all .12s; }
+  .col-pill:hover    { border-color:var(--blue-mid); color:var(--blue-mid); background:var(--blue-light); }
+  .col-pill.selected { border-color:var(--blue); background:var(--blue-light); color:var(--blue-dark); }
+  .col-pill.auto::after { content:" ✦"; font-size:10px; }
+  .mode-select  { font-size:13px; border:1px solid var(--border); border-radius:6px; padding:6px 10px; background:var(--surface2); color:var(--text); cursor:pointer; }
+  .col-row      { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  .col-label    { font-size:12px; font-weight:600; color:var(--muted); min-width:60px; }
+
+  /* ── Preview ── */
+  .preview-list { max-height:150px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; margin-top:8px; }
+  .preview-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid var(--border); font-size:12px; }
+  .preview-item:last-child { border-bottom:none; }
+  .preview-dot  { width:6px; height:6px; border-radius:50%; background:var(--blue); flex-shrink:0; }
+
+  /* ── Results table ── */
+  .res-tbl-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:8px; }
+  .res-tbl      { width:100%; border-collapse:collapse; font-size:12px; }
+  .res-tbl th   { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted2); padding:8px 10px; border-bottom:1px solid var(--border); background:var(--surface2); }
+  .res-tbl td   { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .res-tbl tbody tr:last-child td { border-bottom:none; }
+  .res-tbl tbody tr.row-matched   { background:var(--surface); }
+  .res-tbl tbody tr.row-ambiguous { background:#fffbeb; }
+  .res-tbl tbody tr.row-notfound  { background:#fff5f5; }
+  .res-tbl tbody tr.row-skipped   { background:var(--surface2); }
+  .res-tbl tbody tr.row-expand    { background:#fffbeb; }
+  .res-tbl tbody tr.row-pending   { background:var(--surface); opacity:.6; }
+
+  /* ── Status badges ── */
+  .badge        { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap; }
+  .badge-green  { background:var(--green-light);  color:var(--green);  border:1px solid var(--green-border); }
+  .badge-amber  { background:var(--amber-light);  color:var(--amber);  border:1px solid var(--amber-border); }
+  .badge-red    { background:#fee2e2;             color:var(--red);    border:1px solid #fca5a5; }
+  .badge-grey   { background:var(--surface3);     color:var(--muted);  border:1px solid var(--border); }
+  .badge-blue   { background:var(--blue-light);   color:var(--blue-dark); border:1px solid #93c5fd; }
+
+  /* ── Inline disambiguation expand ── */
+  .disambig-cell { padding:0 !important; }
+  .disambig-panel { background:#fffbeb; border-top:1px solid var(--amber-border); padding:10px 12px; }
+  .disambig-hdr   { font-size:11px; font-weight:700; color:var(--amber); margin-bottom:8px; }
+  .cand-row       { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; border:1.5px solid var(--border); background:var(--surface); margin-bottom:6px; cursor:pointer; transition:all .12s; }
+  .cand-row:hover { border-color:var(--blue); background:var(--blue-light); }
+  .cand-row.chosen { border-color:var(--green-border); background:var(--green-light); }
+  .cand-radio     { width:14px; height:14px; border-radius:50%; border:1.5px solid var(--border-mid); background:var(--surface); flex-shrink:0; }
+  .cand-row.chosen .cand-radio { background:var(--green); border-color:var(--green); }
+  .cand-name      { font-size:12px; font-weight:600; flex:1; }
+  .cand-meta      { font-size:11px; color:var(--muted); }
+  .cand-badge     { flex-shrink:0; }
+  .disambig-actions { display:flex; gap:8px; margin-top:4px; }
+  .btn-skip       { padding:5px 14px; border-radius:6px; border:1px solid var(--border); background:var(--surface); font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; font-family:inherit; }
+  .btn-skip:hover { background:var(--surface3); }
+  .btn-confirm    { padding:5px 14px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .btn-confirm:hover { background:var(--blue-dark); }
+  .btn-retry      { padding:3px 9px; border-radius:5px; border:1px solid var(--border); background:transparent; font-size:11px; color:var(--muted); cursor:pointer; font-family:inherit; }
+  .btn-retry:hover { color:var(--blue-dark); border-color:var(--blue); }
+
+  /* ── Progress ── */
+  .progress-wrap { margin:4px 0; }
+  .progress-meta { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .progress-track { height:6px; background:var(--surface3); border-radius:3px; overflow:hidden; }
+  .progress-fill  { height:100%; background:var(--blue); border-radius:3px; transition:width .3s; width:0%; }
+
+  /* ── Tally ── */
+  .tally-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .tally-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center; }
+  .tally-num  { font-size:22px; font-weight:700; }
+  .tally-lbl  { font-size:11px; color:var(--muted); margin-top:2px; }
+  .tally-green { border-color:var(--green-border); background:var(--green-light); }
+  .tally-green .tally-num { color:var(--green); }
+  .tally-amber { border-color:var(--amber-border); background:var(--amber-light); }
+  .tally-amber .tally-num { color:var(--amber); }
+  .tally-red   { border-color:#fca5a5; background:#fee2e2; }
+  .tally-red   .tally-num { color:var(--red); }
+
+  #authScreen { display:flex; }
+  @media (max-width:640px) { .sidebar { display:none; } .main-content { padding:1rem; } .tally-grid { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<!-- Auth gate -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--blue)" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </div>
+    <h1>Name Resolver</h1>
+    <p>Sign in with your M365 admin account to look up users by name and export an email list for Group Import.</p>
+    <button class="btn-ms" onclick="doSignIn()">
+      <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
+        <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+        <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="auth-error" id="authErr"></div>
+    <p class="auth-note">Requires <strong>User.Read.All</strong> and <strong>Directory.Read.All</strong>.</p>
+    <button class="redirect-toggle" onclick="toggleUri()">Show redirect URI for app registration</button>
+    <div class="redirect-box" id="uriBox" style="display:none"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="appScreen" style="display:none">
+  <div class="app-body">
+
+    <nav class="sidebar">
+      <div class="sidebar-lbl">Steps</div>
+      <div class="step-item active" id="nav1" onclick="gotoStep(1)">
+        <div class="step-bullet" id="bul1">1</div>
+        <div><div class="step-title">Upload &amp; Map</div><div class="step-sub" id="sub1">Choose file &amp; columns</div></div>
+      </div>
+      <div class="step-item" id="nav2" onclick="gotoStep(2)">
+        <div class="step-bullet" id="bul2">2</div>
+        <div><div class="step-title">Resolve</div><div class="step-sub" id="sub2">Look up names in tenant</div></div>
+      </div>
+      <div class="step-item" id="nav3" onclick="gotoStep(3)">
+        <div class="step-bullet" id="bul3">3</div>
+        <div><div class="step-title">Download</div><div class="step-sub" id="sub3">Export email CSV</div></div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-tip">
+        <strong>How it works</strong>
+        Upload a name list (CSV, Excel, or paste). The tool searches your tenant via Graph and resolves each name to an email — ready to drop into Group Import.
+      </div>
+    </nav>
+
+    <main class="main-content">
+
+      <!-- STEP 1 -->
+      <div class="section active" id="step1">
+        <div class="section-hdr">
+          <h2>Upload &amp; Map</h2>
+          <p>Upload a name list or paste names directly. The tool will detect columns and normalise them for lookup.</p>
+        </div>
+        <div class="banner error" id="s1Err" style="display:none"></div>
+        <!-- content added in Task 2 & 3 -->
+        <div class="btn-row">
+          <button class="btn btn-primary" id="s1Btn" onclick="s1Next()" disabled>Continue to Resolve →</button>
+          <span id="s1Msg" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="section" id="step2">
+        <div class="section-hdr">
+          <h2>Resolve names</h2>
+          <p>Searches your tenant via Microsoft Graph. Ambiguous names expand inline so you can pick the right person.</p>
+        </div>
+        <div class="banner error" id="s2Err" style="display:none"></div>
+        <!-- content added in Task 5 & 6 -->
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="gotoStep(1)">← Back</button>
+          <button class="btn btn-primary" id="s2Btn" onclick="gotoStep(3)" disabled>Continue to Download →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="section" id="step3">
+        <div class="section-hdr">
+          <h2>Download</h2>
+          <p>Your email list is ready. Download the CSV or copy to clipboard, then drop it into Group Import.</p>
+        </div>
+        <!-- content added in Task 7 -->
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="gotoStep(2)">← Back</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="../../shared/auth.js"></script>
+<script>
+const TOOL_SCOPES = ["User.Read.All", "Directory.Read.All"];
+
+// ── State ─────────────────────────────────────────────────────
+const st = {
+  inputName: "",      // file name or "pasted text"
+  rawNames:  [],      // normalised, deduped names ready for lookup
+  results:   [],      // parallel array to rawNames; each: {status, email, candidates, chosenIdx}
+                      // status: "pending"|"matched"|"ambiguous"|"notfound"|"skipped"|"chosen"
+};
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "Name Resolver", hubRelPath: "../../" });
+  ITTools.ui.syncThemeIcon();
+
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: acct => {
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+    }
+  });
+}
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent = e.message; el.style.display = "block";
+  }
+}
+
+function toggleUri() {
+  const b = document.getElementById("uriBox");
+  b.textContent = ITTools.auth.redirectUri();
+  b.style.display = b.style.display === "none" ? "block" : "none";
+}
+
+// ── Step navigation ───────────────────────────────────────────
+function gotoStep(n) {
+  if (n >= 2 && !st.rawNames.length) { showErr("s1Err", "Complete Step 1 first."); return; }
+  [1,2,3].forEach(i => {
+    document.getElementById("step"+i).classList.toggle("active", i===n);
+    document.getElementById("nav"+i).classList.toggle("active", i===n);
+  });
+  window.scrollTo(0,0);
+}
+
+function markDone(n) {
+  document.getElementById("nav"+n).classList.remove("active");
+  document.getElementById("nav"+n).classList.add("done");
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.className = "banner error"; el.style.display = msg ? "block" : "none";
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
