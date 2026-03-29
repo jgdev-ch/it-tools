@@ -225,6 +225,48 @@
             <div style="font-size:11px;color:var(--muted);margin-top:4px">One name per line. Comma-separated inline lists are also accepted.</div>
           </div>
         </div>
+
+        <div class="card" id="mapCard" style="display:none">
+          <div class="card-title">Name columns</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:10px">
+            Select how names appear in your file. Auto-detected columns are marked ✦.
+          </p>
+
+          <div class="field" style="margin-bottom:12px">
+            <label class="field-label">Format</label>
+            <select class="mode-select" id="modeSelect" onchange="onModeChange()">
+              <option value="full">Full name in one column</option>
+              <option value="first_last">First name + Last name columns</option>
+              <option value="last_first">Last name + First name columns (reversed)</option>
+              <option value="last_comma_first">"Last, First" in one column</option>
+              <option value="last_only">Last name only</option>
+            </select>
+          </div>
+
+          <!-- Single-column picker (full / last_comma_first / last_only) -->
+          <div id="singlePicker">
+            <label class="field-label">Column</label>
+            <div class="col-pills" id="singlePills"></div>
+          </div>
+
+          <!-- Two-column picker (first_last / last_first) -->
+          <div id="dualPicker" style="display:none">
+            <div class="col-row">
+              <span class="col-label" id="dualLabel1">First name</span>
+              <div class="col-pills" id="dualPills1"></div>
+            </div>
+            <div class="col-row" style="margin-top:8px">
+              <span class="col-label" id="dualLabel2">Last name</span>
+              <div class="col-pills" id="dualPills2"></div>
+            </div>
+          </div>
+
+          <div id="previewWrap" style="display:none;margin-top:14px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Preview — first 5 names</div>
+            <div class="preview-list" id="previewList"></div>
+          </div>
+        </div>
+
         <div class="btn-row">
           <button class="btn btn-primary" id="s1Btn" onclick="s1Next()" disabled>Continue to Resolve →</button>
           <span id="s1Msg" style="font-size:12px;color:var(--muted)"></span>
@@ -429,6 +471,150 @@ function clearInput() {
   const mc = document.getElementById("mapCard");
   if (mc) mc.style.display = "none";
   updateS1([]);
+}
+
+// ── Column detection ──────────────────────────────────────────
+const NAME_SCORES = {
+  full:  ["displayname","fullname","name","preferredname"],
+  first: ["firstname","givenname","first","given","forename"],
+  last:  ["lastname","surname","familyname","last","family","sn"],
+};
+
+function scoreHeader(h, bucket) {
+  const l = h.toLowerCase().replace(/[\s_\-\.]/g, "");
+  if (NAME_SCORES[bucket].includes(l)) return 10;
+  if (NAME_SCORES[bucket].some(k => l.includes(k))) return 5;
+  return 0;
+}
+
+function bestCol(headers, bucket) {
+  return headers.reduce((best, h) =>
+    scoreHeader(h, bucket) > scoreHeader(best, bucket) ? h : best, headers[0]);
+}
+
+function detectMode(headers) {
+  const hasFirst = headers.some(h => scoreHeader(h, "first") >= 5);
+  const hasLast  = headers.some(h => scoreHeader(h, "last")  >= 5);
+  if (hasFirst && hasLast) return "first_last";
+  if (headers.some(h => scoreHeader(h, "full") >= 10)) return "full";
+  return "full";
+}
+
+// ── Column mapper rendering ───────────────────────────────────
+let _selCol1 = "", _selCol2 = "";
+
+function renderColumnMapper(headers, rows) {
+  document.getElementById("mapCard").style.display = "block";
+  const mode = detectMode(headers);
+  document.getElementById("modeSelect").value = mode;
+  _renderPickersForMode(mode, headers);
+  _updatePreview(rows);
+}
+
+function onModeChange() {
+  const mode = document.getElementById("modeSelect").value;
+  const headers = Object.keys(_parsedRows[0] || {});
+  _renderPickersForMode(mode, headers);
+  _updatePreview(_parsedRows);
+}
+
+function _renderPickersForMode(mode, headers) {
+  const dual = ["first_last","last_first"].includes(mode);
+  document.getElementById("singlePicker").style.display = dual ? "none" : "block";
+  document.getElementById("dualPicker").style.display   = dual ? "block" : "none";
+
+  if (dual) {
+    const l1 = mode === "first_last" ? "First name" : "Last name";
+    const l2 = mode === "first_last" ? "Last name"  : "First name";
+    const b1 = mode === "first_last" ? "first" : "last";
+    const b2 = mode === "first_last" ? "last"  : "first";
+    document.getElementById("dualLabel1").textContent = l1;
+    document.getElementById("dualLabel2").textContent = l2;
+    const auto1 = bestCol(headers, b1);
+    const auto2 = bestCol(headers, b2);
+    _selCol1 = auto1; _selCol2 = auto2;
+    _renderPills("dualPills1", headers, auto1, c => { _selCol1 = c; _updatePreview(_parsedRows); });
+    _renderPills("dualPills2", headers, auto2, c => { _selCol2 = c; _updatePreview(_parsedRows); });
+  } else {
+    const auto = bestCol(headers, mode === "last_only" ? "last" : "full");
+    _selCol1 = auto; _selCol2 = "";
+    _renderPills("singlePills", headers, auto, c => { _selCol1 = c; _updatePreview(_parsedRows); });
+  }
+}
+
+function _renderPills(containerId, headers, autoCol, onSelect) {
+  document.getElementById(containerId).innerHTML = headers.map(h =>
+    `<div class="col-pill${h===autoCol?" auto selected":""}" data-col="${h}"
+          onclick="__pillClick(this,'${containerId}')">${h}</div>`
+  ).join("");
+  document.getElementById(containerId)._onSelect = onSelect;
+}
+
+function __pillClick(el, containerId) {
+  document.querySelectorAll(`#${containerId} .col-pill`).forEach(p => p.classList.remove("selected"));
+  el.classList.add("selected");
+  document.getElementById(containerId)._onSelect(el.dataset.col);
+}
+
+function buildNames(rows) {
+  const mode = document.getElementById("modeSelect").value;
+  let names = rows.map(row => {
+    let name = "";
+    switch (mode) {
+      case "full":
+      case "last_only":
+        name = String(row[_selCol1] ?? "");
+        break;
+      case "last_comma_first": {
+        const raw = String(row[_selCol1] ?? "");
+        const parts = raw.split(",").map(p => p.trim());
+        name = parts.length >= 2 ? parts[1] + " " + parts[0] : raw;
+        break;
+      }
+      case "first_last":
+        name = [String(row[_selCol1]??""), String(row[_selCol2]??"")].filter(Boolean).join(" ");
+        break;
+      case "last_first":
+        name = [String(row[_selCol2]??""), String(row[_selCol1]??"")].filter(Boolean).join(" ");
+        break;
+    }
+    return name.replace(/\s+/g," ").trim();
+  }).filter(n => n);
+
+  // Deduplicate (case-insensitive)
+  const seen = new Set();
+  return names.filter(n => {
+    const k = n.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+function _updatePreview(rows) {
+  const names = buildNames(rows);
+  const preview = names.slice(0,5);
+  document.getElementById("previewList").innerHTML = preview.map(n =>
+    `<div class="preview-item"><div class="preview-dot"></div><span>${n}</span></div>`
+  ).join("");
+  document.getElementById("previewWrap").style.display = preview.length ? "block" : "none";
+  updateS1(names);
+}
+
+function updateS1(names) {
+  const count = names.length;
+  document.getElementById("s1Btn").disabled = count === 0;
+  document.getElementById("s1Msg").textContent = count > 0 ? count + " names ready" : "";
+}
+
+function s1Next() {
+  const names = buildNames(_parsedRows);
+  if (!names.length) { showErr("s1Err","No names found."); return; }
+  st.rawNames = names;
+  st.results  = names.map(() => ({ status:"pending", email:"", candidates:[], chosenIdx:-1 }));
+  markDone(1);
+  document.getElementById("sub1").textContent = names.length + " names ready";
+  gotoStep(2);
+  initResolveStep();
 }
 
 window.onload = init;
