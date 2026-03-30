@@ -111,7 +111,7 @@
 
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
-    <div style="width:44px;height:44px;background:var(--red-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:22px">🔑</div>
+    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:22px">🔑</div>
     <h1>MFA Status Report</h1>
     <p>Sign in with your Microsoft 365 admin account to audit MFA registration status across your tenant.</p>
     <button class="btn-ms" onclick="doSignIn()">
@@ -331,9 +331,11 @@ async function init() {
   ITTools.ui.renderTopbar({ toolName: "MFA Status Report", hubRelPath: "../../" });
   ITTools.ui.syncThemeIcon();
 
+  let _sessionFound = false;
   await ITTools.auth.init({
     scopes: TOOL_SCOPES,
     onSignIn: acct => {
+      _sessionFound = true; // must remain first — flag is read synchronously after init() resolves
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
@@ -344,6 +346,9 @@ async function init() {
       ITTools.ui.clearUser();
     }
   });
+  if (!_sessionFound) {
+    document.getElementById("authScreen").style.display = "flex";
+  }
 }
 
 async function doSignIn() {

@@ -376,9 +376,11 @@ async function init() {
   ITTools.ui.renderTopbar({ toolName: "Name Resolver", hubRelPath: "../../" });
   ITTools.ui.syncThemeIcon();
 
+  let _sessionFound = false;
   await ITTools.auth.init({
     scopes: TOOL_SCOPES,
     onSignIn: acct => {
+      _sessionFound = true; // must remain first — flag is read synchronously after init() resolves
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
@@ -391,6 +393,10 @@ async function init() {
       document.body.style.opacity = "1";
     }
   });
+  if (!_sessionFound) {
+    document.getElementById("authScreen").style.display = "flex";
+    document.body.style.opacity = "1";
+  }
 }
 
 async function doSignIn() {
