@@ -18,7 +18,11 @@
     "POWERPAGES_VIRAL",
     "RMSBASIC",
     "POWER_BI_STANDARD",
-    "TEAMS_EXPLORATORY"
+    "TEAMS_EXPLORATORY",
+    "MCOMEETADV",
+    "Microsoft_Teams_Audio_Conferencing_with_dial-out_to_US_CA",
+    "MCOPSTNC",
+    "PHONESYSTEM_VIRTUALUSER"
   ],
   "costs": {
     "SPE_E3":                                31.69,
