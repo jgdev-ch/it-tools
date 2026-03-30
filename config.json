@@ -9,7 +9,8 @@
       "path": "tools/license-audit/",
       "permissions": ["User.Read.All", "AuditLog.Read.All"],
       "accent": "#1a56db",
-      "iconBg": "#e8f0fe"
+      "iconBg": "#e8f0fe",
+      "category": "reporting-audit"
     },
     {
       "id": "group-import",
@@ -20,7 +21,8 @@
       "path": "tools/group-import/",
       "permissions": ["Group.ReadWrite.All", "GroupMember.ReadWrite.All"],
       "accent": "#047857",
-      "iconBg": "#d1fae5"
+      "iconBg": "#d1fae5",
+      "category": "daily-ops"
     },
     {
       "id": "name-resolver",
@@ -31,7 +33,8 @@
       "path": "tools/name-resolver/",
       "permissions": ["User.Read.All", "Directory.Read.All"],
       "accent": "#1a56db",
-      "iconBg": "#e8f0fe"
+      "iconBg": "#e8f0fe",
+      "category": "daily-ops"
     },
     {
       "id": "mfa-status",
@@ -42,7 +45,8 @@
       "path": "tools/mfa-status/",
       "permissions": ["UserAuthMethod.Read.All"],
       "accent": "#92400e",
-      "iconBg": "#fef3c7"
+      "iconBg": "#fef3c7",
+      "category": "reporting-audit"
     },
     {
       "id": "guest-audit",
@@ -53,7 +57,8 @@
       "path": "tools/guest-audit/",
       "permissions": ["User.Read.All", "User.ReadWrite.All", "Directory.Read.All", "AuditLog.Read.All"],
       "accent": "#5b21b6",
-      "iconBg": "#ede9fe"
+      "iconBg": "#ede9fe",
+      "category": "reporting-audit"
     },
     {
       "id": "finance-dashboard",
@@ -65,7 +70,8 @@
       "permissions": ["User.Read.All", "AuditLog.Read.All", "Directory.Read.All"],
       "accent": "#92400e",
       "iconBg": "#fef3c7",
-      "financeOnly": true
+      "financeOnly": true,
+      "category": "reporting-audit"
     }
   ]
 }
