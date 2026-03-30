@@ -127,6 +127,7 @@
   .tally-red   .tally-num { color:var(--red); }
 
   #authScreen { display:none; }
+  body { opacity:0; transition:opacity .15s; }
   @media (max-width:640px) { .sidebar { display:none; } .main-content { padding:1rem; } .tally-grid { grid-template-columns:repeat(2,1fr); } }
 </style>
 </head>
@@ -381,11 +382,13 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
+      document.body.style.opacity = "1";
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
       document.getElementById("authScreen").style.display = "flex";
       ITTools.ui.clearUser();
+      document.body.style.opacity = "1";
     }
   });
 }
@@ -1010,7 +1013,7 @@ function copyToClipboard() {
   }).catch(() => showErr("s3Err","Clipboard copy failed. Use Download instead."));
 }
 
-window.onload = init;
+init();
 </script>
 </body>
 </html>
