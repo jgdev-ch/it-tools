@@ -17,6 +17,7 @@
     "Power_Pages_vTrial_for_Makers",
     "POWERPAGES_VIRAL",
     "RMSBASIC",
+    "POWER_BI_STANDARD",
     "TEAMS_EXPLORATORY"
   ],
   "costs": {
@@ -48,7 +49,6 @@
     "POWER_BI_PREMIUM_PER_USER":             10.00,
     "PBI_PREMIUM_PER_USER_ADDON":            9.09,
     "POWER_BI_PREMIUM_PER_USER_ADDON":       10.00,
-    "POWER_BI_STANDARD":                     10.00,
     "FLOW_PER_USER":                         10.00,
     "POWERAUTOMATE_ATTENDED_RPA":            10.00,
     "VISIOCLIENT":                           14.19,
