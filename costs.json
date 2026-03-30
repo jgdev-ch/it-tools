@@ -1,5 +1,5 @@
 {
-  "_comment": "Monthly per-user license costs in USD. Update this file when pricing changes. Last updated: 2026-03-23.",
+  "_comment": "Monthly per-user license costs in USD. Update this file when pricing changes. Last updated: 2026-03-30.",
   "_free_skus_note": "SKUs listed in free_skus are known $0 licenses — no cost is shown for these.",
   "free_skus": [
     "FABRIC_FREE",
@@ -17,7 +17,6 @@
     "Power_Pages_vTrial_for_Makers",
     "POWERPAGES_VIRAL",
     "RMSBASIC",
-    "POWER_BI_STANDARD",
     "TEAMS_EXPLORATORY"
   ],
   "costs": {
@@ -39,15 +38,17 @@
     "MCOPSTN1":                              16.39,
     "Teams_Phone_with_Calling_Plan":         16.39,
     "MCOPSTN_1_5":                           16.39,
+    "MCOPSTN5":                              16.39,
     "MCOSTANDARD":                           8.00,
     "COPILOTSTUDIO":                         16.67,
     "VIRTUAL_AGENT_USL":                     16.67,
     "POWER_BI_PRO":                          9.56,
     "POWER_BI_PRO_DEPT":                     9.56,
-    "PBI_PREMIUM_PER_USER":                  20.00,
-    "POWER_BI_PREMIUM_PER_USER":             20.00,
+    "PBI_PREMIUM_PER_USER":                  10.00,
+    "POWER_BI_PREMIUM_PER_USER":             10.00,
     "PBI_PREMIUM_PER_USER_ADDON":            9.09,
     "POWER_BI_PREMIUM_PER_USER_ADDON":       10.00,
+    "POWER_BI_STANDARD":                     10.00,
     "FLOW_PER_USER":                         10.00,
     "POWERAUTOMATE_ATTENDED_RPA":            10.00,
     "VISIOCLIENT":                           14.19,
