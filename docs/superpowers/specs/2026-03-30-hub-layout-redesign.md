@@ -70,7 +70,7 @@ The existing `.section-label` and `.tools-grid` CSS classes are reused unchanged
 - **Default state:** collapsed — displays as a compact pill: `⚙️  Setup  ▾`
 - **Expanded state:** pill becomes a full-width toggle button (`⚙️  Setup  ▴`) with the setup card revealed immediately below it
 - **Toggle:** clicking the pill/button flips state
-- **Persistence:** `localStorage` key `ittools_setup_open` stores `"true"` or `"false"`; if key is absent (first visit), defaults to collapsed
+- **Persistence:** `localStorage` key `it-tools-setup-open` stores `"true"` or `"false"`; if key is absent (first visit), defaults to collapsed
 
 ### HTML structure
 
@@ -110,9 +110,9 @@ The existing `.section-label` and `.tools-grid` CSS classes are reused unchanged
 
 ```js
 function toggleSetup() {
-  const open = localStorage.getItem('ittools_setup_open') === 'true';
+  const open = localStorage.getItem('it-tools-setup-open') === 'true';
   const next = !open;
-  localStorage.setItem('ittools_setup_open', next);
+  localStorage.setItem('it-tools-setup-open', next);
   applySetupState(next);
 }
 
@@ -126,7 +126,7 @@ function applySetupState(open) {
 }
 
 // Called once after auth / page load:
-applySetupState(localStorage.getItem('ittools_setup_open') === 'true');
+applySetupState(localStorage.getItem('it-tools-setup-open') === 'true');
 ```
 
 ---
