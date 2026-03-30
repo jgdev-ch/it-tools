@@ -620,9 +620,9 @@ async function loadTools() {
 
 // ── Setup toggle ──────────────────────────────────────────────────────────────
 function toggleSetup() {
-  const open = localStorage.getItem('ittools_setup_open') === 'true';
+  const open = localStorage.getItem('it-tools-setup-open') === 'true';
   const next = !open;
-  localStorage.setItem('ittools_setup_open', String(next));
+  localStorage.setItem('it-tools-setup-open', String(next));
   applySetupState(next);
 }
 
@@ -638,7 +638,7 @@ function applySetupState(open) {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 document.getElementById("baseUri").textContent = ITTools.auth.redirectUri();
 initTheme();
-applySetupState(localStorage.getItem('ittools_setup_open') === 'true');
+applySetupState(localStorage.getItem('it-tools-setup-open') === 'true');
 loadTools();
 </script>
 </body>
