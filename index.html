@@ -248,9 +248,11 @@
     <span class="hub-count-pill" id="toolCountPill">Loading…</span>
   </div>
 
-  <div class="tools-grid" id="toolsGrid">
-    <div class="skeleton-card"></div>
-    <div class="skeleton-card"></div>
+  <div id="toolsGrid">
+    <div class="tools-grid">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
   </div>
 
   <div class="section-label">Setup</div>
@@ -500,6 +502,11 @@ async function trySilentRestore() {
 }
 
 // ── Render tools from config ──────────────────────────────────────────────────
+const SECTIONS = [
+  { key: "daily-ops",       label: "Daily Operations" },
+  { key: "reporting-audit", label: "Reporting & Audit" },
+];
+
 async function loadTools() {
   const grid = document.getElementById("toolsGrid");
   try {
@@ -507,30 +514,27 @@ async function loadTools() {
     const data = await res.json();
     const clickable = ["live", "beta"];
 
-    grid.innerHTML = data.tools.map(tool => {
+    // Build card HTML for one tool
+    function cardHtml(tool) {
       const perms = tool.permissions || [];
 
-      // Gated tool — render locked card and store meta for sign-out re-lock
       if (tool.financeOnly) {
         const meta = {
-          path:   tool.path,   iconBg: tool.iconBg,
-          icon:   tool.icon,   status: tool.status, name:   tool.name,
-          desc:   tool.description,                 perms,
+          path: tool.path, iconBg: tool.iconBg, icon: tool.icon,
+          status: tool.status, name: tool.name, desc: tool.description, perms,
         };
         _gateCardMeta["finance"] = meta;
         return buildLockedCard({ gateKey: "finance", ...meta });
       }
 
-      // Standard clickable tool
       if (clickable.includes(tool.status) && tool.path) {
         return buildLiveCard({
           path: tool.path, accent: tool.accent, iconBg: tool.iconBg,
-          icon: tool.icon, status: tool.status, name:   tool.name,
-          desc: tool.description, perms,
+          icon: tool.icon, status: tool.status, name: tool.name,
+          desc: tool.description,
         });
       }
 
-      // Non-clickable (coming-soon, in-development, deprecated)
       const overlayLabel = tool.status === "deprecated" ? "Deprecated"
         : tool.status === "in-development" ? "In Development"
         : "Coming Soon";
@@ -543,8 +547,28 @@ async function loadTools() {
           <div class="tool-overlay-pill">${overlayLabel}</div>
         </div>
       </div>`;
+    }
 
-    }).join("");
+    // Group tools by category; tools with no category go to "other"
+    const grouped = {};
+    for (const tool of data.tools) {
+      const key = tool.category || "other";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(tool);
+    }
+
+    // Render defined sections first, then any uncategorised tools at the end
+    const allSections = [...SECTIONS];
+    if (grouped["other"]) allSections.push({ key: "other", label: "Other" });
+
+    grid.innerHTML = allSections
+      .filter(s => grouped[s.key]?.length)
+      .map(s => `
+        <div class="section-label">${s.label}</div>
+        <div class="tools-grid">
+          ${grouped[s.key].map(cardHtml).join("")}
+        </div>
+      `).join("");
 
     // 1 — Instant unlock from localStorage (no network)
     restoreFromLocalStorage();
@@ -560,7 +584,7 @@ async function loadTools() {
     if (pill) pill.textContent = `${total} tools · ${active} active`;
 
   } catch(e) {
-    grid.innerHTML = `<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted);font-size:13px">
+    grid.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--muted);font-size:13px">
       Could not load tools config. Make sure config.json is in the repo root.
     </div>`;
     const pill = document.getElementById("toolCountPill");
