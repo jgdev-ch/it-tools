@@ -557,9 +557,14 @@ async function loadTools() {
       grouped[key].push(tool);
     }
 
-    // Render defined sections first, then any uncategorised tools at the end
+    // Render defined sections first, then any keys not covered by SECTIONS at the end
+    const renderedKeys = new Set(SECTIONS.map(s => s.key));
     const allSections = [...SECTIONS];
-    if (grouped["other"]) allSections.push({ key: "other", label: "Other" });
+    for (const key of Object.keys(grouped)) {
+      if (!renderedKeys.has(key)) {
+        allSections.push({ key, label: key === "other" ? "Other" : key });
+      }
+    }
 
     grid.innerHTML = allSections
       .filter(s => grouped[s.key]?.length)
