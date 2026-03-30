@@ -175,6 +175,23 @@
   font-size: 13px; line-height: 1.7; color: var(--muted);
 }
 .setup-card strong { color: var(--text); }
+
+/* ── Setup toggle (collapsible pill) ── */
+.setup-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 14px 5px 10px;
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  cursor: pointer; font-family: inherit;
+  transition: border-color .15s, color .15s;
+}
+.setup-toggle:hover { border-color: var(--border-mid); color: var(--text); }
+.setup-toggle.open {
+  border-radius: 8px 8px 0 0; width: 100%;
+  justify-content: flex-start; border-bottom-color: transparent;
+}
+.setup-toggle.open + .setup-card { border-radius: 0 0 var(--radius) var(--radius); border-top: none; }
+.setup-chevron { font-size: 10px; color: var(--muted2); margin-left: auto; }
 .setup-uri {
   font-family: 'Cascadia Code','Consolas',monospace; font-size: 12px;
   background: var(--surface2); border: 1px solid var(--border);
@@ -255,8 +272,12 @@
     </div>
   </div>
 
-  <div class="section-label">Setup</div>
-  <div class="setup-card">
+  <button class="setup-toggle" id="setupToggle" onclick="toggleSetup()">
+    <span>⚙️</span>
+    <span>Setup</span>
+    <span class="setup-chevron" id="setupChevron">▾</span>
+  </button>
+  <div class="setup-card" id="setupCard" hidden>
     <p>All tools share a single <strong>Entra ID app registration</strong>. Add the following redirect URI to your app under <em>Authentication → Single-page application</em>:</p>
     <div class="setup-uri" id="baseUri"></div>
     <p>Each tool will automatically use its own sub-path as the redirect URI. You only need one registration for the whole hub.</p>
@@ -597,9 +618,27 @@ async function loadTools() {
   }
 }
 
+// ── Setup toggle ──────────────────────────────────────────────────────────────
+function toggleSetup() {
+  const open = localStorage.getItem('ittools_setup_open') === 'true';
+  const next = !open;
+  localStorage.setItem('ittools_setup_open', String(next));
+  applySetupState(next);
+}
+
+function applySetupState(open) {
+  const btn  = document.getElementById('setupToggle');
+  const card = document.getElementById('setupCard');
+  const chev = document.getElementById('setupChevron');
+  btn.classList.toggle('open', open);
+  card.hidden = !open;
+  chev.textContent = open ? '▴' : '▾';
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 document.getElementById("baseUri").textContent = ITTools.auth.redirectUri();
 initTheme();
+applySetupState(localStorage.getItem('ittools_setup_open') === 'true');
 loadTools();
 </script>
 </body>
