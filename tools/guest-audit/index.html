@@ -108,7 +108,7 @@
   .row-error { font-size:11px; color:var(--red); margin-top:3px; }
 
   /* ── Tooltip ── */
-  [data-tooltip] { position: relative; }
+  [data-tooltip] { position: relative; overflow: visible; }
   [data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute; bottom: calc(100% + 6px); left: 50%;
@@ -606,6 +606,16 @@ function sortGuests(guests) {
     }
     if (sortCol === "licenseCount") return sortDir * (b.licenseCount - a.licenseCount);
     if (sortCol === "accountEnabled") return sortDir * ((a.accountEnabled ? 1 : 0) - (b.accountEnabled ? 1 : 0));
+    if (sortCol === "corroMatch") {
+      function corroVal(g) {
+        if (g.corroMatch.pending)            return -1;
+        if (g.corroMatch.found === null)     return -1;
+        if (g.corroMatch.found === false)    return  0;
+        if (!g.corroMatch.accountEnabled)    return  1;
+        return 2;
+      }
+      return sortDir * (corroVal(b) - corroVal(a));
+    }
     const av = a[sortCol] || "", bv = b[sortCol] || "";
     return sortDir * av.toString().toLowerCase().localeCompare(bv.toString().toLowerCase());
   });
@@ -630,6 +640,15 @@ function setSortCol(col) {
   filterGuestTbl(document.querySelector('input[type="search"]')?.value || "");
 }
 
+function corroMatchCell(g) {
+  const m = g.corroMatch;
+  if (m.pending)         return `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:auto"></div>`;
+  if (m.found === null)  return `<span style="color:var(--muted2)">—</span>`;
+  if (!m.found)          return `<span style="color:var(--muted2)">None</span>`;
+  if (!m.accountEnabled) return `<span class="pill-active" style="background:var(--amber-light);color:var(--amber)">Disabled</span>`;
+  return `<span class="pill-active">Matched</span>`;
+}
+
 function ageBadge(g) {
   if (g.isNever) return `<span class="age-never">Never</span>`;
   const d = g.daysInactive;
@@ -644,6 +663,7 @@ function riskBadges(g) {
   if (g.isStale)     html += `<span class="risk-badge risk-stale">Stale</span>`;
   if (g.isLicensed)  html += `<span class="risk-badge risk-licensed">Licensed</span>`;
   if (g.isOldInvite) html += `<span class="risk-badge risk-old-invite">Old invite</span>`;
+  if (g.corroMatch?.found === true) html += `<span class="risk-badge risk-licensed">Internal account exists</span>`;
   return html;
 }
 
@@ -707,18 +727,19 @@ function renderTable(guests) {
           <div class="avatar ${avatarClass(g)}">${initials(g.displayName)}</div>
           <div class="user-info">
             <div class="user-name">${esc(g.displayName) || "(no name)"}</div>
-            <div class="user-upn">${esc(g.upn)}</div>
+            <div class="user-upn" data-tooltip="${esc(g.upn)}">${esc(g.upn)}</div>
             ${riskBadges(g)}
           </div>
         </div>
       </td>
-      <td>${g.companyName ? esc(g.companyName) : `<span style="color:var(--muted2)">—</span>`}</td>
+      <td${g.companyName ? ` data-tooltip="${esc(g.companyName)}"` : ""}>${g.companyName ? esc(g.companyName) : `<span style="color:var(--muted2)">—</span>`}</td>
       <td>${g.isNever ? `<span style="color:var(--muted2)">Never</span>` : fmtDate(g.lastSignIn)}</td>
       <td>${ageBadge(g)}</td>
       <td>${fmtDate(g.created)}</td>
       <td><button class="btn-groups" data-uid="${esc(g.id)}" data-name="${esc(g.displayName)}" onclick="openGroupModal(this.dataset.uid, this.dataset.name)">View</button></td>
       <td>${g.licenseCount > 0 ? `<span class="pill-active" style="background:var(--blue-light);color:var(--blue-dark)">${g.licenseCount}</span>` : `<span style="color:var(--muted2)">None</span>`}</td>
       <td id="acct-${g.id}">${g.accountEnabled ? `<span class="pill-active">Active</span>` : `<span class="pill-disabled">Disabled</span>`}</td>
+      <td style="text-align:center">${corroMatchCell(g)}</td>
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${disabledBtns}
@@ -752,6 +773,7 @@ function renderTable(guests) {
             <th>Groups</th>
             ${thBtn("licenseCount","Licenses")}
             ${thBtn("accountEnabled","Account")}
+            ${thBtn("corroMatch","CorroHealth Acct")}
             <th>Actions</th>
           </tr>
         </thead>
