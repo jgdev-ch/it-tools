@@ -206,7 +206,7 @@
               <div style="font-size:28px;margin-bottom:8px">📄</div>
               <p id="dropHint">Drag &amp; drop a CSV, or <strong style="cursor:pointer" onclick="document.getElementById('fileIn').click()">browse</strong></p>
               <p style="font-size:11px;color:var(--muted2);margin-top:4px" id="dropTypes">.csv files only</p>
-              <input type="file" id="fileIn" accept=".csv" style="display:none" onchange="handleFileInput(event)"/>
+              <input type="file" id="fileIn" accept=".csv" onchange="handleFileInput(event)"/>
             </div>
             <div class="file-loaded" id="fileLoaded" style="display:none">
               <span style="font-size:16px">✅</span>
