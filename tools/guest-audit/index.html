@@ -301,6 +301,14 @@ function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
+function parseCorroUpn(upn) {
+  if (!upn.includes("#EXT#")) return null;
+  const localPart = upn.split("#EXT#")[0]; // e.g. "john.smith_gmail.com"
+  const namePart  = localPart.split("_")[0]; // e.g. "john.smith"
+  if (!namePart) return null;
+  return namePart + "@corrohealth.com";
+}
+
 async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "Guest Access Audit", hubRelPath: "../../" });
@@ -513,6 +521,7 @@ async function runScan() {
       isLicensed,
       isOldInvite,
       threshold,
+      corroMatch: { found: null, displayName: null, accountEnabled: null, pending: true },
     };
   });
 
