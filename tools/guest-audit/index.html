@@ -636,11 +636,19 @@ function setSortCol(col) {
 
 function corroMatchCell(g) {
   const m = g.corroMatch;
-  if (m.pending)         return `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:auto"></div>`;
-  if (m.found === null)  return `<span style="color:var(--muted2)">—</span>`;
-  if (!m.found)          return `<span style="color:var(--muted2)">None</span>`;
-  if (!m.accountEnabled) return `<span class="pill-active" style="background:var(--amber-light);color:var(--amber)">Disabled</span>`;
-  return `<span class="pill-active">Matched</span>`;
+  if (m.pending)        return `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:auto"></div>`;
+  if (m.found === null) return `<span style="color:var(--muted2)">—</span>`;
+  if (!m.found)         return `<span style="color:var(--muted2)">None</span>`;
+
+  const corroEmail = parseCorroUpn(g.upn) || "";
+  const badge = m.accountEnabled !== false
+    ? `<span class="risk-badge" style="background:var(--green-light);color:var(--green)">Matched</span>`
+    : `<span class="risk-badge" style="background:var(--amber-light);color:var(--amber)">Disabled</span>`;
+
+  return `<div data-tooltip="${esc(corroEmail)}" style="display:flex;flex-direction:column;gap:2px;min-width:0">
+    <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(corroEmail)}</div>
+    ${badge}
+  </div>`;
 }
 
 function ageBadge(g) {
@@ -719,9 +727,9 @@ function renderTable(guests) {
       <td>
         <div class="user-cell">
           <div class="avatar ${avatarClass(g)}">${initials(g.displayName)}</div>
-          <div class="user-info">
+          <div class="user-info" data-tooltip="${esc(g.upn)}">
             <div class="user-name">${esc(g.displayName) || "(no name)"}</div>
-            <div class="user-upn" data-tooltip="${esc(g.upn)}">${esc(g.upn)}</div>
+            <div class="user-upn">${esc(g.upn)}</div>
             ${riskBadges(g)}
           </div>
         </div>
@@ -733,7 +741,7 @@ function renderTable(guests) {
       <td><button class="btn-groups" data-uid="${esc(g.id)}" data-name="${esc(g.displayName)}" onclick="openGroupModal(this.dataset.uid, this.dataset.name)">View</button></td>
       <td>${g.licenseCount > 0 ? `<span class="pill-active" style="background:var(--blue-light);color:var(--blue-dark)">${g.licenseCount}</span>` : `<span style="color:var(--muted2)">None</span>`}</td>
       <td id="acct-${g.id}">${g.accountEnabled ? `<span class="pill-active">Active</span>` : `<span class="pill-disabled">Disabled</span>`}</td>
-      <td style="text-align:center">${corroMatchCell(g)}</td>
+      <td>${corroMatchCell(g)}</td>
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${disabledBtns}
