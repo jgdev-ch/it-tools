@@ -387,44 +387,54 @@ function cancelScan() {
 async function fetchCorroMatches(guests) {
   const eligible = guests.filter(g => parseCorroUpn(g.upn) !== null);
   const total    = eligible.length;
-  if (!total) return;
+  if (!total) {
+    for (const g of guests) {
+      if (g.corroMatch.pending) g.corroMatch.pending = false;
+    }
+    return;
+  }
 
   let done = 0;
   try {
-    for (let i = 0; i < eligible.length; i += 20) {
-      if (_cancelled) return;
+    try {
+      for (let i = 0; i < eligible.length; i += 20) {
+        if (_cancelled) return;
 
-      const batch    = eligible.slice(i, i + 20);
-      const requests = batch.map((g, idx) => ({
-        id:     String(idx),
-        method: "GET",
-        url:    `/users/${encodeURIComponent(parseCorroUpn(g.upn))}?$select=id,displayName,userPrincipalName,accountEnabled`,
-      }));
+        const batch    = eligible.slice(i, i + 20);
+        const requests = batch.map((g, idx) => ({
+          id:     String(idx),
+          method: "GET",
+          url:    `/users/${encodeURIComponent(parseCorroUpn(g.upn))}?$select=id,displayName,userPrincipalName,accountEnabled`,
+        }));
 
-      try {
-        const res = await graphWithRetry(() =>
-          ITTools.graph.post("https://graph.microsoft.com/v1.0/$batch", { requests })
-        );
-        for (const resp of (res?.responses || [])) {
-          const g = batch[parseInt(resp.id, 10)];
-          if (!g) continue;
-          if (resp.status === 200) {
-            g.corroMatch = { found: true,  displayName: resp.body.displayName, accountEnabled: resp.body.accountEnabled, pending: false };
-          } else {
+        try {
+          const res = await graphWithRetry(() =>
+            ITTools.graph.post("https://graph.microsoft.com/v1.0/$batch", { requests })
+          );
+          for (const resp of (res?.responses || [])) {
+            const g = batch[parseInt(resp.id, 10)];
+            if (!g) continue;
+            if (resp.status === 200) {
+              g.corroMatch = { found: true,  displayName: resp.body.displayName, accountEnabled: resp.body.accountEnabled, pending: false };
+            } else {
+              g.corroMatch = { found: false, displayName: null, accountEnabled: null, pending: false };
+            }
+          }
+        } catch(e) {
+          for (const g of batch) {
             g.corroMatch = { found: false, displayName: null, accountEnabled: null, pending: false };
           }
         }
-      } catch(e) {
-        for (const g of batch) {
-          g.corroMatch = { found: false, displayName: null, accountEnabled: null, pending: false };
-        }
-      }
 
-      done += batch.length;
-      setPhase(`Checking CorroHealth accounts… (${done}/${total})`);
+        done += batch.length;
+        setPhase(`Checking CorroHealth accounts… (${done}/${total})`);
+      }
+    } catch(e) {
+      if (e.message !== "Scan cancelled") throw e;
+      // cancelled mid-retry — finally sweep will still run
     }
   } finally {
-    // Always clear remaining pending flags — covers normal exit, cancellation, and thrown errors
+    // Always clear remaining pending flags
     for (const g of guests) {
       if (g.corroMatch.pending) g.corroMatch.pending = false;
     }
@@ -574,7 +584,12 @@ async function runScan() {
 
   if (_cancelled) { setPhase(null); return; }
   renderStats(allGuests, threshold);
-  renderTable(allGuests);
+  renderTable(allGuests);                          // first render — CorroHealth cells show spinner
+
+  await fetchCorroMatches(allGuests);              // second phase — batch Graph lookups
+                                                   // (fetchCorroMatches clears all pending flags on return,
+                                                   //  even if cancelled mid-batch)
+  renderTable(allGuests);                          // always re-render — clears spinners, shows partial results on cancel
   setPhase(null);
 }
 
