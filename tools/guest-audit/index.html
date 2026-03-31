@@ -816,6 +816,7 @@ function exportCsv() {
       "CorroHealth Account Status": g.corroMatch.found === true && g.corroMatch.accountEnabled === true  ? "Active"
                                   : g.corroMatch.found === true && g.corroMatch.accountEnabled === false ? "Disabled"
                                   : "—",
+      "CorroHealth Email":          parseCorroUpn(g.upn) || "—",
     }))
   );
 }
