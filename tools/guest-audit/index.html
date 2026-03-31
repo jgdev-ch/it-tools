@@ -804,6 +804,12 @@ function exportCsv() {
         g.isLicensed  ? "Licensed"        : "",
         g.isOldInvite ? "Old invite"      : "",
       ].filter(Boolean).join("; "),
+      "CorroHealth Account":        g.corroMatch.found === true  ? "Matched"
+                                  : g.corroMatch.found === false ? "None"
+                                  : "—",
+      "CorroHealth Account Status": g.corroMatch.found === true && g.corroMatch.accountEnabled === true  ? "Active"
+                                  : g.corroMatch.found === true && g.corroMatch.accountEnabled === false ? "Disabled"
+                                  : "—",
     }))
   );
 }
