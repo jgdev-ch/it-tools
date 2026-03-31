@@ -30,6 +30,7 @@
 
   /* ── Table column widths ── */
   table { table-layout: fixed; width: 100%; }
+  thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
   table th:nth-child(1), table td:nth-child(1) { width: 200px; }      /* Guest */
   table th:nth-child(2), table td:nth-child(2) { width: 110px; }      /* Company */
   table th:nth-child(3), table td:nth-child(3) { width: 108px; }      /* Last Sign-In */
