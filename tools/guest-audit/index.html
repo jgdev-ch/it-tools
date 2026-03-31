@@ -387,54 +387,48 @@ function cancelScan() {
 async function fetchCorroMatches(guests) {
   const eligible = guests.filter(g => parseCorroUpn(g.upn) !== null);
   const total    = eligible.length;
-  if (!total) {
-    for (const g of guests) {
-      if (g.corroMatch.pending) g.corroMatch.pending = false;
-    }
-    return;
-  }
 
   let done = 0;
   try {
-    try {
-      for (let i = 0; i < eligible.length; i += 20) {
-        if (_cancelled) return;
+    if (!total) return;
 
-        const batch    = eligible.slice(i, i + 20);
-        const requests = batch.map((g, idx) => ({
-          id:     String(idx),
-          method: "GET",
-          url:    `/users/${encodeURIComponent(parseCorroUpn(g.upn))}?$select=id,displayName,userPrincipalName,accountEnabled`,
-        }));
+    for (let i = 0; i < eligible.length; i += 20) {
+      if (_cancelled) return; // finally sweep still runs on return-inside-try
 
-        try {
-          const res = await graphWithRetry(() =>
-            ITTools.graph.post("https://graph.microsoft.com/v1.0/$batch", { requests })
-          );
-          for (const resp of (res?.responses || [])) {
-            const g = batch[parseInt(resp.id, 10)];
-            if (!g) continue;
-            if (resp.status === 200) {
-              g.corroMatch = { found: true,  displayName: resp.body.displayName, accountEnabled: resp.body.accountEnabled, pending: false };
-            } else {
-              g.corroMatch = { found: false, displayName: null, accountEnabled: null, pending: false };
-            }
-          }
-        } catch(e) {
-          for (const g of batch) {
+      const batch    = eligible.slice(i, i + 20);
+      const requests = batch.map((g, idx) => ({
+        id:     String(idx),
+        method: "GET",
+        url:    `/users/${encodeURIComponent(parseCorroUpn(g.upn))}?$select=id,displayName,userPrincipalName,accountEnabled`,
+      }));
+
+      try {
+        const res = await graphWithRetry(() =>
+          ITTools.graph.post("https://graph.microsoft.com/v1.0/$batch", { requests })
+        );
+        for (const resp of (res?.responses || [])) {
+          const g = batch[parseInt(resp.id, 10)];
+          if (!g) continue;
+          if (resp.status === 200) {
+            g.corroMatch = { found: true,  displayName: resp.body.displayName, accountEnabled: resp.body.accountEnabled, pending: false };
+          } else {
             g.corroMatch = { found: false, displayName: null, accountEnabled: null, pending: false };
           }
         }
-
-        done += batch.length;
-        setPhase(`Checking CorroHealth accounts… (${done}/${total})`);
+      } catch(e) {
+        for (const g of batch) {
+          g.corroMatch = { found: false, displayName: null, accountEnabled: null, pending: false };
+        }
       }
-    } catch(e) {
-      if (e.message !== "Scan cancelled") throw e;
-      // cancelled mid-retry — finally sweep will still run
+
+      done += batch.length;
+      setPhase(`Checking CorroHealth accounts… (${done}/${total})`);
     }
+  } catch(e) {
+    if (e.message !== "Scan cancelled") throw e;
   } finally {
-    // Always clear remaining pending flags
+    // Always clear remaining pending flags — covers normal exit, !total early return,
+    // cancellation (return inside try triggers finally), and thrown errors
     for (const g of guests) {
       if (g.corroMatch.pending) g.corroMatch.pending = false;
     }
