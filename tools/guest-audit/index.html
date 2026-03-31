@@ -98,11 +98,12 @@
   /* ── Groups button ── */
   .btn-groups {
     padding: 3px 10px; border-radius: var(--radius-sm);
-    background: var(--surface2); border: 1px solid var(--border);
+    background: var(--blue-light); border: 1px solid var(--blue-border);
+    color: var(--blue-dark);
     font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
     transition: all .12s;
   }
-  .btn-groups:hover { background: var(--surface3); }
+  .btn-groups:hover { background: var(--blue-light); opacity: .8; }
 
   /* ── Inline row error ── */
   .row-error { font-size:11px; color:var(--red); margin-top:3px; }
@@ -120,6 +121,8 @@
     z-index: 50;
   }
   [data-tooltip]:hover::after { opacity: 1; }
+  /* First-column tooltips anchor to left edge so they don't clip off-screen */
+  .user-info[data-tooltip]::after { left: 0; transform: none; }
 
   /* ── Group modal ── */
   .modal-overlay {
@@ -645,8 +648,8 @@ function corroMatchCell(g) {
     ? `<span class="risk-badge" style="background:var(--green-light);color:var(--green)">Matched</span>`
     : `<span class="risk-badge" style="background:var(--amber-light);color:var(--amber)">Disabled</span>`;
 
-  return `<div data-tooltip="${esc(corroEmail)}" style="display:flex;flex-direction:column;gap:2px;min-width:0">
-    <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(corroEmail)}</div>
+  return `<div data-tooltip="${esc(corroEmail)}" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0">
+    <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">${esc(corroEmail)}</div>
     ${badge}
   </div>`;
 }
