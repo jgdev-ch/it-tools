@@ -129,6 +129,22 @@
   .user-name  { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .user-upn   { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* ── Active table view toggle ── */
+  .view-toggle { display: flex; gap: 4px; }
+  .view-toggle-btn {
+    padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; transition: all .12s; white-space: nowrap;
+  }
+  .view-toggle-btn.active {
+    background: var(--amber-light); color: var(--amber);
+    border-color: var(--amber-border);
+  }
+  .view-toggle-btn.active.all-btn {
+    background: var(--blue-light); color: var(--blue);
+    border-color: var(--blue-mid);
+  }
+
   /* ── Multi-license badge ── */
   .multi-lic-badge {
     display: inline-flex; align-items: center; gap: 3px;
@@ -724,7 +740,7 @@ async function gwr(fn, max = 5) {
 let _charts = {};
 let _data        = null;  // processed dashboard data
 let _inactiveCtx = { users: [], days: 90, col: "cost", dir: -1 };
-let _activeCtx   = { users: [], days: 90, col: "cost", dir: -1 };
+let _activeCtx   = { users: [], days: 90, col: "cost", dir: -1, multiOnly: true };
 
 // ── Chart.js global defaults ───────────────────────────────────────────────────
 Chart.defaults.font.family = "'Open Sans', 'Segoe UI', system-ui, sans-serif";
@@ -1469,8 +1485,16 @@ function toggleCard(id) {
 }
 
 // ── Active license holders table ───────────────────────────────────────────────
+function setActiveView(multiOnly) {
+  _activeCtx.multiOnly = multiOnly;
+  document.querySelectorAll(".view-toggle-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === (multiOnly ? "multi" : "all"));
+  });
+  _refreshActiveTable();
+}
+
 function renderActiveTable(users, days) {
-  _activeCtx = { users, days, col: "cost", dir: -1 };
+  _activeCtx = { users, days, col: "cost", dir: -1, multiOnly: true };
 
   document.getElementById("activeCountBadge").textContent =
     `${users.length} user${users.length !== 1 ? "s" : ""}`;
@@ -1487,7 +1511,13 @@ function renderActiveTable(users, days) {
 
   document.getElementById("activeTableWrap").innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
-      <span id="activeSortLabel" style="font-size:13px;color:var(--muted)"></span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="activeSortLabel" style="font-size:13px;color:var(--muted)"></span>
+        <div class="view-toggle">
+          <button class="view-toggle-btn active" data-view="multi" onclick="setActiveView(true)">Multi-license only</button>
+          <button class="view-toggle-btn all-btn" data-view="all"   onclick="setActiveView(false)">All active</button>
+        </div>
+      </div>
       <input type="search" placeholder="Filter…"
         style="padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:inherit;font-size:13px;width:200px"
         oninput="filterActive(this.value)"/>
@@ -1509,9 +1539,13 @@ function sortActive(col) {
 }
 
 function _refreshActiveTable() {
-  const { users, col, dir } = _activeCtx;
+  const { users, col, dir, multiOnly } = _activeCtx;
 
-  const sorted = [...users].sort((a, b) => {
+  const source = multiOnly
+    ? users.filter(u => u.licenses.filter(l => l.cost > 0).length > 1)
+    : users;
+
+  const sorted = [...source].sort((a, b) => {
     switch (col) {
       case "name":      return dir * (a.displayName||"").localeCompare(b.displayName||"");
       case "dept":      return dir * (a.department||"").localeCompare(b.department||"");
@@ -1533,7 +1567,7 @@ function _refreshActiveTable() {
   }).slice(0, 200);
 
   const labelMap = { cost:"cost impact", annualCost:"annual cost", name:"name", dept:"department", lastSeen:"last sign-in", days:"days since sign-in", licenses:"license count" };
-  const countNote = users.length > 200 ? ` · Showing 200 of ${users.length}` : "";
+  const countNote = source.length > 200 ? ` · Showing 200 of ${source.length}` : ` · ${source.length} user${source.length !== 1 ? "s" : ""}`;
   const labelEl = document.getElementById("activeSortLabel");
   if (labelEl) labelEl.textContent = `Sorted by ${labelMap[col]||col} ${dir < 0 ? "↓" : "↑"}${countNote}`;
 
