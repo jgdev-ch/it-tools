@@ -117,6 +117,14 @@
   .num-cell   { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
   .date-cell  { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted2); white-space: nowrap; }
 
+  /* ── Inactive table — sticky headers + fixed height scroll ── */
+  #inactiveTableWrap table { table-layout: fixed; width: 100%; }
+  #inactiveTableWrap thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  .user-cell  { display: flex; align-items: center; gap: 10px; }
+  .avatar     { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; background: var(--amber-light); color: var(--amber); }
+  .user-name  { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-upn   { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   /* ── Access denied ── */
   .access-denied {
     min-height: calc(100vh - var(--topbar-h));
@@ -1247,14 +1255,13 @@ function renderInactiveTable(users, days) {
   }
 
   document.getElementById("inactiveTableWrap").innerHTML = `
-    <div class="tbl-wrap">
-      <div class="tbl-toolbar">
-        <span class="tbl-title" id="inactiveSortLabel" style="font-size:13px"></span>
-        <div class="tbl-actions">
-          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px"
-            oninput="filterInactive(this.value)"/>
-        </div>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+      <span id="inactiveSortLabel" style="font-size:13px;color:var(--muted)"></span>
+      <input type="search" placeholder="Filter…"
+        style="padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:inherit;font-size:13px;width:200px"
+        oninput="filterInactive(this.value)"/>
+    </div>
+    <div style="overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
       <table>
         <thead id="inactiveHead"></thead>
         <tbody id="inactiveBody"></tbody>
@@ -1308,19 +1315,20 @@ function _refreshInactiveTable() {
 
   // Update sortable column headers
   const cols = [
-    { key: "name",       label: "User" },
-    { key: "dept",       label: "Department" },
-    { key: "lastSeen",   label: "Last Sign-In" },
-    { key: "days",       label: "Inactive" },
-    { key: "licenses",   label: "Licenses" },
-    { key: "cost",       label: "Monthly Cost" },
-    { key: "annualCost", label: "Annual Cost" },
+    { key: "name",       label: "User",         width: "200px" },
+    { key: "dept",       label: "Department",   width: "120px" },
+    { key: "lastSeen",   label: "Last Sign-In", width: "110px" },
+    { key: "days",       label: "Inactive",     width: "80px"  },
+    { key: "licenses",   label: "Licenses",     width: ""      },
+    { key: "cost",       label: "Monthly Cost", width: "110px" },
+    { key: "annualCost", label: "Annual Cost",  width: "100px" },
   ];
   const headEl = document.getElementById("inactiveHead");
   if (headEl) headEl.innerHTML = `<tr>${cols.map(c => {
     const active = c.key === col;
     const indicator = active ? ` ${dir < 0 ? "↓" : "↑"}` : "";
-    const style = `cursor:pointer;user-select:none${active ? ";color:var(--teal)" : ""}`;
+    const w = c.width ? `;width:${c.width}` : "";
+    const style = `cursor:pointer;user-select:none${active ? ";color:var(--teal)" : ""}${w}`;
     return `<th style="${style}" onclick="sortInactive('${c.key}')">${c.label}${indicator}</th>`;
   }).join("")}</tr>`;
 
