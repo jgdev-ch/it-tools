@@ -1294,8 +1294,8 @@ function _refreshInactiveTable() {
         return dir * (av - bv);
       }
       case "days": {
-        const av = a.daysSince != null && a.daysSince ? a.daysSince : (dir < 0 ? Infinity : -Infinity);
-        const bv = b.daysSince != null && b.daysSince ? b.daysSince : (dir < 0 ? Infinity : -Infinity);
+        const av = a.daysSince ?? Infinity;
+        const bv = b.daysSince ?? Infinity;
         return dir * (av - bv);
       }
       case "licenses":
@@ -1358,7 +1358,7 @@ function _refreshInactiveTable() {
           <div class="avatar stale">${init}</div>
           <div>
             <div class="user-name">${u.displayName||"Unknown"} ${acctBadge}</div>
-            <div class="user-upn">${u.upn}</div>
+            <div class="user-upn" title="${u.upn}">${u.upn}</div>
           </div>
         </div>
       </td>
