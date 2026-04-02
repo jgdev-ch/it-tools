@@ -682,6 +682,10 @@ function renderAll() {
   document.getElementById("deptCard").style.display    = "block";
   document.getElementById("projCard").style.display    = "block";
   document.getElementById("inactiveCard").style.display= "block";
+
+  // Surface export buttons in the action row once data is available
+  document.getElementById("exportInactiveBtn").style.display = "";
+  document.getElementById("exportProjBtn").style.display     = "";
 }
 
 // Department filter change handler
@@ -1139,6 +1143,15 @@ ITTools.theme.toggle = function() {
   if (_data) { destroyCharts(); renderAll(); }
   return t;
 };
+
+// ── Print / PDF ───────────────────────────────────────────────────────────────
+document.getElementById("printBtn").addEventListener("click", () => {
+  // Stamp timestamp into the print report header just before the dialog opens
+  const ts = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const el = document.getElementById("printTimestamp");
+  if (el) el.textContent = ts;
+  window.print();
+});
 
 init();
 </script>
