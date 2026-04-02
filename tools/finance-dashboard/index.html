@@ -114,7 +114,78 @@
   .access-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
   .access-card p  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
 
-  /* ── Inline stat number sizing ── */
+  /* ── KPI cards (terminal style) ── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 800px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .kpi-row { grid-template-columns: 1fr; } }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.875rem 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Colored top accent line */
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+  }
+  .kpi-card.kpi-cyan::before   { background: linear-gradient(90deg, transparent, var(--teal), transparent); }
+  .kpi-card.kpi-amber::before  { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+  .kpi-card.kpi-green::before  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+  .kpi-card.kpi-rose::before   { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+
+  .kpi-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted2);
+    margin-bottom: 7px;
+  }
+  .kpi-value {
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-card.kpi-cyan  .kpi-value { color: var(--teal); }
+  .kpi-card.kpi-amber .kpi-value { color: var(--amber); }
+  .kpi-card.kpi-green .kpi-value { color: var(--green); }
+  .kpi-card.kpi-rose  .kpi-value { color: var(--red); }
+
+  /* Glow — dark mode only */
+  [data-theme="dark"] .kpi-card.kpi-cyan  .kpi-value { text-shadow: 0 0 18px rgba(14,116,144,0.5); }
+  [data-theme="dark"] .kpi-card.kpi-amber .kpi-value { text-shadow: 0 0 18px rgba(245,158,11,0.45); }
+  [data-theme="dark"] .kpi-card.kpi-green .kpi-value { text-shadow: 0 0 18px rgba(16,185,129,0.45); }
+  [data-theme="dark"] .kpi-card.kpi-rose  .kpi-value { text-shadow: 0 0 18px rgba(239,68,68,0.4); }
+
+  .kpi-sub {
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+    font-size: 10px;
+    color: var(--muted2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .kpi-trend {
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .kpi-trend.up   { color: var(--red); }
+  .kpi-trend.down { color: var(--green); }
+
+  /* Legacy stat-value-md kept for safety */
   .stat-value-md { font-size: 20px !important; }
 
   /* ── Scan summary row ── */
