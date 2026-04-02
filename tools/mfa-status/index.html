@@ -96,11 +96,15 @@
   .avatar.medium       { background:var(--amber-light); color:var(--amber); }
   .avatar.low          { background:var(--green-light); color:var(--green); }
   .avatar.disabled-acc { background:var(--surface3);    color:var(--muted); }
-  .user-name { font-size:13px; font-weight:600; }
-  .user-upn  { font-size:11px; color:var(--muted); }
+  .user-name { font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .user-upn  { font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   /* ── Progress ── */
   .scan-progress { margin: 1rem 0; }
+
+  /* ── Results table — sticky headers + fixed height scroll ── */
+  #tableSection table { table-layout: fixed; width: 100%; }
+  #tableSection thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
 
   #authScreen { display:none; }
 </style>
@@ -1019,35 +1023,40 @@ function renderTable(users, isDisabled) {
   const sorted = sortUsers(users);
 
   sec.innerHTML = `
-    <div class="tbl-wrap">
-      <div class="tbl-toolbar">
-        <span class="tbl-title">MFA report
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px">
+        <div class="card-title" style="margin-bottom:0">
+          MFA report
           <span class="status-pill pill-wouldadd" style="margin-left:6px">${users.length} ${isDisabled ? "disabled accounts" : "users"}</span>
-        </span>
-        <div class="tbl-actions">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
           <input type="search" placeholder="Filter by name, email, dept…"
-            style="width:220px;font-size:12px;padding:5px 9px" oninput="filterTbl(this.value)"/>
-          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportCsv()">Export CSV</button>
+            style="padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:inherit;font-size:13px;width:220px" oninput="filterTbl(this.value)"/>
+          <button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="exportCsv()">Export CSV</button>
         </div>
       </div>
-      <table>
-        <thead><tr>
-          ${th("User","displayName")}
-          ${th("Department","department")}
-          ${th("Risk","riskLevel")}
-          ${th("Registered methods","methodTypes")}
-          ${isDisabled ? th("Licenses","hasLicense") : ""}
-          ${th("Job title","jobTitle")}
-        </tr></thead>
-        <tbody id="mfaBody">${sorted.map(u => userRow(u, isDisabled)).join("")}</tbody>
-      </table>
+      <div style="overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
+        <table>
+          <thead><tr>
+            ${th("User","displayName","210px")}
+            ${th("Department","department","130px")}
+            ${th("Risk","riskLevel","80px")}
+            ${th("Registered methods","methodTypes")}
+            ${isDisabled ? th("Licenses","hasLicense","80px") : ""}
+            ${th("Job title","jobTitle","150px")}
+          </tr></thead>
+          <tbody id="mfaBody">${sorted.map(u => userRow(u, isDisabled)).join("")}</tbody>
+        </table>
+      </div>
     </div>`;
 }
 
-function th(label, col) {
-  const active = sortCol === col ? " style='background:var(--surface3)'" : "";
+function th(label, col, width = "") {
+  const w      = width ? `width:${width};` : "";
+  const bg     = sortCol === col ? `background:var(--surface3);` : "";
+  const style  = (w || bg) ? ` style="${bg}${w}"` : "";
   const arrow  = sortCol === col ? (sortDir === -1 ? " ↓" : " ↑") : " ↕";
-  return `<th onclick="sortBy('${col}')"${active}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
+  return `<th onclick="sortBy('${col}')"${style}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
 }
 
 function userRow(u, isDisabled) {
