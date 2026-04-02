@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>M365 M365 License Audit — IT Tools</title>
+<title>M365 License Audit — IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -372,7 +372,7 @@ async function loadCosts() {
   try {
     const res = await fetch("../../costs.json?v=" + Date.now());
     _costData = await res.json();
-  } catch(_) { console.warn("costs.json not found — cost features disabled."); }
+  } catch(_) { ITTools.ui.banner("warnBanner", "Cost data unavailable — costs.json could not be loaded. Cost columns will be hidden.", "warn"); }
 }
 
 function getCost(sku) {
@@ -444,7 +444,7 @@ let _removalCount   = 0;
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "M365 License Audit", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "M365 License Audit", hubRelPath: "../../", status: "beta" });
   ITTools.ui.syncThemeIcon();
 
   let _sessionFound = false;

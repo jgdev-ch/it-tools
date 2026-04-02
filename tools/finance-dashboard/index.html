@@ -533,7 +533,7 @@ async function loadCosts() {
   try {
     const r  = await fetch("../../costs.json?v=" + Date.now());
     _costData = await r.json();
-  } catch(_) { console.warn("costs.json not found — cost features disabled"); }
+  } catch(_) { ITTools.ui.banner("errBanner", "Cost data unavailable — costs.json could not be loaded. Cost figures will not display.", "warn"); }
 }
 
 function getCost(sku) {
@@ -1338,7 +1338,7 @@ function exportInactive() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "License Spend", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "License Spend", hubRelPath: "../../", status: "beta" });
   ITTools.ui.syncThemeIcon();
   await loadCosts();
 

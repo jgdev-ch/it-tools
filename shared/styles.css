@@ -137,14 +137,22 @@ a:hover { text-decoration: underline; }
 }
 .topbar-brand  { display: flex; align-items: center; gap: 8px; }
 .brand-hub-link {
-  display: flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; border-radius: 7px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 10px 0 6px;
+  height: 30px; border-radius: 7px;
   background: var(--surface2); border: 1px solid var(--border);
   transition: background .12s;
 }
 .brand-hub-link:hover { background: var(--blue-light); text-decoration: none; }
+.brand-hub-text { font-size: 13px; font-weight: 600; color: var(--text); }
 .brand-separator { color: var(--muted2); font-size: 16px; font-weight: 300; margin: 0 2px; }
 .brand-tool { font-size: 15px; font-weight: 700; color: var(--text); }
+.tool-beta-badge {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  background: var(--blue-light); color: var(--blue); border: 1px solid var(--blue-mid);
+  border-radius: var(--radius-xs); padding: 1px 6px; line-height: 16px;
+  opacity: .85;
+}
 
 .topbar-right  { display: flex; align-items: center; gap: 10px; }
 

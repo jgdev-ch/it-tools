@@ -315,7 +315,7 @@ function parseCorroUpn(upn) {
 
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "Guest Access Audit", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "Guest Access Audit", hubRelPath: "../../", status: "beta" });
   ITTools.ui.syncThemeIcon();
 
   let _sessionFound = false;

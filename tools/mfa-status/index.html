@@ -328,7 +328,7 @@ function onScopeChange() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "MFA Status Report", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "MFA Status Report", hubRelPath: "../../", status: "beta" });
   ITTools.ui.syncThemeIcon();
 
   let _sessionFound = false;

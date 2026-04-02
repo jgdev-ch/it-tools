@@ -224,9 +224,13 @@ ITTools.ui = (() => {
    *  toolName: short display name e.g. "License Audit"
    *  hubRelPath: relative path back to index.html e.g. "../../"
    */
-  function renderTopbar({ toolName, hubRelPath = "../../", scopes = [], onReady } = {}) {
+  function renderTopbar({ toolName, hubRelPath = "../../", status = "", scopes = [], onReady } = {}) {
     const el = document.getElementById("topbar");
     if (!el) return;
+
+    const betaBadge = status === "beta"
+      ? `<span class="tool-beta-badge">Beta</span>`
+      : "";
 
     el.innerHTML = `
       <div class="topbar-brand">
@@ -237,9 +241,11 @@ ITTools.ui = (() => {
             <rect x="1"  y="12" width="10" height="10" fill="#00a4ef"/>
             <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
           </svg>
+          <span class="brand-hub-text">IT Tools</span>
         </a>
         <span class="brand-separator">/</span>
         <span class="brand-tool">${toolName}</span>
+        ${betaBadge}
       </div>
       <div class="topbar-right">
         <button class="btn-icon" id="themeBtn" title="Toggle theme" onclick="ITTools.theme.toggle(); ITTools.ui.syncThemeIcon()">
