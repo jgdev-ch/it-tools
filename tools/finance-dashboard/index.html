@@ -119,8 +119,10 @@
 
   /* ── Inactive table — sticky headers + fixed height scroll ── */
   #inactiveTableWrap table { table-layout: fixed; width: 100%; }
-  #inactiveTableWrap thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
-  .user-cell  { display: flex; align-items: center; gap: 10px; }
+  #inactiveTableWrap thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; padding: 9px 12px; }
+  #inactiveTableWrap td { padding: 11px 12px; overflow: hidden; }
+  .user-cell  { display: flex; align-items: center; gap: 10px; overflow: hidden; }
+  .user-cell > div { min-width: 0; overflow: hidden; }
   .avatar     { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; background: var(--amber-light); color: var(--amber); }
   .user-name  { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .user-upn   { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1309,9 +1311,11 @@ function _refreshInactiveTable() {
 
   // Update sort label
   const labelMap = { cost:"cost impact", annualCost:"annual cost", name:"name", dept:"department", lastSeen:"last sign-in", days:"inactivity", licenses:"license count" };
+  const dirNote  = dir < 0 ? " ↓ (most inactive first)" : " ↑ (least inactive first)";
   const countNote = users.length > 100 ? ` · Showing 100 of ${users.length}` : "";
   const labelEl = document.getElementById("inactiveSortLabel");
-  if (labelEl) labelEl.textContent = `Sorted by ${labelMap[col]||col} ${dir < 0 ? "↓" : "↑"}${countNote}`;
+  const dirLabel = col === "days" ? dirNote : ` ${dir < 0 ? "↓" : "↑"}`;
+  if (labelEl) labelEl.textContent = `Sorted by ${labelMap[col]||col}${dirLabel}${countNote}`;
 
   // Update sortable column headers
   const cols = [
