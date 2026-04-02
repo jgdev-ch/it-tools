@@ -98,8 +98,10 @@
   .proj-table-wrap tr:last-child td { border-bottom: none; }
   .proj-table-wrap tr:hover td { background: var(--surface2); }
 
-  /* ── Inactive cost cell ── */
-  .cost-cell { font-size: 12px; font-weight: 700; color: var(--amber); white-space: nowrap; }
+  /* ── Data cells — monospace for all numbers ── */
+  .cost-cell  { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--amber); white-space: nowrap; }
+  .num-cell   { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .date-cell  { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted2); white-space: nowrap; }
 
   /* ── Access denied ── */
   .access-denied {
@@ -917,11 +919,11 @@ function updateProjections() {
   const tblBody = labels.map((m, i) => `
     <tr>
       <td style="font-weight:600">${m}</td>
-      <td style="color:#1a56db">${fmt(flat[i])}</td>
-      <td style="color:#047857">${fmt(savings[i])}</td>
-      <td style="color:#92400e">${fmt(growth[i])}</td>
-      <td style="color:#0e7490">${fmt(optGrowth[i])}</td>
-      <td style="color:var(--green);font-weight:600">${fmt(growth[i] - optGrowth[i])}</td>
+      <td class="cost-cell" style="color:#1a56db">${fmt(flat[i])}</td>
+      <td class="cost-cell" style="color:#047857">${fmt(savings[i])}</td>
+      <td class="cost-cell" style="color:#92400e">${fmt(growth[i])}</td>
+      <td class="cost-cell" style="color:#0e7490">${fmt(optGrowth[i])}</td>
+      <td class="cost-cell" style="color:var(--green);font-weight:600">${fmt(growth[i] - optGrowth[i])}</td>
     </tr>`).join("");
 
   document.getElementById("projTable").innerHTML = `
@@ -1009,8 +1011,8 @@ function renderInactiveTable(users, days) {
         </div>
       </td>
       <td style="font-size:12px;color:var(--muted)">${u.department}</td>
-      <td style="font-size:12px;color:var(--red)">${lastSeen}</td>
-      <td><span class="${ageCls}" style="border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">${ageLabel}</span></td>
+      <td class="date-cell">${lastSeen}</td>
+      <td class="num-cell"><span class="${ageCls}" style="border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">${ageLabel}</span></td>
       <td>${licPills}</td>
       <td class="cost-cell">${fmt(u.totalCost)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span></td>
       <td style="font-size:12px;color:var(--muted)">${fmt(u.totalCost * 12)}/yr</td>
