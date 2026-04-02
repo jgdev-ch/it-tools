@@ -235,9 +235,7 @@
     .hub-footer        { display: none !important; }
 
     /* ── Page base ── */
-    body, html { background: #fff !important; color: #0f172a !important; }
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    body, html { background: #fff !important; color: #0f172a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
     /* ── Remove glow effects ── */
     .kpi-value { text-shadow: none !important; }
@@ -881,7 +879,7 @@ function kpiCard(accent, label, value, sub, trend) {
 }
 
 function printKpiCard(accent, label, value, sub, trend) {
-  const trendCls = trend.startsWith("▲") ? "up" : "down";
+  const trendCls = trend.startsWith("▲") ? "up" : trend.startsWith("▼") || trend.startsWith("↓") ? "down" : "neutral";
   return `<div class="print-kpi ${accent}">
     <div class="print-kpi-label">${label}</div>
     <div class="print-kpi-value">${value}</div>
