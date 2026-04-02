@@ -182,8 +182,9 @@
     font-size: 9px;
     font-weight: 700;
   }
-  .kpi-trend.up   { color: var(--red); }
-  .kpi-trend.down { color: var(--green); }
+  .kpi-trend.up      { color: var(--red); }
+  .kpi-trend.down    { color: var(--green); }
+  .kpi-trend.neutral { color: var(--muted2); }
 
   /* Legacy stat-value-md kept for safety */
   .stat-value-md { font-size: 20px !important; }
@@ -628,12 +629,11 @@ function renderAll() {
   const filtered    = deptFilter ? processedUsers.filter(u => u.department === deptFilter) : processedUsers;
   const inactiveU   = filtered.filter(u => u.inactive && u.totalCost > 0);
 
-  const monthly      = skuList.reduce((s, k) => s + k.assignedCost,  0);
-  const waste        = skuList.reduce((s, k) => s + k.wasteCost,     0);
-  const inactiveCost = inactiveU.reduce((s, u) => s + u.totalCost,    0);
-  const saveable     = waste + inactiveCost;
-  const assignedSeats = skuList.reduce((s, k) => s + k.assigned,     0);
-  const totalSeats    = skuList.reduce((s, k) => s + k.total,        0);
+  const monthly       = skuList.reduce((s, k) => s + k.assignedCost,  0);
+  const waste         = skuList.reduce((s, k) => s + k.wasteCost,     0);
+  const inactiveCost  = inactiveU.reduce((s, u) => s + u.totalCost,    0);
+  const assignedSeats = skuList.reduce((s, k) => s + k.assigned,      0);
+  const totalSeats    = skuList.reduce((s, k) => s + k.total,         0);
 
   renderStats(monthly, waste, inactiveCost, skuList.length, inactiveU.length, days, assignedSeats, totalSeats);
   renderCallout(monthly, waste, inactiveCost, inactiveU.length, days);
@@ -671,7 +671,7 @@ function renderStats(monthly, waste, inactive, skuCount, inactiveCount, days, as
 }
 
 function kpiCard(accent, label, value, sub, trend) {
-  const trendCls = trend.startsWith("▲") ? "up" : "down";
+  const trendCls = trend.startsWith("▲") ? "up" : trend.startsWith("▼") ? "down" : "neutral";
   return `<div class="kpi-card ${accent}">
     <div class="kpi-label">${label}</div>
     <div class="kpi-value">${value}</div>
