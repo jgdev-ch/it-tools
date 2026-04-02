@@ -254,8 +254,8 @@
 
   <div class="banner error" id="errBanner"></div>
 
-  <!-- Overview stats -->
-  <div class="stats-row" id="statsRow" style="display:none"></div>
+  <!-- KPI cards -->
+  <div class="kpi-row" id="statsRow" style="display:none"></div>
 
   <!-- Callout -->
   <div id="calloutArea"></div>
@@ -628,12 +628,14 @@ function renderAll() {
   const filtered    = deptFilter ? processedUsers.filter(u => u.department === deptFilter) : processedUsers;
   const inactiveU   = filtered.filter(u => u.inactive && u.totalCost > 0);
 
-  const monthly     = skuList.reduce((s, k) => s + k.assignedCost,  0);
-  const waste       = skuList.reduce((s, k) => s + k.wasteCost,     0);
-  const inactiveCost= inactiveU.reduce((s, u) => s + u.totalCost,    0);
-  const saveable    = waste + inactiveCost;
+  const monthly      = skuList.reduce((s, k) => s + k.assignedCost,  0);
+  const waste        = skuList.reduce((s, k) => s + k.wasteCost,     0);
+  const inactiveCost = inactiveU.reduce((s, u) => s + u.totalCost,    0);
+  const saveable     = waste + inactiveCost;
+  const assignedSeats = skuList.reduce((s, k) => s + k.assigned,     0);
+  const totalSeats    = skuList.reduce((s, k) => s + k.total,        0);
 
-  renderStats(monthly, waste, inactiveCost, skuList.length, inactiveU.length, days);
+  renderStats(monthly, waste, inactiveCost, skuList.length, inactiveU.length, days, assignedSeats, totalSeats);
   renderCallout(monthly, waste, inactiveCost, inactiveU.length, days);
   renderDonut(skuList);
   renderUtilisation(skuList);
@@ -653,18 +655,31 @@ function renderAll() {
 function onDeptFilter() { if (_data) { destroyCharts(); renderAll(); } }
 
 // ── Stats row ──────────────────────────────────────────────────────────────────
-function renderStats(monthly, waste, inactive, skuCount, inactiveCount, days) {
-  const annual   = monthly * 12;
-  const saveable = waste + inactive;
+function renderStats(monthly, waste, inactive, skuCount, inactiveCount, days, assignedSeats, totalSeats) {
+  const saveable   = waste + inactive;
+  const utilPct    = totalSeats > 0 ? Math.round(assignedSeats / totalSeats * 100) : 0;
+
   document.getElementById("statsRow").innerHTML =
-    sc("amber",  "Monthly Spend",        fmt(monthly,  true), `across ${skuCount} paid SKUs`) +
-    sc("blue",   "Annual Projection",    fmt(annual,   true), "at current spend rate") +
-    sc("red",    "Unassigned Seat Waste",fmt(waste,    true) + "/mo", "seats paid for, not assigned") +
-    sc("amber",  `Inactive Cost (>${days}d)`, fmt(inactive, true) + "/mo", `${inactiveCount} users`) +
-    sc("green",  "Total Recoverable",    fmt(saveable, true) + "/mo", fmt(saveable * 12, true) + "/yr potential");
+    kpiCard("kpi-cyan",  "Monthly Spend",  fmt(monthly, true),
+      `${skuCount} paid SKUs`, `▲ ${fmt(monthly * 12, true)}/yr`) +
+    kpiCard("kpi-amber", "Active Seats",   assignedSeats.toLocaleString(),
+      `of ${totalSeats.toLocaleString()} total`, `${utilPct}% utilization`) +
+    kpiCard("kpi-green", "Savings Found",  fmt(saveable, true) + "/mo",
+      `${inactiveCount} inactive users`, `▼ ${fmt(saveable * 12, true)}/yr`) +
+    kpiCard("kpi-rose",  `Inactive Cost`,  fmt(inactive, true) + "/mo",
+      `>${days}-day threshold`, `▲ REVIEW`);
 }
-function sc(c,l,v,s) {
-  return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value stat-value-md">${v}</div>${s?`<div class="stat-sub">${s}</div>`:""}</div>`;
+
+function kpiCard(accent, label, value, sub, trend) {
+  const trendCls = trend.startsWith("▲") ? "up" : "down";
+  return `<div class="kpi-card ${accent}">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value">${value}</div>
+    <div class="kpi-sub">
+      <span>${sub}</span>
+      <span class="kpi-trend ${trendCls}">${trend}</span>
+    </div>
+  </div>`;
 }
 
 // ── Callout ────────────────────────────────────────────────────────────────────
