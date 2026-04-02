@@ -131,13 +131,56 @@
   .access-card p  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
 
   /* ── KPI cards (terminal style) ── */
+  /* ── Hero spend card ── */
+  .spend-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .spend-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 5%; right: 5%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  }
+  .spend-hero-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted2); margin-bottom: 8px;
+  }
+  .spend-hero-value {
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+    font-size: 38px; font-weight: 700; line-height: 1;
+    color: var(--amber); margin-bottom: 6px;
+  }
+  [data-theme="dark"] .spend-hero-value { text-shadow: 0 0 28px rgba(245,158,11,0.4); }
+  .spend-hero-sub { font-size: 12px; color: var(--muted); }
+  .spend-hero-right { text-align: right; flex-shrink: 0; }
+  .spend-hero-annual {
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+    font-size: 22px; font-weight: 700; line-height: 1;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  @media (max-width: 600px) {
+    .spend-hero { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .spend-hero-right { text-align: left; }
+    .spend-hero-value { font-size: 30px; }
+  }
+
   .kpi-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     margin-bottom: 1.25rem;
   }
-  @media (max-width: 800px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 800px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
   @media (max-width: 480px) { .kpi-row { grid-template-columns: 1fr; } }
 
   .kpi-card {
@@ -427,6 +470,19 @@
 
   <div class="banner error" id="errBanner"></div>
 
+  <!-- Hero spend card -->
+  <div class="spend-hero" id="spendHero" style="display:none">
+    <div>
+      <div class="spend-hero-label">Total Monthly Spend</div>
+      <div class="spend-hero-value" id="heroMonthly">—</div>
+      <div class="spend-hero-sub" id="heroSub">—</div>
+    </div>
+    <div class="spend-hero-right">
+      <div class="spend-hero-label">Annual Projection</div>
+      <div class="spend-hero-annual" id="heroAnnual">—</div>
+    </div>
+  </div>
+
   <!-- KPI cards -->
   <div class="kpi-row" id="statsRow" style="display:none"></div>
 
@@ -655,6 +711,7 @@ function setPhase(msg) {
 async function loadDashboard() {
   document.getElementById("errBanner").style.display    = "none";
   document.getElementById("calloutArea").innerHTML      = "";
+  document.getElementById("spendHero").style.display   = "none";
   document.getElementById("statsRow").style.display     = "none";
   document.getElementById("row1").style.display         = "none";
   document.getElementById("deptCard").style.display     = "none";
@@ -836,14 +893,18 @@ function renderStats(monthly, waste, inactive, skuCount, inactiveCount, days, as
   const saveable   = waste + inactive;
   const utilPct    = totalSeats > 0 ? Math.round(assignedSeats / totalSeats * 100) : 0;
 
+  // Hero spend card
+  document.getElementById("heroMonthly").textContent = fmt(monthly, true);
+  document.getElementById("heroAnnual").textContent  = fmt(monthly * 12, true) + " /yr";
+  document.getElementById("heroSub").textContent     = `${skuCount} paid SKU${skuCount !== 1 ? "s" : ""} · ${assignedSeats.toLocaleString()} active seats`;
+  document.getElementById("spendHero").style.display = "flex";
+
   document.getElementById("statsRow").innerHTML =
-    kpiCard("kpi-cyan",  "Monthly Spend",  fmt(monthly, true),
-      `${skuCount} paid SKUs`, `▲ ${fmt(monthly * 12, true)}/yr`) +
-    kpiCard("kpi-amber", "Active Seats",   assignedSeats.toLocaleString(),
+    kpiCard("kpi-amber", "Active Seats",  assignedSeats.toLocaleString(),
       `of ${totalSeats.toLocaleString()} total`, `${utilPct}% utilization`) +
-    kpiCard("kpi-green", "Savings Found",  fmt(saveable, true) + "/mo",
+    kpiCard("kpi-green", "Savings Found", fmt(saveable, true) + "/mo",
       `${inactiveCount} inactive users`, `▼ ${fmt(saveable * 12, true)}/yr`) +
-    kpiCard("kpi-rose",  `Inactive Cost`,  fmt(inactive, true) + "/mo",
+    kpiCard("kpi-rose",  "Inactive Cost", fmt(inactive, true) + "/mo",
       `>${days}-day threshold`, `▲ REVIEW`);
 
   // Also populate the print KPI strip
