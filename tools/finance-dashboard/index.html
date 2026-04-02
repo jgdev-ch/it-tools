@@ -66,8 +66,8 @@
   .sku-row:last-child { border-bottom: none; }
   .sku-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .sku-name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-  .sku-cost { font-weight: 700; color: var(--amber); white-space: nowrap; }
-  .sku-seats { font-size: 10px; color: var(--muted2); white-space: nowrap; }
+  .sku-cost { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--amber); white-space: nowrap; }
+  .sku-seats { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted2); white-space: nowrap; }
 
   /* ── Callout banner ── */
   .callout {
@@ -769,9 +769,9 @@ function renderUtilisation(skuList) {
     data: {
       labels: top.map(s => s.name),
       datasets: [
-        { label: "Active",     data: top.map(s => Math.max(0, s.assigned - s.inactiveCount)), backgroundColor: "#047857bb", stack: "s" },
-        { label: "Inactive",   data: top.map(s => s.inactiveCount),                           backgroundColor: "#92400ebb", stack: "s" },
-        { label: "Unassigned", data: top.map(s => s.unassigned),                               backgroundColor: "#991b1bbb", stack: "s" },
+        { label: "Active",     data: top.map(s => Math.max(0, s.assigned - s.inactiveCount)), backgroundColor: "#10b981bb", stack: "s" },
+        { label: "Inactive",   data: top.map(s => s.inactiveCount),                           backgroundColor: "#f59e0bbb", stack: "s" },
+        { label: "Unassigned", data: top.map(s => s.unassigned),                               backgroundColor: "#f43f5ebb", stack: "s" },
       ]
     },
     options: {
@@ -787,7 +787,7 @@ function renderUtilisation(skuList) {
         }
       },
       scales: {
-        x: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 } } },
+        x: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10, family: cd().mono } } },
         y: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 }, maxRotation: 0 } }
       }
     }
@@ -809,8 +809,8 @@ function renderDeptChart(deptMap, filter) {
     data: {
       labels: sorted.map(([d]) => d),
       datasets: [
-        { label: "Active spend",   data: sorted.map(([,v]) => +v.active.toFixed(2)),   backgroundColor: "#1a56dbbb", stack: "s" },
-        { label: "Inactive spend", data: sorted.map(([,v]) => +v.inactive.toFixed(2)), backgroundColor: "#92400ebb", stack: "s" },
+        { label: "Active spend",   data: sorted.map(([,v]) => +v.active.toFixed(2)),   backgroundColor: "#6366f1bb", stack: "s" },
+        { label: "Inactive spend", data: sorted.map(([,v]) => +v.inactive.toFixed(2)), backgroundColor: "#f59e0bbb", stack: "s" },
       ]
     },
     options: {
@@ -821,7 +821,7 @@ function renderDeptChart(deptMap, filter) {
       },
       scales: {
         x: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 } } },
-        y: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10 }, callback: v => "$" + Math.round(v).toLocaleString() } }
+        y: { stacked: true, grid: { color: grid }, ticks: { color: text, font: { size: 10, family: cd().mono }, callback: v => "$" + Math.round(v).toLocaleString() } }
       }
     }
   });
@@ -872,10 +872,10 @@ function updateProjections() {
 
   // Update legend
   document.getElementById("projLegend").innerHTML = [
-    { label: "Flat (status quo)",                    color: "#1a56db", dash: false },
-    { label: "Savings (waste + inactive removed)",   color: "#047857", dash: true  },
-    { label: `Growth (${(growthR*100).toFixed(1)}%/mo)`, color: "#92400e", dash: false },
-    { label: "Optimised growth",                     color: "#0e7490", dash: true  },
+    { label: "Flat (status quo)",                    color: "#6366f1", dash: false },
+    { label: "Savings (waste + inactive removed)",   color: "#10b981", dash: true  },
+    { label: `Growth (${(growthR*100).toFixed(1)}%/mo)`, color: "#f59e0b", dash: false },
+    { label: "Optimised growth",                     color: "#06b6d4", dash: true  },
   ].map(l => `
     <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
       <div style="width:22px;height:3px;border-radius:2px;background:${l.color};${l.dash?"border-top:2px dashed "+l.color+";background:transparent":""};flex-shrink:0"></div>
@@ -890,10 +890,10 @@ function updateProjections() {
     data: {
       labels,
       datasets: [
-        { label: "Flat",              data: flat,      borderColor: "#1a56db", backgroundColor: "transparent", borderWidth: 2.5, tension: .2, pointRadius: 3 },
-        { label: "Savings",           data: savings,   borderColor: "#047857", backgroundColor: "transparent", borderWidth: 2.5, borderDash: [6,3], tension: .2, pointRadius: 3 },
-        { label: "Growth",            data: growth,    borderColor: "#92400e", backgroundColor: "transparent", borderWidth: 2.5, tension: .2, pointRadius: 3 },
-        { label: "Optimised Growth",  data: optGrowth, borderColor: "#0e7490", backgroundColor: "transparent", borderWidth: 2.5, borderDash: [6,3], tension: .2, pointRadius: 3 },
+        { label: "Flat",             data: flat,      borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,0.06)", fill: true, borderWidth: 2, tension: .3, pointRadius: 2 },
+        { label: "Savings",          data: savings,   borderColor: "#10b981", backgroundColor: "transparent", borderWidth: 2, borderDash: [6,3], tension: .3, pointRadius: 2 },
+        { label: "Growth",           data: growth,    borderColor: "#f59e0b", backgroundColor: "transparent", borderWidth: 2, tension: .3, pointRadius: 2 },
+        { label: "Optimised Growth", data: optGrowth, borderColor: "#06b6d4", backgroundColor: "transparent", borderWidth: 2, borderDash: [6,3], tension: .3, pointRadius: 2 },
       ]
     },
     options: {
@@ -907,7 +907,7 @@ function updateProjections() {
         x: { grid: { color: grid }, ticks: { color: text, font: { size: 11 } } },
         y: {
           grid: { color: grid },
-          ticks: { color: text, font: { size: 11 }, callback: v => "$" + Math.round(v).toLocaleString() }
+          ticks: { color: text, font: { size: 11, family: cd().mono }, callback: v => "$" + Math.round(v).toLocaleString() }
         }
       }
     }
