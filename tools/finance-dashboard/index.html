@@ -608,6 +608,7 @@ async function gwr(fn, max = 5) {
 // ── Chart state ────────────────────────────────────────────────────────────────
 let _charts = {};
 let _data   = null;  // processed dashboard data
+let _inactiveCtx = { users: [], days: 90, col: "cost", dir: -1 };
 
 // ── Chart.js global defaults ───────────────────────────────────────────────────
 Chart.defaults.font.family = "'Open Sans', 'Segoe UI', system-ui, sans-serif";
@@ -1170,6 +1171,7 @@ function exportProjections() {
 
 // ── Inactive license holders table ────────────────────────────────────────────
 function renderInactiveTable(users, days) {
+  _inactiveCtx = { users, days, col: "cost", dir: -1 };
   document.getElementById("inactiveCountBadge").textContent =
     `${users.length} user${users.length!==1?"s":""}`;
 
@@ -1183,8 +1185,86 @@ function renderInactiveTable(users, days) {
     return;
   }
 
-  const sorted = [...users].sort((a, b) => b.totalCost - a.totalCost).slice(0, 100);
-  const rows   = sorted.map(u => {
+  document.getElementById("inactiveTableWrap").innerHTML = `
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <span class="tbl-title" id="inactiveSortLabel" style="font-size:13px"></span>
+        <div class="tbl-actions">
+          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px"
+            oninput="filterInactive(this.value)"/>
+        </div>
+      </div>
+      <table>
+        <thead id="inactiveHead"></thead>
+        <tbody id="inactiveBody"></tbody>
+      </table>
+    </div>`;
+
+  _refreshInactiveTable();
+}
+
+function sortInactive(col) {
+  const ctx = _inactiveCtx;
+  ctx.dir = ctx.col === col ? ctx.dir * -1 : -1;
+  ctx.col = col;
+  _refreshInactiveTable();
+}
+
+function _refreshInactiveTable() {
+  const { users, days, col, dir } = _inactiveCtx;
+
+  // Sort
+  const sorted = [...users].sort((a, b) => {
+    switch (col) {
+      case "name":
+        return dir * (a.displayName||"").localeCompare(b.displayName||"");
+      case "dept":
+        return dir * (a.department||"").localeCompare(b.department||"");
+      case "lastSeen": {
+        const av = a.lastSignIn ? new Date(a.lastSignIn).getTime() : (dir < 0 ? -Infinity : Infinity);
+        const bv = b.lastSignIn ? new Date(b.lastSignIn).getTime() : (dir < 0 ? -Infinity : Infinity);
+        return dir * (av - bv);
+      }
+      case "days": {
+        const av = a.daysSince != null && a.daysSince ? a.daysSince : (dir < 0 ? Infinity : -Infinity);
+        const bv = b.daysSince != null && b.daysSince ? b.daysSince : (dir < 0 ? Infinity : -Infinity);
+        return dir * (av - bv);
+      }
+      case "licenses":
+        return dir * (a.licenses.filter(l=>l.cost>0).length - b.licenses.filter(l=>l.cost>0).length);
+      case "annualCost":
+      case "cost":
+      default:
+        return dir * (a.totalCost - b.totalCost);
+    }
+  }).slice(0, 100);
+
+  // Update sort label
+  const labelMap = { cost:"cost impact", annualCost:"annual cost", name:"name", dept:"department", lastSeen:"last sign-in", days:"inactivity", licenses:"license count" };
+  const countNote = users.length > 100 ? ` · Showing 100 of ${users.length}` : "";
+  const labelEl = document.getElementById("inactiveSortLabel");
+  if (labelEl) labelEl.textContent = `Sorted by ${labelMap[col]||col} ${dir < 0 ? "↓" : "↑"}${countNote}`;
+
+  // Update sortable column headers
+  const cols = [
+    { key: "name",       label: "User" },
+    { key: "dept",       label: "Department" },
+    { key: "lastSeen",   label: "Last Sign-In" },
+    { key: "days",       label: "Inactive" },
+    { key: "licenses",   label: "Licenses" },
+    { key: "cost",       label: "Monthly Cost" },
+    { key: "annualCost", label: "Annual Cost" },
+  ];
+  const headEl = document.getElementById("inactiveHead");
+  if (headEl) headEl.innerHTML = `<tr>${cols.map(c => {
+    const active = c.key === col;
+    const indicator = active ? ` ${dir < 0 ? "↓" : "↑"}` : "";
+    const style = `cursor:pointer;user-select:none${active ? ";color:var(--teal)" : ""}`;
+    return `<th style="${style}" onclick="sortInactive('${c.key}')">${c.label}${indicator}</th>`;
+  }).join("")}</tr>`;
+
+  // Build rows
+  const rows = sorted.map(u => {
     const init = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
     const lastSeen = u.lastSignIn
       ? new Date(u.lastSignIn).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })
@@ -1222,25 +1302,8 @@ function renderInactiveTable(users, days) {
     </tr>`;
   }).join("");
 
-  document.getElementById("inactiveTableWrap").innerHTML = `
-    <div class="tbl-wrap">
-      <div class="tbl-toolbar">
-        <span class="tbl-title" style="font-size:13px">
-          Sorted by cost impact
-          ${users.length > 100 ? `<span class="status-pill pill-skipped" style="margin-left:6px">Showing 100 of ${users.length}</span>` : ""}
-        </span>
-        <div class="tbl-actions">
-          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px"
-            oninput="filterInactive(this.value)"/>
-        </div>
-      </div>
-      <table>
-        <thead><tr>
-          <th>User</th><th>Department</th><th>Last Sign-In</th><th>Inactive</th><th>Licenses</th><th>Monthly Cost</th><th>Annual Cost</th>
-        </tr></thead>
-        <tbody id="inactiveBody">${rows}</tbody>
-      </table>
-    </div>`;
+  const bodyEl = document.getElementById("inactiveBody");
+  if (bodyEl) bodyEl.innerHTML = rows;
 }
 
 function filterInactive(q) {
