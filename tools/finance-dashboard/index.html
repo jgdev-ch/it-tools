@@ -1433,15 +1433,14 @@ function _refreshInactiveTable() {
       default:
         return dir * (a.totalCost - b.totalCost);
     }
-  }).slice(0, 100);
+  });
 
   // Update sort label
   const labelMap = { cost:"cost impact", annualCost:"annual cost", name:"name", dept:"department", lastSeen:"last sign-in", days:"inactivity", licenses:"license count" };
   const dirNote  = dir < 0 ? " ↓ (most inactive first)" : " ↑ (least inactive first)";
-  const countNote = users.length > 100 ? ` · Showing 100 of ${users.length}` : "";
   const labelEl = document.getElementById("inactiveSortLabel");
   const dirLabel = col === "days" ? dirNote : ` ${dir < 0 ? "↓" : "↑"}`;
-  if (labelEl) labelEl.textContent = `Sorted by ${labelMap[col]||col}${dirLabel}${countNote}`;
+  if (labelEl) labelEl.textContent = `Sorted by ${labelMap[col]||col}${dirLabel} · ${users.length} user${users.length!==1?"s":""}`;
 
   // Update sortable column headers
   const cols = [
@@ -1543,6 +1542,7 @@ function toggleCard(id) {
 // ── Active license holders table ───────────────────────────────────────────────
 function setActiveView(multiOnly) {
   _activeCtx.multiOnly = multiOnly;
+  _activeCtx.page      = 0;
   document.querySelectorAll(".view-toggle-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.view === (multiOnly ? "multi" : "all"));
   });
@@ -1550,7 +1550,7 @@ function setActiveView(multiOnly) {
 }
 
 function renderActiveTable(users, days) {
-  _activeCtx = { users, days, col: "cost", dir: -1, multiOnly: true };
+  _activeCtx = { users, days, col: "cost", dir: -1, multiOnly: true, page: 0, filterQ: "" };
 
   document.getElementById("activeCountBadge").textContent =
     `${users.length} user${users.length !== 1 ? "s" : ""}`;
@@ -1583,23 +1583,37 @@ function renderActiveTable(users, days) {
         <thead id="activeHead"></thead>
         <tbody id="activeBody"></tbody>
       </table>
+    </div>
+    <div id="activePagination" style="display:none;align-items:center;gap:10px;justify-content:center;padding:12px 0;font-size:13px;color:var(--muted)">
+      <button id="activePrevBtn" class="btn-sm-ghost" onclick="setActivePage(_activeCtx.page - 1)">← Prev</button>
+      <span id="activePageLabel"></span>
+      <button id="activeNextBtn" class="btn-sm-ghost" onclick="setActivePage(_activeCtx.page + 1)">Next →</button>
     </div>`;
 
   _refreshActiveTable();
 }
 
 function sortActive(col) {
-  _activeCtx.dir = _activeCtx.col === col ? _activeCtx.dir * -1 : -1;
-  _activeCtx.col = col;
+  _activeCtx.dir  = _activeCtx.col === col ? _activeCtx.dir * -1 : -1;
+  _activeCtx.col  = col;
+  _activeCtx.page = 0;
   _refreshActiveTable();
 }
 
 function _refreshActiveTable() {
-  const { users, col, dir, multiOnly } = _activeCtx;
+  const { users, col, dir, multiOnly, filterQ } = _activeCtx;
 
-  const source = multiOnly
+  let source = multiOnly
     ? users.filter(u => u.licenses.filter(l => l.cost > 0).length > 1)
     : users;
+
+  if (filterQ) {
+    source = source.filter(u =>
+      (u.displayName||"").toLowerCase().includes(filterQ) ||
+      (u.upn||"").toLowerCase().includes(filterQ) ||
+      (u.department||"").toLowerCase().includes(filterQ)
+    );
+  }
 
   const sorted = [...source].sort((a, b) => {
     switch (col) {
@@ -1620,10 +1634,18 @@ function _refreshActiveTable() {
       case "cost":
       default:          return dir * (a.totalCost - b.totalCost);
     }
-  }).slice(0, 200);
+  });
+
+  const PAGE_SIZE  = 500;
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const page       = Math.min(_activeCtx.page, totalPages - 1);
+  _activeCtx.page  = page;
+  const paged      = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const labelMap = { cost:"cost impact", annualCost:"annual cost", name:"name", dept:"department", lastSeen:"last sign-in", days:"days since sign-in", licenses:"license count" };
-  const countNote = source.length > 200 ? ` · Showing 200 of ${source.length}` : ` · ${source.length} user${source.length !== 1 ? "s" : ""}`;
+  const countNote = totalPages > 1
+    ? ` · Page ${page + 1} of ${totalPages} (${sorted.length} users)`
+    : ` · ${sorted.length} user${sorted.length !== 1 ? "s" : ""}`;
   const labelEl = document.getElementById("activeSortLabel");
   if (labelEl) labelEl.textContent = `Sorted by ${labelMap[col]||col} ${dir < 0 ? "↓" : "↑"}${countNote}`;
 
@@ -1645,7 +1667,7 @@ function _refreshActiveTable() {
     return `<th style="${style}" onclick="sortActive('${c.key}')">${c.label}${indicator}</th>`;
   }).join("")}</tr>`;
 
-  const rows = sorted.map(u => {
+  const rows = paged.map(u => {
     const init = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
     const lastSeen = u.lastSignIn
       ? new Date(u.lastSignIn).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })
@@ -1683,13 +1705,36 @@ function _refreshActiveTable() {
 
   const bodyEl = document.getElementById("activeBody");
   if (bodyEl) bodyEl.innerHTML = rows;
+
+  // Pagination controls
+  const pagCtrl = document.getElementById("activePagination");
+  if (pagCtrl) {
+    if (totalPages > 1) {
+      pagCtrl.style.display = "flex";
+      document.getElementById("activePrevBtn").disabled  = page === 0;
+      document.getElementById("activeNextBtn").disabled  = page >= totalPages - 1;
+      document.getElementById("activePageLabel").textContent = `Page ${page + 1} of ${totalPages}`;
+    } else {
+      pagCtrl.style.display = "none";
+    }
+  }
+}
+
+function setActivePage(p) {
+  const { users, multiOnly } = _activeCtx;
+  const source = multiOnly
+    ? users.filter(u => u.licenses.filter(l => l.cost > 0).length > 1)
+    : users;
+  const totalPages = Math.max(1, Math.ceil(source.length / 500));
+  _activeCtx.page = Math.max(0, Math.min(p, totalPages - 1));
+  _refreshActiveTable();
 }
 
 function filterActive(q) {
-  q = q.toLowerCase();
-  document.querySelectorAll("#activeBody tr").forEach(tr => {
-    tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
-  });
+  if (!_activeCtx) return;
+  _activeCtx.filterQ = q.trim().toLowerCase();
+  _activeCtx.page = 0;
+  _refreshActiveTable();
 }
 
 function exportActive() {
