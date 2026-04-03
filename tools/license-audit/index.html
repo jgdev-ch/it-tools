@@ -146,6 +146,72 @@
   .btn-modal-confirm:disabled { opacity: .5; cursor: not-allowed; }
 
   #authScreen { display:none; }
+
+  /* ── Audit mode toggle ── */
+  .audit-mode-toggle {
+    display: flex; gap: 6px; margin-bottom: 14px;
+    border-bottom: 1px solid var(--border); padding-bottom: 14px;
+  }
+  .audit-mode-btn {
+    padding: 6px 16px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; color: var(--muted); transition: all .12s;
+  }
+  .audit-mode-btn.active { background: var(--blue-light); color: var(--blue-dark); border-color: var(--blue-border); }
+  .audit-mode-btn:hover:not(.active) { background: var(--surface2); }
+
+  /* ── Multi-license count badge ── */
+  .multi-count-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--amber-light); color: var(--amber); border-radius: 99px;
+    padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+
+  /* ── Multi-license table scroll ── */
+  .multi-tbl-scroll { overflow-y: auto; max-height: calc(100vh - 340px); }
+  .multi-tbl-scroll table { table-layout: fixed; width: 100%; border-collapse: collapse; }
+  .multi-tbl-scroll thead th {
+    position: sticky; top: 0; background: var(--surface2); z-index: 1;
+    padding: 10px 12px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .multi-tbl-scroll td {
+    padding: 11px 12px; font-size: 13px;
+    border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .multi-tbl-scroll tr:last-child td { border-bottom: none; }
+
+  /* ── Manage button ── */
+  .btn-manage {
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--amber-border);
+    color: var(--amber); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all .12s; white-space: nowrap;
+  }
+  .btn-manage:hover { background: var(--amber-light); }
+  .btn-manage:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Checkbox list in manage modal ── */
+  .lic-checkbox-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.25rem; }
+  .lic-checkbox-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); cursor: pointer; transition: background .12s;
+  }
+  .lic-checkbox-row:hover { background: var(--surface2); }
+  .lic-checkbox-row input[type="checkbox"] {
+    width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; accent-color: var(--red);
+  }
+  .lic-checkbox-row input[type="checkbox"]:disabled { opacity: .5; }
+  .lic-checkbox-name { flex: 1; font-size: 13px; font-weight: 600; }
+  .lic-checkbox-cost { font-size: 12px; color: var(--amber); font-weight: 700; white-space: nowrap; }
+  .lic-checkbox-removed {
+    font-size: 11px; color: var(--green); font-weight: 700;
+    background: var(--green-light); padding: 2px 7px; border-radius: 4px;
+  }
 </style>
 </head>
 <body>
@@ -186,6 +252,10 @@
 
     <div class="card">
       <div class="card-title">Configure audit</div>
+      <div class="audit-mode-toggle">
+        <button class="audit-mode-btn active" id="modeInactiveBtn" onclick="setAuditMode('inactive')">Inactive Holders</button>
+        <button class="audit-mode-btn" id="modeMultiBtn" onclick="setAuditMode('multi')">Multi-License Accounts</button>
+      </div>
       <div class="controls-row">
         <div class="field">
           <label class="field-label">License type</label>
@@ -255,6 +325,28 @@
     <div class="modal-actions">
       <button class="btn-modal-cancel"  onclick="closeModal()">Cancel</button>
       <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="confirmRemoval()">Remove license</button>
+    </div>
+  </div>
+</div>
+
+<!-- Multi-License Manage Modal -->
+<div class="modal-overlay" id="manageModal">
+  <div class="modal-card" style="max-width:500px">
+    <div class="modal-icon" style="background:var(--amber-light)">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="modal-title">Manage licenses</div>
+    <div class="modal-body">
+      Select the licenses to remove from this user. Changes take effect immediately.
+    </div>
+    <div class="modal-user-card">
+      <div class="modal-user-name" id="manageUserName"></div>
+      <div class="modal-user-upn"  id="manageUserUpn"></div>
+    </div>
+    <div class="lic-checkbox-list" id="manageCheckboxList"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel"  onclick="closeManageModal()">Cancel</button>
+      <button class="btn-modal-confirm" id="manageConfirmBtn" onclick="confirmManageRemoval()">Remove selected</button>
     </div>
   </div>
 </div>
@@ -441,6 +533,14 @@ let _activeSku      = "";
 let _pendingRemoval = null;
 let _removalCount   = 0;
 
+// Multi-license mode state
+let _auditMode         = "inactive"; // "inactive" | "multi"
+let _multiUsers        = [];
+let _multiSortCol      = "totalCost";
+let _multiSortDir      = -1;
+let _pendingManage     = null;
+let _multiRemovalCount = 0;
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
@@ -562,12 +662,42 @@ function setPhase(msg) {
   } else {
     line.classList.remove("show");
     btn.disabled    = false;
-    btn.textContent = "Run Audit";
+    btn.textContent = _auditMode === "multi" ? "Find Multi-License Accounts" : "Run Audit";
   }
+}
+
+// ── Audit mode toggle ─────────────────────────────────────────────────────────
+function setAuditMode(mode) {
+  _auditMode = mode;
+  document.getElementById("modeInactiveBtn").classList.toggle("active", mode === "inactive");
+  document.getElementById("modeMultiBtn").classList.toggle("active", mode === "multi");
+
+  const showInactive = mode === "inactive";
+  document.getElementById("licSelect").closest(".field").style.display  = showInactive ? "" : "none";
+  document.getElementById("daysSelect").closest(".field").style.display = showInactive ? "" : "none";
+  document.getElementById("skuMeta").style.display = showInactive ? "" : "none";
+
+  const runBtn = document.getElementById("runBtn");
+  if (mode === "multi") {
+    runBtn.textContent = "Find Multi-License Accounts";
+    runBtn.disabled    = false;
+  } else {
+    runBtn.textContent = "Run Audit";
+    runBtn.disabled    = _tenantSkus.length === 0;
+  }
+
+  // Clear results when switching modes
+  document.getElementById("errBanner").style.display    = "none";
+  document.getElementById("warnBanner").style.display   = "none";
+  document.getElementById("costHeadline").style.display = "none";
+  document.getElementById("statsRow").style.display     = "none";
+  document.getElementById("tableSection").innerHTML     = "";
+  document.getElementById("removalSummary").classList.remove("show");
 }
 
 // ── Audit ─────────────────────────────────────────────────────────────────────
 async function runAudit() {
+  if (_auditMode === "multi") { await runMultiLicenseAudit(); return; }
   document.getElementById("errBanner").style.display    = "none";
   document.getElementById("warnBanner").style.display   = "none";
   document.getElementById("costHeadline").style.display = "none";
@@ -957,11 +1087,335 @@ function exportCsv() {
   );
 }
 
+// ── Multi-License Audit ───────────────────────────────────────────────────────
+async function runMultiLicenseAudit() {
+  document.getElementById("errBanner").style.display    = "none";
+  document.getElementById("warnBanner").style.display   = "none";
+  document.getElementById("costHeadline").style.display = "none";
+  document.getElementById("statsRow").style.display     = "none";
+  document.getElementById("tableSection").innerHTML     = "";
+  document.getElementById("removalSummary").classList.remove("show");
+  _multiUsers = []; _pendingManage = null; _multiRemovalCount = 0;
+
+  const fields = "id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,signInActivity";
+
+  try {
+    setPhase("Fetching all licensed users…");
+    const raw = await graphWithRetry(() => ITTools.graph.getAll(
+      `https://graph.microsoft.com/v1.0/users?$filter=assignedLicenses/$count ne 0&$select=${fields}&$count=true&$top=999`
+    ));
+
+    setPhase(`Analysing ${raw.length} licensed users…`);
+    const results = [];
+
+    for (const u of raw) {
+      const paidLicenses = (u.assignedLicenses || [])
+        .map(l => {
+          const sku        = _tenantSkus.find(s => s.skuId === l.skuId);
+          const partNumber = sku?.skuPartNumber || l.skuId;
+          const cost       = getCost(partNumber);
+          return { skuId: l.skuId, skuPartNumber: partNumber, friendlyName: getFriendlyName(partNumber), cost };
+        })
+        .filter(l => l.cost !== 0); // exclude known-free (cost === 0)
+
+      if (paidLicenses.length < 2) continue;
+
+      const si      = u.signInActivity || {};
+      const d1      = si.lastSignInDateTime               ? new Date(si.lastSignInDateTime)               : null;
+      const d2      = si.lastNonInteractiveSignInDateTime  ? new Date(si.lastNonInteractiveSignInDateTime)  : null;
+      const last    = d1 && d2 ? (d1 > d2 ? d1 : d2) : (d1 || d2 || null);
+      const daysSince = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
+
+      results.push({
+        id:             u.id,
+        displayName:    u.displayName || "",
+        upn:            u.userPrincipalName || "",
+        department:     u.department || "",
+        jobTitle:       u.jobTitle || "",
+        accountEnabled: u.accountEnabled,
+        lastSignIn:     last ? last.toISOString().slice(0,10) : null,
+        daysSinceSignIn: daysSince,
+        paidLicenses,
+        totalCost:      _hasFinanceAccess ? paidLicenses.reduce((s, l) => s + (l.cost || 0), 0) : null,
+        removedSkuIds:  [],
+      });
+    }
+
+    _multiUsers = results;
+    renderMultiTable(results);
+
+  } catch(e) {
+    document.getElementById("errBanner").textContent   = e.message;
+    document.getElementById("errBanner").style.display = "block";
+  } finally {
+    setPhase(null);
+  }
+}
+
+function renderMultiTable(users) {
+  const sec     = document.getElementById("tableSection");
+  const hasCost = _hasFinanceAccess;
+
+  if (!users.length) {
+    sec.innerHTML = `<div class="card"><div class="empty-state">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">No multi-license accounts</div>
+      <p class="empty-sub">No users have 2 or more paid licenses assigned.</p>
+    </div></div>`;
+    return;
+  }
+
+  const sorted = sortMultiUsers(users);
+  sec.innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="tbl-toolbar" style="padding:14px 16px">
+        <span class="tbl-title">Multi-License Accounts
+          <span class="status-pill pill-skipped" style="margin-left:6px">${users.length} user${users.length!==1?"s":""}</span>
+        </span>
+        <div class="tbl-actions">
+          <input type="search" placeholder="Filter…" style="width:200px;font-size:12px;padding:5px 9px" oninput="filterMultiTbl(this.value)"/>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportMultiCsv()">Export CSV</button>
+        </div>
+      </div>
+      <div class="multi-tbl-scroll">
+        <table>
+          <thead><tr>
+            ${mth("User","displayName","200px")}
+            ${mth("Department","department","130px")}
+            ${mth("Last Sign-In","lastSignIn","115px")}
+            ${mth("Licenses","paidLicenses","")}
+            ${hasCost ? mth("Total Cost","totalCost","105px") : ""}
+            <th style="width:135px">Action</th>
+          </tr></thead>
+          <tbody id="multiBody">${sorted.map(u => multiUserRow(u, hasCost)).join("")}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function mth(label, col, width) {
+  const active = _multiSortCol===col ? " style='background:var(--surface3)'" : "";
+  const arrow  = _multiSortCol===col ? (_multiSortDir===-1 ? " ↓" : " ↑") : " ↕";
+  const w      = width ? ` width="${width}"` : "";
+  return `<th onclick="sortMultiBy('${col}')"${active}${w}>${label}<span style="opacity:.4;margin-left:3px">${arrow}</span></th>`;
+}
+
+function multiUserRow(u, hasCost) {
+  const initials   = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+  const lastSeen   = u.lastSignIn
+    ? new Date(u.lastSignIn).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})
+    : "Never";
+  const allRemoved = u.paidLicenses.every(l => u.removedSkuIds.includes(l.skuId));
+
+  const licPills = u.paidLicenses.map(l => {
+    const removed = u.removedSkuIds.includes(l.skuId);
+    return `<span class="lic-pill" style="${removed?"opacity:.4;text-decoration:line-through":""}">${l.friendlyName}</span>`;
+  }).join("");
+
+  const costCell = hasCost
+    ? `<td class="cost-cell ${u.totalCost > 0 ? "has-cost" : "no-cost"}">
+        ${u.totalCost > 0 ? formatCurrency(u.totalCost)+`<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span>` : "—"}
+       </td>`
+    : "";
+
+  const actionCell = allRemoved
+    ? `<td><span class="removed-badge">✓ All removed</span></td>`
+    : `<td><button class="btn-manage" onclick="openManageModal('${u.id}')" id="managebtn-${u.id}">Manage licenses</button></td>`;
+
+  const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
+
+  return `<tr data-search="${search}" data-userid="${u.id}" id="multirow-${u.id}">
+    <td><div class="user-cell">
+      <div class="avatar ok">${initials}</div>
+      <div style="min-width:0">
+        <div class="user-name">${u.displayName||"Unknown"}</div>
+        <div class="user-upn" title="${u.upn}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.upn}</div>
+      </div>
+    </div></td>
+    <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
+    <td style="font-size:12px;color:var(--muted)">${lastSeen}</td>
+    <td><span class="multi-count-badge" style="margin-right:6px">${u.paidLicenses.length}</span>${licPills}</td>
+    ${costCell}
+    ${actionCell}
+  </tr>`;
+}
+
+function sortMultiBy(col) {
+  _multiSortDir = _multiSortCol===col ? _multiSortDir*-1 : -1;
+  _multiSortCol = col;
+  const b = document.getElementById("multiBody");
+  if (b) {
+    const hasCost = _hasFinanceAccess;
+    b.innerHTML = sortMultiUsers(_multiUsers).map(u => multiUserRow(u, hasCost)).join("");
+    filterMultiTbl(document.querySelector('#tableSection input[type="search"]')?.value||"");
+  }
+}
+
+function sortMultiUsers(users) {
+  return [...users].sort((a, b) => {
+    if (_multiSortCol === "totalCost")    return _multiSortDir * ((b.totalCost||0)         - (a.totalCost||0));
+    if (_multiSortCol === "paidLicenses") return _multiSortDir * (b.paidLicenses.length     - a.paidLicenses.length);
+    if (_multiSortCol === "lastSignIn") {
+      const av = a.daysSinceSignIn ?? Infinity, bv = b.daysSinceSignIn ?? Infinity;
+      return _multiSortDir * (bv - av);
+    }
+    const av = a[_multiSortCol]||"", bv = b[_multiSortCol]||"";
+    return _multiSortDir * av.toString().toLowerCase().localeCompare(bv.toString().toLowerCase());
+  });
+}
+
+function filterMultiTbl(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("#multiBody tr").forEach(tr => {
+    tr.style.display = tr.dataset.search?.includes(q) ? "" : "none";
+  });
+}
+
+function exportMultiCsv() {
+  if (!_multiUsers.length) return;
+  const hasCost = _hasFinanceAccess;
+  ITTools.csv.download(
+    "M365_Multi_License_Audit_" + new Date().toISOString().slice(0,10) + ".csv",
+    _multiUsers.map(u => {
+      const row = {
+        "Display Name":      u.displayName,
+        "UPN":               u.upn,
+        "Department":        u.department,
+        "Job Title":         u.jobTitle,
+        "Account":           u.accountEnabled === false ? "Disabled" : "Active",
+        "Last Sign-In":      u.lastSignIn || "Never",
+        "Days Since Sign-In": u.daysSinceSignIn !== null ? u.daysSinceSignIn : "Never",
+        "License Count":     u.paidLicenses.length,
+        "Licenses":          u.paidLicenses.map(l => l.friendlyName).join("; "),
+        "Licenses Removed":  u.removedSkuIds.length
+          ? u.paidLicenses.filter(l => u.removedSkuIds.includes(l.skuId)).map(l => l.friendlyName).join("; ")
+          : "None",
+      };
+      if (hasCost) row["Total Monthly Cost"] = u.totalCost !== null ? formatCurrency(u.totalCost) : "";
+      return row;
+    })
+  );
+}
+
+// ── Manage modal ──────────────────────────────────────────────────────────────
+function openManageModal(userId) {
+  const user = _multiUsers.find(u => u.id === userId);
+  if (!user) return;
+  _pendingManage = user;
+
+  document.getElementById("manageUserName").textContent = user.displayName;
+  document.getElementById("manageUserUpn").textContent  = user.upn;
+
+  const list = document.getElementById("manageCheckboxList");
+  list.innerHTML = user.paidLicenses.map(l => {
+    const isRemoved = user.removedSkuIds.includes(l.skuId);
+    const costLabel = _hasFinanceAccess && l.cost > 0
+      ? `<span class="lic-checkbox-cost">${formatCurrency(l.cost)}/mo</span>` : "";
+    return `<label class="lic-checkbox-row" style="${isRemoved?"opacity:.55;cursor:default":""}">
+      <input type="checkbox" class="manage-lic-check" value="${l.skuId}" ${isRemoved?"disabled checked":""}>
+      <span class="lic-checkbox-name">${l.friendlyName}</span>
+      ${isRemoved ? '<span class="lic-checkbox-removed">Removed</span>' : costLabel}
+    </label>`;
+  }).join("");
+
+  const confirmBtn = document.getElementById("manageConfirmBtn");
+  confirmBtn.disabled    = false;
+  confirmBtn.textContent = "Remove selected";
+  const prev = document.getElementById("manageErr");
+  if (prev) prev.remove();
+
+  document.getElementById("manageModal").classList.add("show");
+}
+
+function closeManageModal() {
+  document.getElementById("manageModal").classList.remove("show");
+  _pendingManage = null;
+}
+
+async function confirmManageRemoval() {
+  if (!_pendingManage) return;
+  const user       = _pendingManage;
+  const confirmBtn = document.getElementById("manageConfirmBtn");
+
+  const selected = [...document.querySelectorAll(".manage-lic-check:checked:not(:disabled)")]
+    .map(cb => cb.value);
+
+  if (!selected.length) {
+    let errEl = document.getElementById("manageErr");
+    if (!errEl) {
+      errEl = Object.assign(document.createElement("div"), { id: "manageErr", className: "banner error" });
+      errEl.style.marginBottom = "1rem";
+      document.querySelector("#manageModal .modal-actions").before(errEl);
+    }
+    errEl.textContent   = "Please select at least one license to remove.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  confirmBtn.disabled    = true;
+  confirmBtn.textContent = "Removing…";
+
+  try {
+    const token = await ITTools.auth.getToken();
+    const res   = await fetch(`https://graph.microsoft.com/v1.0/users/${user.id}/assignLicense`, {
+      method:  "POST",
+      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+      body:    JSON.stringify({ addLicenses: [], removeLicenses: selected })
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const msg  = body?.error?.message || `Graph error ${res.status}`;
+      if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented.");
+      throw new Error(msg);
+    }
+
+    user.removedSkuIds.push(...selected);
+    _multiRemovalCount += selected.length;
+
+    // Replace the row in place
+    const row = document.getElementById(`multirow-${user.id}`);
+    if (row) row.outerHTML = multiUserRow(user, _hasFinanceAccess);
+
+    updateMultiRemovalSummary();
+    closeManageModal();
+
+  } catch(e) {
+    confirmBtn.disabled    = false;
+    confirmBtn.textContent = "Remove selected";
+    let errEl = document.getElementById("manageErr");
+    if (!errEl) {
+      errEl = Object.assign(document.createElement("div"), { id: "manageErr", className: "banner error" });
+      errEl.style.marginBottom = "1rem";
+      document.querySelector("#manageModal .modal-actions").before(errEl);
+    }
+    errEl.textContent   = "Error: " + e.message;
+    errEl.style.display = "block";
+  }
+}
+
+function updateMultiRemovalSummary() {
+  const el = document.getElementById("removalSummary");
+  if (_multiRemovalCount === 0) { el.classList.remove("show"); return; }
+  let msg = `✓ ${_multiRemovalCount} license${_multiRemovalCount!==1?"s":""} removed this session.`;
+  if (_hasFinanceAccess) {
+    const saved = _multiUsers.reduce((sum, u) =>
+      sum + u.paidLicenses.filter(l => u.removedSkuIds.includes(l.skuId)).reduce((s, l) => s + (l.cost || 0), 0), 0);
+    if (saved > 0) msg += ` Estimated saving: ${formatCurrency(saved)}/mo · ${formatCurrency(saved*12)}/yr.`;
+  }
+  msg += " Export CSV to save a record of changes.";
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
 // Modal dismiss handlers
 document.getElementById("removeModal").addEventListener("click", function(e) {
   if (e.target === this) closeModal();
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+document.getElementById("manageModal").addEventListener("click", function(e) {
+  if (e.target === this) closeManageModal();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeModal(); closeManageModal(); } });
 
 init();
 </script>
