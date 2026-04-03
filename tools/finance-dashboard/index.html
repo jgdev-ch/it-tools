@@ -861,6 +861,41 @@ async function loadDashboard() {
       };
     });
 
+    // 3b — Audit log verification for inactive candidates
+    const inactiveCandidates = processedUsers.filter(u => u.inactive && u.totalCost > 0);
+    if (inactiveCandidates.length > 0) {
+      const total = inactiveCandidates.length;
+      setPhase(`Verifying ${total} inactive user${total!==1?"s":""} via audit logs (0 / ${total})…`);
+      let checked = 0, reclaimedAudit = 0;
+
+      for (const u of inactiveCandidates) {
+        try {
+          const logs = await gwr(() => ITTools.graph.get(
+            `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
+          ));
+          const latest = logs?.value?.[0]?.createdDateTime;
+          if (latest) {
+            const auditDate = new Date(latest);
+            if (!u.lastSignIn || auditDate > u.lastSignIn) {
+              u.lastSignIn = auditDate;
+              u.daysSince  = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
+              u.inactive   = auditDate < cutoff;
+              if (!u.inactive) reclaimedAudit++;
+            }
+          }
+        } catch(_) { /* fail gracefully — retain signInActivity data */ }
+        checked++;
+        setPhase(`Verifying ${total} inactive user${total!==1?"s":""} via audit logs (${checked} / ${total})…`);
+      }
+
+      if (reclaimedAudit > 0) {
+        ITTools.ui.banner("errBanner",
+          `Audit log check complete — ${reclaimedAudit} user${reclaimedAudit!==1?" were":" was"} reclassified as active after verifying against sign-in logs. Remaining inactive users are confirmed dormant.`,
+          "info"
+        );
+      }
+    }
+
     // 4 — SKU-level stats
     const skuStats = {};
     paidSkus.forEach(s => {

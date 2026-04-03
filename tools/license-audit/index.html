@@ -819,10 +819,57 @@ async function runAudit() {
       });
     }
 
-    allUsers = inactive;
-    renderStats(targetSkus, inactive.length, days, licSku);
-    if (_hasFinanceAccess) renderCostHeadline(inactive, licSku);
-    renderTable(inactive, days, licSku);
+    // ── Phase 2: Audit log verification ──────────────────────────────────────
+    let reclaimedCount = 0;
+    if (inactive.length > 0) {
+      const total = inactive.length;
+      setPhase(`Verifying ${total} user${total!==1?"s":""} via audit logs (0 / ${total})…`);
+      let checked = 0;
+      const verified = [];
+
+      for (const u of inactive) {
+        try {
+          const logs = await graphWithRetry(() => ITTools.graph.get(
+            `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
+          ));
+          const latest = logs?.value?.[0]?.createdDateTime;
+          if (latest) {
+            const auditDate = new Date(latest);
+            if (auditDate >= cutoff) {
+              // User has a recent sign-in in the audit log — remove from inactive list
+              reclaimedCount++;
+              checked++;
+              setPhase(`Verifying ${total} user${total!==1?"s":""} via audit logs (${checked} / ${total})…`);
+              continue;
+            }
+            // Audit log date is more recent than signInActivity — update
+            if (!u.lastSignIn || auditDate > new Date(u.lastSignIn)) {
+              u.lastSignIn      = auditDate.toISOString().slice(0,10);
+              u.daysSinceSignIn = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
+            }
+          }
+        } catch(_) { /* fail gracefully — retain signInActivity data */ }
+        verified.push(u);
+        checked++;
+        setPhase(`Verifying ${total} user${total!==1?"s":""} via audit logs (${checked} / ${total})…`);
+      }
+
+      if (reclaimedCount > 0) {
+        ITTools.ui.banner("warnBanner",
+          `Audit log check complete — ${reclaimedCount} user${reclaimedCount!==1?" were":" was"} removed from results as their sign-in was more recent than reported. ${verified.length} genuinely inactive user${verified.length!==1?"s":""}  remain.`,
+          "info"
+        );
+      }
+
+      allUsers = verified;
+      renderStats(targetSkus, verified.length, days, licSku);
+      if (_hasFinanceAccess) renderCostHeadline(verified, licSku);
+      renderTable(verified, days, licSku);
+    } else {
+      allUsers = inactive;
+      renderStats(targetSkus, 0, days, licSku);
+      renderTable([], days, licSku);
+    }
 
   } catch(e) {
     document.getElementById("errBanner").textContent   = e.message;
