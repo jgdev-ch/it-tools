@@ -222,11 +222,6 @@
     background: var(--green-light); padding: 2px 7px; border-radius: 4px;
   }
   .lic-checkbox-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-  .lic-checkbox-date { font-size: 11px; color: var(--muted2); white-space: nowrap; }
-  .lic-checkbox-recent {
-    font-size: 10px; font-weight: 700; background: var(--amber-light);
-    color: var(--amber); padding: 2px 6px; border-radius: 4px; white-space: nowrap;
-  }
   .lic-checkbox-group-tag {
     font-size: 10px; font-weight: 700; background: var(--surface3);
     color: var(--muted2); padding: 2px 6px; border-radius: 4px;
@@ -1168,11 +1163,10 @@ async function runMultiLicenseAudit() {
           const states      = (u.licenseAssignmentStates || []).filter(s => s.skuId === l.skuId);
           const directState = states.find(s => !s.assignedByGroup);
           const isGroupInherited = states.length > 0 && !directState;
-          const assignedDate = (directState || states[0])?.lastUpdatedDateTime || null;
           return {
             skuId: l.skuId, skuPartNumber: partNumber,
             friendlyName: getFriendlyName(partNumber), cost,
-            isGroupInherited, assignedDate,
+            isGroupInherited,
           };
         })
         .filter(l => l.cost !== 0); // exclude known-free (cost === 0)
@@ -1369,25 +1363,12 @@ function openManageModal(userId) {
 
   const list = document.getElementById("manageCheckboxList");
 
-  // Sort: most recently assigned first, nulls last
-  const sorted = [...user.paidLicenses].sort((a, b) => {
-    if (!a.assignedDate && !b.assignedDate) return 0;
-    if (!a.assignedDate) return 1;
-    if (!b.assignedDate) return -1;
-    return new Date(b.assignedDate) - new Date(a.assignedDate);
-  });
-
-  list.innerHTML = sorted.map(l => {
-    const isRemoved    = user.removedSkuIds.includes(l.skuId);
-    const isDisabled   = isRemoved || l.isGroupInherited;
-    const daysSince    = l.assignedDate ? Math.floor((Date.now() - new Date(l.assignedDate)) / 86400000) : null;
-    const isRecent     = daysSince !== null && daysSince <= 60;
-    const dateLabel    = l.assignedDate
-      ? new Date(l.assignedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-      : "";
-    const costLabel    = _hasFinanceAccess && l.cost > 0
+  list.innerHTML = user.paidLicenses.map(l => {
+    const isRemoved  = user.removedSkuIds.includes(l.skuId);
+    const isDisabled = isRemoved || l.isGroupInherited;
+    const costLabel  = _hasFinanceAccess && l.cost > 0
       ? `<span class="lic-checkbox-cost">${formatCurrency(l.cost)}/mo</span>` : "";
-    const checkAttr    = isDisabled ? ("disabled" + (isRemoved ? " checked" : "")) : "";
+    const checkAttr  = isDisabled ? ("disabled" + (isRemoved ? " checked" : "")) : "";
 
     let meta = "";
     if (isRemoved) {
@@ -1395,9 +1376,7 @@ function openManageModal(userId) {
     } else if (l.isGroupInherited) {
       meta = `<span class="lic-checkbox-group-tag" title="Inherited from a group assignment — cannot be removed directly. Manage membership in Entra instead.">Via group</span>`;
     } else {
-      meta = `${isRecent ? '<span class="lic-checkbox-recent">Recently added</span>' : ""}
-              ${dateLabel ? `<span class="lic-checkbox-date">${dateLabel}</span>` : ""}
-              ${costLabel}`;
+      meta = costLabel;
     }
 
     return `<label class="lic-checkbox-row" style="${isDisabled ? "opacity:.55;cursor:default" : ""}">
