@@ -27,6 +27,15 @@
     text-transform: uppercase; letter-spacing: .04em;
   }
 
+  /* ── License Admin badge ── */
+  .license-admin-badge {
+    display: none; align-items: center; gap: 5px;
+    background: var(--blue-light); border: 1px solid var(--blue-border);
+    color: var(--blue-dark); border-radius: 20px;
+    padding: 3px 10px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+
   /* ── Cost headline banner ── */
   .cost-headline {
     border-radius: var(--radius);
@@ -246,6 +255,7 @@
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <h1 style="margin-bottom:0">M365 License Audit</h1>
         <span class="finance-badge" id="financeIndicator"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg> Finance View</span>
+        <span class="license-admin-badge" id="licenseAdminIndicator"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg> License Admin</span>
       </div>
       <p>Identify inactive M365 license holders, surface recoverable seats, and remove licenses directly.</p>
     </div>
@@ -582,6 +592,9 @@ async function init() {
         document.getElementById("financeIndicator").style.display = "inline-flex";
         rebuildDropdown();
       }
+      if (_hasLicenseModifyAccess) {
+        document.getElementById("licenseAdminIndicator").style.display = "inline-flex";
+      }
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
@@ -589,6 +602,7 @@ async function init() {
       ITTools.ui.clearUser();
       _hasFinanceAccess       = false;
       _hasLicenseModifyAccess = false;
+      document.getElementById("licenseAdminIndicator").style.display = "none";
     }
   });
   if (!_sessionFound) {
