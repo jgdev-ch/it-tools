@@ -954,7 +954,7 @@ function userRow(u, hasCost) {
     ? `<td><span class="removed-badge">✓ Removed</span></td>`
     : _hasLicenseModifyAccess
       ? `<td><button class="btn-remove" onclick="openRemoveModal('${u.id}')" id="removebtn-${u.id}">Remove license</button></td>`
-      : `<td><button class="btn-remove" disabled title="Requires SG-IT-Tools-License-Modify membership">Remove license</button></td>`;
+      : `<td><button class="btn-remove" disabled title="Requires elevated access — contact your IT administrator">Remove license</button></td>`;
 
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
@@ -1261,7 +1261,7 @@ function multiUserRow(u, hasCost) {
     ? `<td><span class="removed-badge">✓ All removed</span></td>`
     : _hasLicenseModifyAccess
       ? `<td><button class="btn-manage" onclick="openManageModal('${u.id}')" id="managebtn-${u.id}">Manage licenses</button></td>`
-      : `<td><button class="btn-manage" disabled title="Requires SG-IT-Tools-License-Modify membership">Manage licenses</button></td>`;
+      : `<td><button class="btn-manage" disabled title="Requires elevated access — contact your IT administrator">Manage licenses</button></td>`;
 
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
