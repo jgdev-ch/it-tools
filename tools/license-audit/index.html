@@ -484,6 +484,10 @@ function formatCurrencyRound(val) {
 const FINANCE_GROUP = "SG-IT-Tools-Finance-View";
 let _hasFinanceAccess = false;
 
+// ── License modify gate ────────────────────────────────────────────────────────
+const LICENSE_MODIFY_GROUP = "SG-IT-Tools-License-Modify";
+let _hasLicenseModifyAccess = false;
+
 async function checkFinanceAccess() {
   try {
     // Find the group by name first
@@ -502,6 +506,24 @@ async function checkFinanceAccess() {
     _hasFinanceAccess = memberships.some(m => m.id === groupId);
   } catch(_) {
     _hasFinanceAccess = false; // fail secure
+  }
+}
+
+async function checkLicenseModifyAccess() {
+  try {
+    const enc = encodeURIComponent(`displayName eq '${LICENSE_MODIFY_GROUP}'`);
+    const res = await ITTools.graph.get(
+      `https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`
+    );
+    const groups = res.value || [];
+    if (!groups.length) { _hasLicenseModifyAccess = false; return; }
+    const groupId = groups[0].id;
+    const memberships = await ITTools.graph.getAll(
+      `https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`
+    );
+    _hasLicenseModifyAccess = memberships.some(m => m.id === groupId);
+  } catch(_) {
+    _hasLicenseModifyAccess = false; // fail secure
   }
 }
 
@@ -555,7 +577,7 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
-      await Promise.all([checkFinanceAccess(), loadSkus(), loadCosts()]);
+      await Promise.all([checkFinanceAccess(), checkLicenseModifyAccess(), loadSkus(), loadCosts()]);
       if (_hasFinanceAccess) {
         document.getElementById("financeIndicator").style.display = "inline-flex";
         rebuildDropdown();
@@ -565,7 +587,8 @@ async function init() {
       document.getElementById("appScreen").style.display  = "none";
       document.getElementById("authScreen").style.display = "flex";
       ITTools.ui.clearUser();
-      _hasFinanceAccess = false;
+      _hasFinanceAccess       = false;
+      _hasLicenseModifyAccess = false;
     }
   });
   if (!_sessionFound) {
@@ -915,7 +938,9 @@ function userRow(u, hasCost) {
 
   const actionCell = u.removed
     ? `<td><span class="removed-badge">✓ Removed</span></td>`
-    : `<td><button class="btn-remove" onclick="openRemoveModal('${u.id}')" id="removebtn-${u.id}">Remove license</button></td>`;
+    : _hasLicenseModifyAccess
+      ? `<td><button class="btn-remove" onclick="openRemoveModal('${u.id}')" id="removebtn-${u.id}">Remove license</button></td>`
+      : `<td><button class="btn-remove" disabled title="Requires SG-IT-Tools-License-Modify membership">Remove license</button></td>`;
 
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
@@ -1220,7 +1245,9 @@ function multiUserRow(u, hasCost) {
 
   const actionCell = allRemoved
     ? `<td><span class="removed-badge">✓ All removed</span></td>`
-    : `<td><button class="btn-manage" onclick="openManageModal('${u.id}')" id="managebtn-${u.id}">Manage licenses</button></td>`;
+    : _hasLicenseModifyAccess
+      ? `<td><button class="btn-manage" onclick="openManageModal('${u.id}')" id="managebtn-${u.id}">Manage licenses</button></td>`
+      : `<td><button class="btn-manage" disabled title="Requires SG-IT-Tools-License-Modify membership">Manage licenses</button></td>`;
 
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
