@@ -819,44 +819,57 @@ async function runAudit() {
       });
     }
 
-    // ── Phase 2: Audit log verification ──────────────────────────────────────
+    // ── Phase 2: Audit log batch verification (20 users per batch) ───────────
     let reclaimedCount = 0;
     if (inactive.length > 0) {
-      const total = inactive.length;
-      setPhase(`Verifying ${total} user${total!==1?"s":""} via audit logs (0 / ${total})…`);
-      let checked = 0;
-      const verified = [];
+      const BATCH   = 20;
+      const total   = inactive.length;
+      const batches = Math.ceil(total / BATCH);
+      const auditMap = {}; // userId → ISO date string or null
 
-      for (const u of inactive) {
+      for (let i = 0; i < total; i += BATCH) {
+        const chunk    = inactive.slice(i, i + BATCH);
+        const batchNum = Math.floor(i / BATCH) + 1;
+        setPhase(`Verifying via audit logs — ${Math.min(i + BATCH, total)} of ${total} users (batch ${batchNum} / ${batches})…`);
+
         try {
-          const logs = await graphWithRetry(() => ITTools.graph.get(
-            `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
+          const batchRes = await graphWithRetry(() => ITTools.graph.post(
+            "https://graph.microsoft.com/v1.0/$batch",
+            {
+              requests: chunk.map((u, idx) => ({
+                id:     String(idx),
+                method: "GET",
+                url:    `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
+              }))
+            }
           ));
-          const latest = logs?.value?.[0]?.createdDateTime;
-          if (latest) {
-            const auditDate = new Date(latest);
-            if (auditDate >= cutoff) {
-              // User has a recent sign-in in the audit log — remove from inactive list
-              reclaimedCount++;
-              checked++;
-              setPhase(`Verifying ${total} user${total!==1?"s":""} via audit logs (${checked} / ${total})…`);
-              continue;
-            }
-            // Audit log date is more recent than signInActivity — update
-            if (!u.lastSignIn || auditDate > new Date(u.lastSignIn)) {
-              u.lastSignIn      = auditDate.toISOString().slice(0,10);
-              u.daysSinceSignIn = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
-            }
+          (batchRes.responses || []).forEach(r => {
+            const userId = chunk[parseInt(r.id)].id;
+            auditMap[userId] = r.status === 200 ? (r.body?.value?.[0]?.createdDateTime || null) : null;
+          });
+        } catch(_) {
+          chunk.forEach(u => { auditMap[u.id] = null; });
+        }
+      }
+
+      // Apply results
+      const verified = [];
+      for (const u of inactive) {
+        const latest = auditMap[u.id];
+        if (latest) {
+          const auditDate = new Date(latest);
+          if (auditDate >= cutoff) { reclaimedCount++; continue; }
+          if (!u.lastSignIn || auditDate > new Date(u.lastSignIn)) {
+            u.lastSignIn      = auditDate.toISOString().slice(0,10);
+            u.daysSinceSignIn = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
           }
-        } catch(_) { /* fail gracefully — retain signInActivity data */ }
+        }
         verified.push(u);
-        checked++;
-        setPhase(`Verifying ${total} user${total!==1?"s":""} via audit logs (${checked} / ${total})…`);
       }
 
       if (reclaimedCount > 0) {
         ITTools.ui.banner("warnBanner",
-          `Audit log check complete — ${reclaimedCount} user${reclaimedCount!==1?" were":" was"} removed from results as their sign-in was more recent than reported. ${verified.length} genuinely inactive user${verified.length!==1?"s":""}  remain.`,
+          `Audit log check complete — ${reclaimedCount} user${reclaimedCount!==1?" were":" was"} removed from results as their sign-in was more recent than reported. ${verified.length} genuinely inactive user${verified.length!==1?"s":""} remain.`,
           "info"
         );
       }

@@ -861,31 +861,52 @@ async function loadDashboard() {
       };
     });
 
-    // 3b — Audit log verification for inactive candidates
+    // 3b — Audit log batch verification for inactive candidates (20 per batch)
     const inactiveCandidates = processedUsers.filter(u => u.inactive && u.totalCost > 0);
     if (inactiveCandidates.length > 0) {
-      const total = inactiveCandidates.length;
-      setPhase(`Verifying ${total} inactive user${total!==1?"s":""} via audit logs (0 / ${total})…`);
-      let checked = 0, reclaimedAudit = 0;
+      const BATCH    = 20;
+      const total    = inactiveCandidates.length;
+      const batches  = Math.ceil(total / BATCH);
+      const auditMap = {}; // userId → ISO date string or null
+      let reclaimedAudit = 0;
 
-      for (const u of inactiveCandidates) {
+      for (let i = 0; i < total; i += BATCH) {
+        const chunk    = inactiveCandidates.slice(i, i + BATCH);
+        const batchNum = Math.floor(i / BATCH) + 1;
+        setPhase(`Verifying via audit logs — ${Math.min(i + BATCH, total)} of ${total} users (batch ${batchNum} / ${batches})…`);
+
         try {
-          const logs = await gwr(() => ITTools.graph.get(
-            `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
-          ));
-          const latest = logs?.value?.[0]?.createdDateTime;
-          if (latest) {
-            const auditDate = new Date(latest);
-            if (!u.lastSignIn || auditDate > u.lastSignIn) {
-              u.lastSignIn = auditDate;
-              u.daysSince  = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
-              u.inactive   = auditDate < cutoff;
-              if (!u.inactive) reclaimedAudit++;
+          const batchRes = await gwr(() => ITTools.graph.post(
+            "https://graph.microsoft.com/v1.0/$batch",
+            {
+              requests: chunk.map((u, idx) => ({
+                id:     String(idx),
+                method: "GET",
+                url:    `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
+              }))
             }
+          ));
+          (batchRes.responses || []).forEach(r => {
+            const userId = chunk[parseInt(r.id)].id;
+            auditMap[userId] = r.status === 200 ? (r.body?.value?.[0]?.createdDateTime || null) : null;
+          });
+        } catch(_) {
+          chunk.forEach(u => { auditMap[u.id] = null; });
+        }
+      }
+
+      // Apply results to processedUsers in place
+      for (const u of inactiveCandidates) {
+        const latest = auditMap[u.id];
+        if (latest) {
+          const auditDate = new Date(latest);
+          if (!u.lastSignIn || auditDate > u.lastSignIn) {
+            u.lastSignIn = auditDate;
+            u.daysSince  = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
+            u.inactive   = auditDate < cutoff;
+            if (!u.inactive) reclaimedAudit++;
           }
-        } catch(_) { /* fail gracefully — retain signInActivity data */ }
-        checked++;
-        setPhase(`Verifying ${total} inactive user${total!==1?"s":""} via audit logs (${checked} / ${total})…`);
+        }
       }
 
       if (reclaimedAudit > 0) {
