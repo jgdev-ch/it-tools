@@ -213,7 +213,7 @@
     <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11v6"/><path d="M20 13h2"/><path d="M3 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 2.072.578"/><circle cx="10" cy="7" r="4"/><circle cx="20" cy="19" r="2"/></svg></div>
     <h1>Guest Access Audit</h1>
     <p>Sign in with your Microsoft 365 admin account to audit B2B guest accounts across your tenant.</p>
-    <button class="btn-ms" onclick="doSignIn()">
+    <button class="btn-ms" onclick="doSignIn(this)">
       <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
         <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
@@ -338,14 +338,16 @@ async function init() {
   }
 }
 
-async function doSignIn() {
+async function doSignIn(btn) {
   const errEl = document.getElementById("authErr");
   errEl.style.display = "none";
   try {
-    const acct = await ITTools.auth.signIn();
-    document.getElementById("authScreen").style.display = "none";
-    document.getElementById("appScreen").style.display  = "block";
-    ITTools.ui.setUser(acct);
+    await ITTools.ui.withButtonSpinner(btn, async () => {
+      const acct = await ITTools.auth.signIn();
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+    }, "Signing in…");
   } catch(e) {
     errEl.textContent   = e.message;
     errEl.style.display = "block";
