@@ -1104,41 +1104,32 @@ async function confirmRemoval() {
   if (!_pendingRemoval) return;
   const user       = _pendingRemoval;
   const confirmBtn = document.getElementById("modalConfirmBtn");
-  confirmBtn.disabled    = true;
-  confirmBtn.textContent = "Removing…";
-
   try {
-    const token = await ITTools.auth.getToken();
-    const res   = await fetch(`https://graph.microsoft.com/v1.0/users/${user.id}/assignLicense`, {
-      method:  "POST",
-      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-      body:    JSON.stringify({ addLicenses: [], removeLicenses: [user.skuId] })
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const msg  = body?.error?.message || `Graph error ${res.status}`;
-      if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented.");
-      throw new Error(msg);
-    }
-
-    // Mark as removed in state and update row in place
-    user.removed = true;
-    _removalCount++;
-
-    const row = document.getElementById(`row-${user.id}`);
-    if (row) {
-      row.style.opacity = "0.55";
-      const cells = row.querySelectorAll("td");
-      cells[cells.length - 1].innerHTML = `<span class="removed-badge">✓ Removed</span>`;
-    }
-
-    updateRemovalSummary();
-    closeModal();
-
+    await ITTools.ui.withButtonSpinner(confirmBtn, async () => {
+      const token = await ITTools.auth.getToken();
+      const res   = await fetch(`https://graph.microsoft.com/v1.0/users/${user.id}/assignLicense`, {
+        method:  "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body:    JSON.stringify({ addLicenses: [], removeLicenses: [user.skuId] })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg  = body?.error?.message || `Graph error ${res.status}`;
+        if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented.");
+        throw new Error(msg);
+      }
+      user.removed = true;
+      _removalCount++;
+      const row = document.getElementById(`row-${user.id}`);
+      if (row) {
+        row.style.opacity = "0.55";
+        const cells = row.querySelectorAll("td");
+        cells[cells.length - 1].innerHTML = `<span class="removed-badge">✓ Removed</span>`;
+      }
+      updateRemovalSummary();
+      closeModal();
+    }, "Removing…");
   } catch(e) {
-    confirmBtn.disabled    = false;
-    confirmBtn.textContent = "Remove license";
     let errEl = document.getElementById("modalErr");
     if (!errEl) {
       errEl = document.createElement("div");
@@ -1480,37 +1471,28 @@ async function confirmManageRemoval() {
     return;
   }
 
-  confirmBtn.disabled    = true;
-  confirmBtn.textContent = "Removing…";
-
   try {
-    const token = await ITTools.auth.getToken();
-    const res   = await fetch(`https://graph.microsoft.com/v1.0/users/${user.id}/assignLicense`, {
-      method:  "POST",
-      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-      body:    JSON.stringify({ addLicenses: [], removeLicenses: selected })
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const msg  = body?.error?.message || `Graph error ${res.status}`;
-      if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented.");
-      throw new Error(msg);
-    }
-
-    user.removedSkuIds.push(...selected);
-    _multiRemovalCount += selected.length;
-
-    // Replace the row in place
-    const row = document.getElementById(`multirow-${user.id}`);
-    if (row) row.outerHTML = multiUserRow(user, _hasFinanceAccess);
-
-    updateMultiRemovalSummary();
-    closeManageModal();
-
+    await ITTools.ui.withButtonSpinner(confirmBtn, async () => {
+      const token = await ITTools.auth.getToken();
+      const res   = await fetch(`https://graph.microsoft.com/v1.0/users/${user.id}/assignLicense`, {
+        method:  "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body:    JSON.stringify({ addLicenses: [], removeLicenses: selected })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg  = body?.error?.message || `Graph error ${res.status}`;
+        if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented.");
+        throw new Error(msg);
+      }
+      user.removedSkuIds.push(...selected);
+      _multiRemovalCount += selected.length;
+      const row = document.getElementById(`multirow-${user.id}`);
+      if (row) row.outerHTML = multiUserRow(user, _hasFinanceAccess);
+      updateMultiRemovalSummary();
+      closeManageModal();
+    }, "Removing…");
   } catch(e) {
-    confirmBtn.disabled    = false;
-    confirmBtn.textContent = "Remove selected";
     let errEl = document.getElementById("manageErr");
     if (!errEl) {
       errEl = Object.assign(document.createElement("div"), { id: "manageErr", className: "banner error" });
