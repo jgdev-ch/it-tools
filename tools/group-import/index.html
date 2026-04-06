@@ -424,36 +424,42 @@ function s1Next() {
 // ── Step 2: Group ──────────────────────────────────────────────
 async function lookupGroup() {
   const input = document.getElementById("groupIn").value.trim();
-  if (!input) { showErr("s2Err","Enter a group name or GUID."); return; }
-  document.getElementById("s2Err").style.display = "none";
-  document.getElementById("lookupBtn").disabled   = true;
-  document.getElementById("lookupPhase").classList.add("show");
+  if (!input) { showErr("s2Err", "Enter a group name or GUID."); return; }
+  document.getElementById("s2Err").style.display     = "none";
   document.getElementById("groupOk").style.display    = "none";
   document.getElementById("resolveCard").style.display = "none";
   document.getElementById("s2Btn").disabled            = true;
-
+  document.getElementById("lookupPhase").classList.add("show");
   try {
-    let group;
-    if (/^[0-9a-f-]{36}$/i.test(input)) {
-      group = await ITTools.graph.get(`/groups/${input}`);
-    } else {
-      const escaped = input.replace(/'/g,"''");
-      const res = await ITTools.graph.get(`/groups?$filter=displayName eq '${encodeURIComponent(escaped)}'&$count=true&$top=5`);
-      if (!res.value?.length) throw new Error(`No group found named "${input}".`);
-      group = res.value[0];
-    }
-    st.groupId   = group.id;
-    st.groupName = group.displayName;
-    document.getElementById("groupOkName").textContent  = group.displayName;
-    document.getElementById("groupOkId").textContent    = group.id;
-    document.getElementById("groupOk").style.display    = "block";
-    document.getElementById("resolveCard").style.display = "block";
-    document.getElementById("s2Btn").disabled            = false;
+    await ITTools.ui.withButtonSpinner(
+      document.getElementById("lookupBtn"),
+      async () => {
+        let group;
+        if (/^[0-9a-f-]{36}$/i.test(input)) {
+          group = await ITTools.graph.get(`/groups/${input}`);
+        } else {
+          const escaped = input.replace(/'/g, "''");
+          const res = await ITTools.graph.get(
+            `/groups?$filter=displayName eq '${encodeURIComponent(escaped)}'&$count=true&$top=5`
+          );
+          if (!res.value?.length) throw new Error(`No group found named "${input}".`);
+          group = res.value[0];
+        }
+        st.groupId   = group.id;
+        st.groupName = group.displayName;
+        document.getElementById("groupOkName").textContent   = group.displayName;
+        document.getElementById("groupOkId").textContent     = group.id;
+        document.getElementById("groupOk").style.display     = "block";
+        document.getElementById("resolveCard").style.display = "block";
+        document.getElementById("s2Btn").disabled            = false;
+      },
+      "Looking up…",
+      [document.getElementById("groupIn")]
+    );
   } catch(e) {
     showErr("s2Err", e.message);
     st.groupId = "";
   } finally {
-    document.getElementById("lookupBtn").disabled = false;
     document.getElementById("lookupPhase").classList.remove("show");
   }
 }
