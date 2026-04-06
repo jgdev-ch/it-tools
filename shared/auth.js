@@ -305,7 +305,29 @@ ITTools.ui = (() => {
     el.style.display = show ? "flex" : "none";
   }
 
-  return { renderTopbar, syncThemeIcon, setUser, clearUser, banner, spinner };
+  /**
+   * withButtonSpinner(btn, asyncFn, loadingText?, disableEls?)
+   * Wraps an async call with button loading state.
+   *   btn         — the button element to animate
+   *   asyncFn     — async function to await; return value is passed through
+   *   loadingText — label shown while in flight (default: "Loading…")
+   *   disableEls  — extra elements to disable during the call (e.g. paired inputs)
+   */
+  async function withButtonSpinner(btn, asyncFn, loadingText = "Loading…", disableEls = []) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;pointer-events:none"><span class="spinner" style="width:12px;height:12px;border-width:2px"></span>${loadingText}</span>`;
+    disableEls.forEach(el => (el.disabled = true));
+    try {
+      return await asyncFn();
+    } finally {
+      btn.innerHTML = orig;
+      btn.disabled  = false;
+      disableEls.forEach(el => (el.disabled = false));
+    }
+  }
+
+  return { renderTopbar, syncThemeIcon, setUser, clearUser, banner, spinner, withButtonSpinner };
 })();
 
 // ─────────────────────────────────────────────────────────────
