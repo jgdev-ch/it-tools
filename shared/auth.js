@@ -316,7 +316,15 @@ ITTools.ui = (() => {
   async function withButtonSpinner(btn, asyncFn, loadingText = "Loading…", disableEls = []) {
     const orig = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;pointer-events:none"><span class="spinner" style="width:12px;height:12px;border-width:2px"></span>${loadingText}</span>`;
+    const wrap = document.createElement("span");
+    wrap.style.cssText = "display:inline-flex;align-items:center;gap:6px";
+    const spin = document.createElement("span");
+    spin.className = "spinner";
+    spin.style.cssText = "width:12px;height:12px;border-width:2px";
+    wrap.appendChild(spin);
+    wrap.appendChild(document.createTextNode(loadingText));
+    btn.innerHTML = "";
+    btn.appendChild(wrap);
     disableEls.forEach(el => (el.disabled = true));
     try {
       return await asyncFn();
