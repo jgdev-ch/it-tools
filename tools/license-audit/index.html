@@ -887,7 +887,7 @@ async function runAudit() {
     }
 
   } catch(e) {
-    document.getElementById("errBanner").textContent   = e.message;
+    document.getElementById("errBanner").textContent   = ITTools.graph.friendlyError(e);
     document.getElementById("errBanner").style.display = "block";
   } finally {
     setPhase(null);
@@ -1251,7 +1251,7 @@ async function runMultiLicenseAudit() {
     renderMultiTable(results);
 
   } catch(e) {
-    document.getElementById("errBanner").textContent   = e.message;
+    document.getElementById("errBanner").textContent   = ITTools.graph.friendlyError(e);
     document.getElementById("errBanner").style.display = "block";
   } finally {
     setPhase(null);

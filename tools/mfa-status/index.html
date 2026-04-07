@@ -619,7 +619,7 @@ async function startScan() {
     setPhase(null);
 
   } catch(e) {
-    document.getElementById("errBanner").textContent   = e.message;
+    document.getElementById("errBanner").textContent   = ITTools.graph.friendlyError(e);
     document.getElementById("errBanner").style.display = "block";
     setPhase(null);
   }
