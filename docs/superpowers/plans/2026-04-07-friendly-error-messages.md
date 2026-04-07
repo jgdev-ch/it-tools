@@ -46,7 +46,7 @@
   console.assert(fe(new Error("Not signed in")).includes("session has expired"),            "FAIL: not signed in");
   console.assert(fe(new Error("Permission denied — you need User.Read.All")).includes("Permission denied"), "FAIL: passthrough");
   console.assert(fe("some raw string") === "some raw string",                              "FAIL: raw string passthrough");
-  console.assert(fe(null) === "",                                                          "FAIL: null passthrough");
+  console.assert(fe(null) === "An unexpected error occurred.",                             "FAIL: null returns fallback");
   console.log("✓ All friendlyError assertions passed");
   ```
 
