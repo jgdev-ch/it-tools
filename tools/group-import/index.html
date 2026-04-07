@@ -457,7 +457,7 @@ async function lookupGroup() {
       [document.getElementById("groupIn")]
     );
   } catch(e) {
-    showErr("s2Err", e.message);
+    showErr("s2Err", ITTools.graph.friendlyError(e));
     st.groupId = "";
   } finally {
     document.getElementById("lookupPhase").classList.remove("show");
@@ -511,7 +511,7 @@ async function runImport(isDry) {
         (page.value||[]).forEach(m => existing[m.id]=true);
         next = page["@odata.nextLink"]||null;
       }
-    } catch(e) { showErr("s3Err","Could not load existing members: "+e.message); }
+    } catch(e) { showErr("s3Err","Could not load existing members: "+ITTools.graph.friendlyError(e)); }
   }
 
   const resolveBy = document.getElementById("resolveBy").value;

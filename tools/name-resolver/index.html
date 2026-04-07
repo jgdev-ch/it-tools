@@ -790,30 +790,35 @@ async function startResolve() {
   const tbody = document.getElementById("resTbody");
   tbody.innerHTML = st.rawNames.map((name, i) => renderRow(i)).join("");
 
-  await resolveBatch({
-    onProgress: (done, total) => {
-      const pct = Math.round(done / total * 100);
-      document.getElementById("progFill").style.width = pct + "%";
-      document.getElementById("progPct").textContent  = pct + "%";
-      document.getElementById("progLabel").textContent = done + " of " + total + " resolved…";
-    },
-    onThrottle: (secs) => {
-      document.getElementById("progLabel").textContent = "Rate limit — retrying in " + secs + "s…";
-    },
-    onRowDone: (idx) => {
-      // Replace just this row (and any expand row) by rebuilding from its id
-      const tr = document.getElementById("row-" + idx);
-      if (tr) {
-        // Remove stale expand row if present
-        const exp = document.getElementById("expand-" + idx);
-        if (exp) exp.remove();
-        tr.outerHTML = renderRow(idx);
+  try {
+    await resolveBatch({
+      onProgress: (done, total) => {
+        const pct = Math.round(done / total * 100);
+        document.getElementById("progFill").style.width = pct + "%";
+        document.getElementById("progPct").textContent  = pct + "%";
+        document.getElementById("progLabel").textContent = done + " of " + total + " resolved…";
+      },
+      onThrottle: (secs) => {
+        document.getElementById("progLabel").textContent = "Rate limit — retrying in " + secs + "s…";
+      },
+      onRowDone: (idx) => {
+        // Replace just this row (and any expand row) by rebuilding from its id
+        const tr = document.getElementById("row-" + idx);
+        if (tr) {
+          // Remove stale expand row if present
+          const exp = document.getElementById("expand-" + idx);
+          if (exp) exp.remove();
+          tr.outerHTML = renderRow(idx);
+        }
+      },
+      onAuthError: () => {
+        showErr("s2Err", "Session expired — please sign out and sign back in to continue.");
       }
-    },
-    onAuthError: () => {
-      showErr("s2Err", "Session expired — please sign out and sign back in to continue.");
-    }
-  });
+    });
+  } catch(e) {
+    showErr("s2Err", ITTools.graph.friendlyError(e));
+    return;
+  }
 
   document.getElementById("progLabel").textContent = "Done";
   checkAllResolved();
