@@ -197,7 +197,7 @@ ITTools.graph = (() => {
     if (/401|Not signed in/i.test(msg)) {
       return "Your session has expired. Please sign out and sign in again.";
     }
-    return msg;
+    return msg || "An unexpected error occurred.";
   }
 
   return { get, getAll, post, patch, del, friendlyError };
