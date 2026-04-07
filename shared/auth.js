@@ -183,7 +183,24 @@ ITTools.graph = (() => {
     return _checkResponse(res);
   }
 
-  return { get, getAll, post, patch, del };
+  function friendlyError(err) {
+    const msg = err instanceof Error ? err.message : (typeof err === "string" ? err : "");
+    if (err instanceof TypeError || /Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+      return "Unable to reach Microsoft Graph — check your internet connection and try again.";
+    }
+    if (/503|502|Service Unavailable/i.test(msg)) {
+      return "Microsoft Graph is temporarily unavailable. Try again in a few minutes.";
+    }
+    if (/429|Rate limited|Too Many Requests/i.test(msg)) {
+      return "Microsoft Graph is rate limiting requests. Wait a moment and try again.";
+    }
+    if (/401|Not signed in/i.test(msg)) {
+      return "Your session has expired. Please sign out and sign in again.";
+    }
+    return msg;
+  }
+
+  return { get, getAll, post, patch, del, friendlyError };
 })();
 
 // ─────────────────────────────────────────────────────────────
