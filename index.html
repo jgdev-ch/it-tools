@@ -113,6 +113,29 @@
 .ribbon-soon    { background: var(--surface3);     color: var(--muted2); }
 .ribbon-finance { background: var(--amber-light);  color: var(--amber); }
 
+/* ── Ribbon tooltip (beta context) ── */
+.tool-ribbon[data-tooltip] { cursor: help; }
+.tool-ribbon[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px); right: 0;
+  width: 190px;
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  padding: 7px 10px;
+  font-size: 11px; font-weight: 400; line-height: 1.55;
+  text-transform: none; letter-spacing: 0; white-space: normal;
+  color: var(--muted);
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s;
+  z-index: 10;
+}
+.tool-ribbon[data-tooltip]:hover::after { opacity: 1; }
+/* Suppress the full-card hover overlay when ribbon tooltip is active */
+.tool-card:has(.tool-ribbon[data-tooltip]:hover) .tool-desc { opacity: 0; }
+
 /* ── Card body ── */
 .tool-icon {
   width: 36px; height: 36px; border-radius: 9px;
@@ -355,20 +378,22 @@ function showSignedOut() {
 const RIBBON_LABELS = { "live":"Live", "beta":"Beta", "coming-soon":"Soon", "in-development":"Dev", "deprecated":"Depr." };
 const RIBBON_CLASS  = { "live":"ribbon-live", "beta":"ribbon-beta", "coming-soon":"ribbon-soon", "in-development":"ribbon-soon", "deprecated":"ribbon-soon" };
 
-function ribbonHtml(status) {
+function ribbonHtml(status, betaNote) {
   const cls   = RIBBON_CLASS[status]  || "ribbon-soon";
   const label = RIBBON_LABELS[status] || status;
-  return `<div class="tool-ribbon ${cls}">${label}</div>`;
+  const tip   = status === "beta" && betaNote ? ` data-tooltip="${betaNote}"` : "";
+  return `<div class="tool-ribbon ${cls}"${tip}>${label}</div>`;
 }
 
-function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms }) {
+function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms, betaNote }) {
   const permsStr = (perms || []).join("|");
   return `<div class="tool-card locked" id="gate-${gateKey}"
       data-path="${path}" data-iconbg="${iconBg}"
       data-icon="${icon}" data-status="${status}"
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
+      data-betanote="${betaNote || ""}"
       style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status)}
+    ${ribbonHtml(status, betaNote)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name-row">
       <div class="tool-name">${name}</div>
@@ -378,9 +403,9 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
   </div>`;
 }
 
-function buildLiveCard({ path, accent, iconBg, icon, status, name, desc }) {
+function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, betaNote }) {
   return `<a class="tool-card" href="${path}" style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status)}
+    ${ribbonHtml(status, betaNote)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
@@ -393,12 +418,13 @@ function unlockCard(gateKey) {
   if (!locked) return;
 
   locked.outerHTML = buildLiveCard({
-    path:   locked.dataset.path,
-    iconBg: locked.dataset.iconbg,
-    icon:   locked.dataset.icon,
-    status: locked.dataset.status,
-    name:   locked.dataset.name,
-    desc:   locked.dataset.desc,
+    path:     locked.dataset.path,
+    iconBg:   locked.dataset.iconbg,
+    icon:     locked.dataset.icon,
+    status:   locked.dataset.status,
+    name:     locked.dataset.name,
+    desc:     locked.dataset.desc,
+    betaNote: locked.dataset.betanote || "",
   });
 }
 
@@ -409,13 +435,14 @@ function lockCard(gateKey) {
   if (!live) return;
   live.outerHTML = buildLockedCard({
     gateKey,
-    path:   meta.path,
-    iconBg: meta.iconBg,
-    icon:   meta.icon,
-    status: meta.status,
-    name:   meta.name,
-    desc:   meta.desc,
-    perms:  meta.perms,
+    path:     meta.path,
+    iconBg:   meta.iconBg,
+    icon:     meta.icon,
+    status:   meta.status,
+    name:     meta.name,
+    desc:     meta.desc,
+    perms:    meta.perms,
+    betaNote: meta.betaNote || "",
   });
 }
 
@@ -546,7 +573,8 @@ async function loadTools() {
       if (tool.financeOnly) {
         const meta = {
           path: tool.path, iconBg: tool.iconBg, icon: tool.icon,
-          status: tool.status, name: tool.name, desc: tool.description, perms,
+          status: tool.status, name: tool.name, desc: tool.description,
+          perms, betaNote: tool.betaNote || "",
         };
         _gateCardMeta["finance"] = meta;
         return buildLockedCard({ gateKey: "finance", ...meta });
@@ -556,7 +584,7 @@ async function loadTools() {
         return buildLiveCard({
           path: tool.path, accent: tool.accent, iconBg: tool.iconBg,
           icon: tool.icon, status: tool.status, name: tool.name,
-          desc: tool.description,
+          desc: tool.description, betaNote: tool.betaNote || "",
         });
       }
 
@@ -564,7 +592,7 @@ async function loadTools() {
         : tool.status === "in-development" ? "In Development"
         : "Coming Soon";
       return `<div class="tool-card no-hover" style="--icon-bg:${tool.iconBg}">
-        ${ribbonHtml(tool.status)}
+        ${ribbonHtml(tool.status, tool.betaNote || "")}
         <div class="tool-icon">${tool.icon}</div>
         <div class="tool-name">${tool.name}</div>
         <div class="tool-desc">${tool.description}</div>
