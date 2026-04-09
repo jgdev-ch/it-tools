@@ -113,28 +113,20 @@
 .ribbon-soon    { background: var(--surface3);     color: var(--muted2); }
 .ribbon-finance { background: var(--amber-light);  color: var(--amber); }
 
-/* ── Ribbon tooltip (beta context) ── */
-.tool-ribbon[data-tooltip] { cursor: help; }
-.tool-ribbon[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  top: calc(100% + 6px); right: 0;
-  width: 190px;
-  background: var(--surface);
+/* ── Beta status overlay (ribbon hover) — mirrors .tool-desc design ── */
+.tool-card:has(.tool-beta-overlay) .tool-ribbon { cursor: help; }
+.tool-beta-overlay {
+  position: absolute; inset: 0; border-radius: 12px;
+  background: rgba(248, 250, 252, 0.82); backdrop-filter: blur(10px);
   border: 1px solid var(--border-mid);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 2px 8px rgba(0,0,0,.08);
-  padding: 7px 10px;
-  font-size: 11px; font-weight: 400; line-height: 1.55;
-  text-transform: none; letter-spacing: 0; white-space: normal;
-  color: var(--muted);
-  opacity: 0; pointer-events: none;
-  transition: opacity .15s;
-  z-index: 10;
+  padding: 1rem; font-size: 12px; color: var(--muted); line-height: 1.6;
+  display: flex; align-items: center;
+  opacity: 0; transition: opacity .2s; pointer-events: none;
 }
-.tool-ribbon[data-tooltip]:hover::after { opacity: 1; }
-/* Suppress the full-card hover overlay when ribbon tooltip is active */
-.tool-card:has(.tool-ribbon[data-tooltip]:hover) .tool-desc { opacity: 0; }
+[data-theme="dark"] .tool-beta-overlay { background: rgba(22, 25, 35, 0.84); }
+/* Ribbon hover: show beta overlay, suppress feature desc */
+.tool-card:has(.tool-beta-overlay):has(.tool-ribbon:hover) .tool-desc { opacity: 0; }
+.tool-card:has(.tool-beta-overlay):has(.tool-ribbon:hover) .tool-beta-overlay { opacity: 1; }
 
 /* ── Card body ── */
 .tool-icon {
@@ -378,11 +370,10 @@ function showSignedOut() {
 const RIBBON_LABELS = { "live":"Live", "beta":"Beta", "coming-soon":"Soon", "in-development":"Dev", "deprecated":"Depr." };
 const RIBBON_CLASS  = { "live":"ribbon-live", "beta":"ribbon-beta", "coming-soon":"ribbon-soon", "in-development":"ribbon-soon", "deprecated":"ribbon-soon" };
 
-function ribbonHtml(status, betaNote) {
+function ribbonHtml(status) {
   const cls   = RIBBON_CLASS[status]  || "ribbon-soon";
   const label = RIBBON_LABELS[status] || status;
-  const tip   = status === "beta" && betaNote ? ` data-tooltip="${betaNote}"` : "";
-  return `<div class="tool-ribbon ${cls}"${tip}>${label}</div>`;
+  return `<div class="tool-ribbon ${cls}">${label}</div>`;
 }
 
 function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms, betaNote }) {
@@ -393,7 +384,7 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
       data-betanote="${betaNote || ""}"
       style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status, betaNote)}
+    ${ribbonHtml(status)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name-row">
       <div class="tool-name">${name}</div>
@@ -404,11 +395,15 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
 }
 
 function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, betaNote }) {
+  const betaOverlay = betaNote
+    ? `<div class="tool-beta-overlay">${betaNote}</div>`
+    : "";
   return `<a class="tool-card" href="${path}" style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status, betaNote)}
+    ${ribbonHtml(status)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
+    ${betaOverlay}
   </a>`;
 }
 
@@ -592,7 +587,7 @@ async function loadTools() {
         : tool.status === "in-development" ? "In Development"
         : "Coming Soon";
       return `<div class="tool-card no-hover" style="--icon-bg:${tool.iconBg}">
-        ${ribbonHtml(tool.status, tool.betaNote || "")}
+        ${ribbonHtml(tool.status)}
         <div class="tool-icon">${tool.icon}</div>
         <div class="tool-name">${tool.name}</div>
         <div class="tool-desc">${tool.description}</div>
