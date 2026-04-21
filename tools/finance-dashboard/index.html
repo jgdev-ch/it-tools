@@ -1274,6 +1274,37 @@ function injectConfirmedBadges() {
   }, 2500);
 }
 
+function updateBatchProgress(batchNum, totalBatches, processedUsers, waste) {
+  const pct     = Math.round((batchNum / totalBatches) * 100);
+  const fill    = document.getElementById("finetuneFill");
+  const pctEl   = document.getElementById("finetunePct");
+  const detail  = document.getElementById("finetuneDetail");
+  if (fill)   fill.style.width  = pct + "%";
+  if (pctEl)  pctEl.textContent = pct + "%";
+  if (detail) detail.textContent =
+    `Batch ${batchNum} of ${totalBatches} — cross-checking sign-in audit logs…`;
+
+  // Recalculate and update the three audit-dependent KPI values in-place
+  const inactiveU    = processedUsers.filter(u => u.inactive && u.totalCost > 0);
+  const activeSeats  = processedUsers.filter(u => !u.inactive && u.totalCost > 0).length;
+  const inactiveCost = inactiveU.reduce((s, u) => s + u.totalCost, 0);
+  const saveable     = waste + inactiveCost;
+  const inactiveCount = inactiveU.length;
+
+  const update = (slug, value, sub) => {
+    const card = document.querySelector(`[data-kpi="${slug}"]`);
+    if (!card) return;
+    const vEl = card.querySelector("[data-kpi-value]");
+    const sEl = card.querySelector("[data-kpi-sub]");
+    if (vEl) vEl.textContent = value;
+    if (sEl) sEl.textContent = sub;
+  };
+
+  update("active-seats",  activeSeats.toLocaleString(),      `of — total`);
+  update("savings-found", fmt(saveable, true) + "/mo",       `${inactiveCount} inactive users`);
+  update("inactive-cost", fmt(inactiveCost, true) + "/mo",   `>${_data ? _data.days : 90}-day threshold`);
+}
+
 function printKpiCard(accent, label, value, sub, trend) {
   const trendCls = trend.startsWith("▲") ? "up" : trend.startsWith("▼") || trend.startsWith("↓") ? "down" : "neutral";
   return `<div class="print-kpi ${accent}">
