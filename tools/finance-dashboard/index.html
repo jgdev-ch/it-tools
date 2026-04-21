@@ -870,6 +870,7 @@ const PALETTE = [
 function setPhase(msg) {
   const line = document.getElementById("phaseLine");
   const btn  = document.getElementById("loadBtn");
+  line.style.display = "";   // clear any inline override first
   if (msg) {
     line.classList.add("show");
     document.getElementById("phaseText").textContent = msg;
@@ -888,7 +889,7 @@ function setStep(stepId) {
   if (stepId === "done") {
     steps.forEach(id => {
       const el = document.getElementById(id);
-      if (el) { el.className = "step-item done"; el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳]\s*/, ""); }
+      if (el) { el.className = "step-item done"; el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳\s]+/, "").trim(); }
     });
     const spinner = document.getElementById("finetuneSpinner");
     if (spinner) spinner.style.display = "none";
@@ -901,7 +902,7 @@ function setStep(stepId) {
     if (!el) return;
     el.className = "step-item " + (i < idx ? "done" : i === idx ? "active" : "wait");
     if (i < idx) {
-      el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳]\s*/, "");
+      el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳\s]+/, "").trim();
     } else if (i === idx) {
       el.innerHTML = `<div class="step-spin"></div> ${el.textContent.replace(/^[✓⟳]\s*/, "")}`;
     }
@@ -1346,7 +1347,7 @@ function renderInitial(processedUsers, skuList, deptMap, skuStats, days) {
   const monthly      = skuList.reduce((s, sk) => s + sk.assignedCost, 0);
   const waste        = skuList.reduce((s, sk) => s + sk.wasteCost,    0);
   const inactiveCost = inactiveU.reduce((s, u) => s + u.totalCost, 0);
-  const assignedSeats = filtered.filter(u => u.totalCost > 0).length;
+  const assignedSeats = skuList.reduce((s, sk) => s + sk.assigned, 0);
   const totalSeats   = skuList.reduce((s, sk) => s + sk.total, 0);
 
   renderStats(monthly, waste, inactiveCost, skuList.length, inactiveU.length, days, assignedSeats, totalSeats);
@@ -1381,6 +1382,7 @@ function renderInitial(processedUsers, skuList, deptMap, skuStats, days) {
 function finaliseDashboard(reclaimedAudit) {
   // Re-render everything with final verified data (replaces skeleton rows)
   renderAll();
+  injectRefineBadges();       // re-attach to newly rebuilt DOM
 
   // Inject confirmed badges immediately after renderAll re-creates the KPI cards
   injectConfirmedBadges();
