@@ -885,6 +885,15 @@ function setPhase(msg) {
 function setStep(stepId) {
   // stepId: "licenses" | "users" | "analysis" | "finetune" | "done"
   const steps = ["stepLicenses", "stepUsers", "stepAnalysis", "stepFinetune"];
+  if (stepId === "done") {
+    steps.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.className = "step-item done"; el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳]\s*/, ""); }
+    });
+    const spinner = document.getElementById("finetuneSpinner");
+    if (spinner) spinner.style.display = "none";
+    return;
+  }
   const order = ["licenses", "users", "analysis", "finetune"];
   const idx   = order.indexOf(stepId);
   steps.forEach((id, i) => {
@@ -893,18 +902,10 @@ function setStep(stepId) {
     el.className = "step-item " + (i < idx ? "done" : i === idx ? "active" : "wait");
     if (i < idx) {
       el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳]\s*/, "");
-    } else if (i === idx && stepId !== "done") {
+    } else if (i === idx) {
       el.innerHTML = `<div class="step-spin"></div> ${el.textContent.replace(/^[✓⟳]\s*/, "")}`;
     }
   });
-  if (stepId === "done") {
-    steps.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.className = "step-item done"; el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳]\s*/, ""); }
-    });
-    const spinner = document.getElementById("finetuneSpinner");
-    if (spinner) spinner.style.display = "none";
-  }
 }
 
 function showStepTracker() {
@@ -1300,7 +1301,8 @@ function updateBatchProgress(batchNum, totalBatches, processedUsers, waste) {
     if (sEl) sEl.textContent = sub;
   };
 
-  update("active-seats",  activeSeats.toLocaleString(),      `of — total`);
+  const totalSeats = _data ? _data.skuList.reduce((s, sk) => s + sk.total, 0) : 0;
+  update("active-seats",  activeSeats.toLocaleString(),      `of ${totalSeats.toLocaleString()} total`);
   update("savings-found", fmt(saveable, true) + "/mo",       `${inactiveCount} inactive users`);
   update("inactive-cost", fmt(inactiveCost, true) + "/mo",   `>${_data ? _data.days : 90}-day threshold`);
 }
@@ -1322,7 +1324,6 @@ function renderInitial(processedUsers, skuList, deptMap, skuStats, days) {
   // Run all existing render functions using current (pre-audit) data
   const filtered = processedUsers; // no dept filter applied yet
   const inactiveU    = filtered.filter(u => u.inactive && u.totalCost > 0);
-  const activeU      = filtered.filter(u => !u.inactive && u.totalCost > 0);
   const monthly      = skuList.reduce((s, sk) => s + sk.assignedCost, 0);
   const waste        = skuList.reduce((s, sk) => s + sk.wasteCost,    0);
   const inactiveCost = inactiveU.reduce((s, u) => s + u.totalCost, 0);
@@ -1367,6 +1368,7 @@ function finaliseDashboard(reclaimedAudit) {
 
   // Step tracker → all done
   setStep("done");
+  hideStepTracker();
 
   // Hide progress bar
   const bar = document.getElementById("finetuneBar");
