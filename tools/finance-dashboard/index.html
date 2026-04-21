@@ -1305,6 +1305,59 @@ function updateBatchProgress(batchNum, totalBatches, processedUsers, waste) {
   update("inactive-cost", fmt(inactiveCost, true) + "/mo",   `>${_data ? _data.days : 90}-day threshold`);
 }
 
+function renderInitial(processedUsers, skuList, deptMap, skuStats, days) {
+  // Store globally so renderAll() and dept filter work correctly
+  _data = { skuList, processedUsers, deptMap, skuStats, days };
+
+  // Show all the sections that were hidden on page load
+  document.getElementById("spendHero").style.display  = "flex";
+  document.getElementById("statsRow").style.display   = "";
+  document.getElementById("row1").style.display       = "";
+  document.getElementById("deptCard").style.display   = "";
+  document.getElementById("projCard").style.display   = "";
+  document.getElementById("inactiveCard").style.display = "block";
+  document.getElementById("activeCard").style.display   = "block";
+  document.getElementById("exportProjBtn").style.display = "";
+
+  // Run all existing render functions using current (pre-audit) data
+  const filtered = processedUsers; // no dept filter applied yet
+  const inactiveU    = filtered.filter(u => u.inactive && u.totalCost > 0);
+  const activeU      = filtered.filter(u => !u.inactive && u.totalCost > 0);
+  const monthly      = skuList.reduce((s, sk) => s + sk.assignedCost, 0);
+  const waste        = skuList.reduce((s, sk) => s + sk.wasteCost,    0);
+  const inactiveCost = inactiveU.reduce((s, u) => s + u.totalCost, 0);
+  const assignedSeats = filtered.filter(u => u.totalCost > 0).length;
+  const totalSeats   = skuList.reduce((s, sk) => s + sk.total, 0);
+
+  renderStats(monthly, waste, inactiveCost, skuList.length, inactiveU.length, days, assignedSeats, totalSeats);
+  renderCallout(monthly, waste, inactiveCost, inactiveU.length, days);
+  renderDonut(skuList);
+  renderUtilisation(skuList);
+  renderDeptChart(deptMap, "");
+  renderProjections(monthly, inactiveCost, waste);
+
+  // Skeleton rows replace table bodies while batches run
+  renderTableSkeletons();
+  document.getElementById("inactiveCountBadge").textContent = "Verifying…";
+
+  // Badges on audit-dependent KPI cards
+  injectRefineBadges();
+
+  // Step tracker: analysis done, fine-tune starting
+  showStepTracker();
+  setStep("finetune");
+
+  // Fine-tune progress bar
+  const bar = document.getElementById("finetuneBar");
+  if (bar) {
+    bar.classList.add("visible");
+    document.getElementById("finetuneDetail").textContent =
+      "Checking audit logs for inactive candidates…";
+    document.getElementById("finetuneFill").style.width = "0%";
+    document.getElementById("finetunePct").textContent  = "0%";
+  }
+}
+
 function printKpiCard(accent, label, value, sub, trend) {
   const trendCls = trend.startsWith("▲") ? "up" : trend.startsWith("▼") || trend.startsWith("↓") ? "down" : "neutral";
   return `<div class="print-kpi ${accent}">
