@@ -591,6 +591,30 @@
     <div class="phase-line" id="phaseLine"><div class="spinner"></div><span id="phaseText"></span></div>
   </div>
 
+  <!-- Step tracker — shown during loadDashboard, hidden when complete -->
+  <div class="step-tracker" id="stepTracker">
+    <div class="step-item wait" id="stepLicenses">Licenses</div>
+    <div class="step-sep"></div>
+    <div class="step-item wait" id="stepUsers">Users</div>
+    <div class="step-sep"></div>
+    <div class="step-item wait" id="stepAnalysis">Analysis</div>
+    <div class="step-sep"></div>
+    <div class="step-item wait" id="stepFinetune">Fine-tune</div>
+  </div>
+
+  <!-- Fine-tune progress bar — shown during audit batch pass -->
+  <div class="finetune-bar" id="finetuneBar">
+    <div class="finetune-top">
+      <div class="step-spin" id="finetuneSpinner"></div>
+      <div class="finetune-title" id="finetuneTitle">Fine-tune pass — verifying inactive users</div>
+      <div class="finetune-pct" id="finetunePct">0%</div>
+    </div>
+    <div class="finetune-detail" id="finetuneDetail">Checking audit logs for inactive candidates…</div>
+    <div class="finetune-track">
+      <div class="finetune-fill" id="finetuneFill" style="width:0%"></div>
+    </div>
+  </div>
+
   <div class="banner error" id="errBanner"></div>
 
   <!-- Hero spend card -->
