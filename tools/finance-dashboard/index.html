@@ -1097,7 +1097,8 @@ async function loadDashboard() {
 
     // ── Stage 1: render immediately with pre-audit data ──
     renderInitial(processedUsers, skuList, deptMap, skuStats, days);
-    setPhase(null);
+    // Clear phase text only — button stays disabled until finaliseDashboard()
+    document.getElementById("phaseLine").style.display = "none";
 
     // ── Stage 2: audit batch verification (fine-tune pass) ──
     const inactiveCandidates = processedUsers.filter(u => u.inactive && u.totalCost > 0);
@@ -1153,6 +1154,18 @@ async function loadDashboard() {
         updateBatchProgress(batchNum, batches, processedUsers, waste);
       }
     }
+
+    // Recompute skuStats inactive overlays from updated processedUsers
+    Object.values(skuStats).forEach(s => { s.inactiveCount = 0; s.inactiveCost = 0; });
+    processedUsers.filter(u => u.inactive).forEach(u => {
+      u.licenses.forEach(l => {
+        if (skuStats[l.sku] && l.cost > 0) {
+          skuStats[l.sku].inactiveCount++;
+          skuStats[l.sku].inactiveCost += l.cost;
+        }
+      });
+    });
+    _data.skuList = Object.values(skuStats).filter(s => s.assignedCost > 0).sort((a, b) => b.assignedCost - a.assignedCost);
 
     // ── Stage 2 complete ──
     finaliseDashboard(reclaimedAudit);
@@ -1372,9 +1385,9 @@ function finaliseDashboard(reclaimedAudit) {
   // Inject confirmed badges immediately after renderAll re-creates the KPI cards
   injectConfirmedBadges();
 
-  // Step tracker → all done
+  // Step tracker → all done, then hide after a brief moment
   setStep("done");
-  hideStepTracker();
+  setTimeout(() => hideStepTracker(), 2000);
 
   // Hide progress bar
   const bar = document.getElementById("finetuneBar");
