@@ -305,6 +305,79 @@
   .scan-meta-row span { display: flex; align-items: center; gap: 4px; }
   .scan-meta-dot { width: 5px; height: 5px; border-radius: 50%; }
 
+  /* ── Progressive loading — shimmer skeleton ── */
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  .skel {
+    border-radius: var(--radius-xs);
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    display: block;
+  }
+  .skel-sm { height: 10px; width: 55%; margin-top: 5px; }
+  .skel-md { height: 13px; width: 80%; }
+  .skel-lg { height: 16px; width: 90%; }
+
+  /* ── Refine / Confirmed badge (injected onto KPI cards during fine-tune pass) ── */
+  .refine-badge {
+    position: absolute; top: 6px; right: 6px;
+    display: inline-flex; align-items: center; gap: 3px;
+    background: var(--amber-light); color: var(--amber);
+    border: 1px solid var(--amber-border);
+    border-radius: 20px; padding: 1px 7px;
+    font-size: 9px; font-weight: 700;
+    pointer-events: none;
+    transition: opacity .4s, background .2s, color .2s, border-color .2s;
+  }
+  .refine-badge .badge-spin {
+    width: 8px; height: 8px;
+    border: 1.5px solid currentColor; border-top-color: transparent;
+    border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0;
+  }
+  .refine-badge.confirmed {
+    background: var(--green-light); color: var(--green);
+    border-color: var(--green-border);
+  }
+  .refine-badge.fade-out { opacity: 0; }
+
+  /* ── Step tracker ── */
+  .step-tracker {
+    display: none;
+    align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 7px 14px;
+    margin-bottom: .75rem;
+  }
+  .step-tracker.visible { display: flex; }
+  .step-item { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .step-item.done   { color: var(--green); }
+  .step-item.active { color: var(--blue); }
+  .step-item.wait   { color: var(--muted); }
+  .step-sep { flex: 1; height: 1px; background: var(--border); margin: 0 8px; min-width: 8px; }
+  .step-spin {
+    width: 9px; height: 9px;
+    border: 1.5px solid var(--blue); border-top-color: transparent;
+    border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0;
+  }
+
+  /* ── Fine-tune progress bar ── */
+  .finetune-bar {
+    display: none;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    margin-bottom: .75rem;
+  }
+  .finetune-bar.visible { display: block; }
+  .finetune-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .finetune-title { font-size: 11px; font-weight: 700; color: var(--text); flex: 1; }
+  .finetune-pct   { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted2); }
+  .finetune-detail { font-size: 10px; color: var(--muted2); margin-bottom: 6px; }
+  .finetune-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .finetune-fill  { height: 100%; border-radius: 3px; background: var(--amber); transition: width .3s ease; }
+
   /* ══════════════════════════════════════════════════════
      PRINT / PDF
   ══════════════════════════════════════════════════════ */
