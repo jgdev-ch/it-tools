@@ -1181,9 +1181,8 @@ function renderAll() {
   renderUtilisation(skuList);
   renderDeptChart(deptMap, deptFilter);
   renderProjections(monthly, inactiveCost, waste);
-  const activeU = filtered.filter(u => !u.inactive && u.totalCost > 0);
   renderInactiveTable(inactiveU, days);
-  renderActiveTable(activeU, days);
+  renderActiveTable(filtered.filter(u => !u.inactive && u.totalCost > 0), days);
 
   // Show all sections
   document.getElementById("statsRow").style.display    = "";
