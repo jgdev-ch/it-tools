@@ -1358,6 +1358,32 @@ function renderInitial(processedUsers, skuList, deptMap, skuStats, days) {
   }
 }
 
+function finaliseDashboard(reclaimedAudit) {
+  // Re-render everything with final verified data (replaces skeleton rows)
+  renderAll();
+
+  // Inject confirmed badges immediately after renderAll re-creates the KPI cards
+  injectConfirmedBadges();
+
+  // Step tracker → all done
+  setStep("done");
+
+  // Hide progress bar
+  const bar = document.getElementById("finetuneBar");
+  if (bar) bar.classList.remove("visible");
+
+  // Hide phaseLine spinner
+  setPhase(null);
+
+  // Show completion banner if users were reclassified
+  if (reclaimedAudit > 0) {
+    ITTools.ui.banner("errBanner",
+      `Audit scan complete — ${reclaimedAudit} user${reclaimedAudit !== 1 ? "s were" : " was"} reclassified as active. All figures confirmed.`,
+      "info"
+    );
+  }
+}
+
 function printKpiCard(accent, label, value, sub, trend) {
   const trendCls = trend.startsWith("▲") ? "up" : trend.startsWith("▼") || trend.startsWith("↓") ? "down" : "neutral";
   return `<div class="print-kpi ${accent}">
