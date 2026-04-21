@@ -1239,14 +1239,39 @@ function renderStats(monthly, waste, inactive, skuCount, inactiveCount, days, as
 
 function kpiCard(accent, label, value, sub, trend) {
   const trendCls = trend.startsWith("▲") ? "up" : trend.startsWith("▼") ? "down" : "neutral";
-  return `<div class="kpi-card ${accent}">
+  const slug     = label.toLowerCase().replace(/\s+/g, "-");
+  return `<div class="kpi-card ${accent}" data-kpi="${slug}" style="position:relative">
     <div class="kpi-label">${label}</div>
-    <div class="kpi-value">${value}</div>
+    <div class="kpi-value" data-kpi-value>${value}</div>
     <div class="kpi-sub">
-      <span>${sub}</span>
-      <span class="kpi-trend ${trendCls}">${trend}</span>
+      <span data-kpi-sub>${sub}</span>
+      <span class="kpi-trend ${trendCls}" data-kpi-trend>${trend}</span>
     </div>
   </div>`;
+}
+
+function injectRefineBadges() {
+  ["active-seats", "savings-found", "inactive-cost"].forEach(slug => {
+    const card = document.querySelector(`[data-kpi="${slug}"]`);
+    if (!card || card.querySelector(".refine-badge")) return;
+    const badge = document.createElement("span");
+    badge.className = "refine-badge";
+    badge.innerHTML = `<span class="badge-spin"></span> Refining`;
+    card.appendChild(badge);
+  });
+}
+
+function injectConfirmedBadges() {
+  document.querySelectorAll(".refine-badge").forEach(b => {
+    b.classList.add("confirmed");
+    b.innerHTML = "✓ Confirmed";
+  });
+  setTimeout(() => {
+    document.querySelectorAll(".refine-badge").forEach(b => {
+      b.classList.add("fade-out");
+      setTimeout(() => b.remove(), 400);
+    });
+  }, 2500);
 }
 
 function printKpiCard(accent, label, value, sub, trend) {
