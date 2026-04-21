@@ -880,6 +880,85 @@ function setPhase(msg) {
   }
 }
 
+// ── Progressive loading helpers ────────────────────────────────────────────────
+
+function setStep(stepId) {
+  // stepId: "licenses" | "users" | "analysis" | "finetune" | "done"
+  const steps = ["stepLicenses", "stepUsers", "stepAnalysis", "stepFinetune"];
+  const order = ["licenses", "users", "analysis", "finetune"];
+  const idx   = order.indexOf(stepId);
+  steps.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = "step-item " + (i < idx ? "done" : i === idx ? "active" : "wait");
+    if (i < idx) {
+      el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳]\s*/, "");
+    } else if (i === idx && stepId !== "done") {
+      el.innerHTML = `<div class="step-spin"></div> ${el.textContent.replace(/^[✓⟳]\s*/, "")}`;
+    }
+  });
+  if (stepId === "done") {
+    steps.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.className = "step-item done"; el.innerHTML = "✓ " + el.textContent.replace(/^[✓⟳]\s*/, ""); }
+    });
+    const spinner = document.getElementById("finetuneSpinner");
+    if (spinner) spinner.style.display = "none";
+  }
+}
+
+function showStepTracker() {
+  const el = document.getElementById("stepTracker");
+  if (el) el.classList.add("visible");
+}
+
+function hideStepTracker() {
+  const el = document.getElementById("stepTracker");
+  if (el) el.classList.remove("visible");
+}
+
+function renderTableSkeletons() {
+  const skeletonRow = `
+    <tr>
+      <td><div class="skel skel-md"></div></td>
+      <td><div class="skel skel-sm"></div></td>
+      <td><div class="skel skel-sm"></div></td>
+      <td><div class="skel skel-sm"></div></td>
+      <td><div class="skel skel-sm"></div></td>
+    </tr>`;
+  const rows = skeletonRow.repeat(5);
+
+  // Inactive table skeleton
+  document.getElementById("inactiveTableWrap").innerHTML = `
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <thead>
+        <tr style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--surface2);border-bottom:1px solid var(--border)">
+          <th style="padding:9px 12px;text-align:left">User</th>
+          <th style="padding:9px 12px;text-align:left">Last Sign-in</th>
+          <th style="padding:9px 12px;text-align:left">Days Inactive</th>
+          <th style="padding:9px 12px;text-align:left">Licenses</th>
+          <th style="padding:9px 12px;text-align:left">Monthly Cost</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  // Active table skeleton
+  document.getElementById("activeTableWrap").innerHTML = `
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <thead>
+        <tr style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--surface2);border-bottom:1px solid var(--border)">
+          <th style="padding:9px 12px;text-align:left">User</th>
+          <th style="padding:9px 12px;text-align:left">Department</th>
+          <th style="padding:9px 12px;text-align:left">Last Sign-in</th>
+          <th style="padding:9px 12px;text-align:left">Licenses</th>
+          <th style="padding:9px 12px;text-align:left">Monthly Cost</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 // ── Main data loader ───────────────────────────────────────────────────────────
 async function loadDashboard() {
   document.getElementById("errBanner").style.display    = "none";
