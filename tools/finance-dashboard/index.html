@@ -978,6 +978,8 @@ async function loadDashboard() {
 
   try {
     // 1 — SKU subscriptions
+    showStepTracker();
+    setStep("licenses");
     setPhase("Fetching license subscriptions…");
     const allSkus  = await gwr(() => ITTools.graph.getAll("/subscribedSkus"));
     const paidSkus = allSkus.filter(s => {
@@ -990,6 +992,7 @@ async function loadDashboard() {
     allSkus.forEach(s => { skuIdMap[s.skuId] = s.skuPartNumber; });
 
     // 2 — Licensed users with sign-in activity
+    setStep("users");
     setPhase("Fetching licensed users and sign-in data…");
     const fields = "id,displayName,userPrincipalName,department,jobTitle,accountEnabled,assignedLicenses,signInActivity";
     let users;
@@ -1005,6 +1008,7 @@ async function loadDashboard() {
       users = all.filter(u => (u.assignedLicenses||[]).length > 0);
     }
 
+    setStep("analysis");
     setPhase(`Analysing ${users.length.toLocaleString()} licensed users…`);
 
     // 3 — Process users
@@ -1038,63 +1042,7 @@ async function loadDashboard() {
       };
     });
 
-    // 3b — Audit log batch verification for inactive candidates (20 per batch)
-    const inactiveCandidates = processedUsers.filter(u => u.inactive && u.totalCost > 0);
-    if (inactiveCandidates.length > 0) {
-      const BATCH    = 20;
-      const total    = inactiveCandidates.length;
-      const batches  = Math.ceil(total / BATCH);
-      const auditMap = {}; // userId → ISO date string or null
-      let reclaimedAudit = 0;
-
-      for (let i = 0; i < total; i += BATCH) {
-        const chunk    = inactiveCandidates.slice(i, i + BATCH);
-        const batchNum = Math.floor(i / BATCH) + 1;
-        setPhase(`Verifying via audit logs — ${Math.min(i + BATCH, total)} of ${total} users (batch ${batchNum} / ${batches})…`);
-
-        try {
-          const batchRes = await gwr(() => ITTools.graph.post(
-            "https://graph.microsoft.com/v1.0/$batch",
-            {
-              requests: chunk.map((u, idx) => ({
-                id:     String(idx),
-                method: "GET",
-                url:    `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
-              }))
-            }
-          ));
-          (batchRes.responses || []).forEach(r => {
-            const userId = chunk[parseInt(r.id)].id;
-            auditMap[userId] = r.status === 200 ? (r.body?.value?.[0]?.createdDateTime || null) : null;
-          });
-        } catch(_) {
-          chunk.forEach(u => { auditMap[u.id] = null; });
-        }
-      }
-
-      // Apply results to processedUsers in place
-      for (const u of inactiveCandidates) {
-        const latest = auditMap[u.id];
-        if (latest) {
-          const auditDate = new Date(latest);
-          if (!u.lastSignIn || auditDate > u.lastSignIn) {
-            u.lastSignIn = auditDate;
-            u.daysSince  = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
-            u.inactive   = auditDate < cutoff;
-            if (!u.inactive) reclaimedAudit++;
-          }
-        }
-      }
-
-      if (reclaimedAudit > 0) {
-        ITTools.ui.banner("errBanner",
-          `Audit log check complete — ${reclaimedAudit} user${reclaimedAudit!==1?" were":" was"} reclassified as active after verifying against sign-in logs. Remaining inactive users are confirmed dormant.`,
-          "info"
-        );
-      }
-    }
-
-    // 4 — SKU-level stats
+    // 4 — SKU-level stats (built before renderInitial so charts have data)
     const skuStats = {};
     paidSkus.forEach(s => {
       const cost     = getCost(s.skuPartNumber) || 0;
@@ -1147,16 +1095,75 @@ async function loadDashboard() {
       depts.map(d => `<option value="${d}">${d} (${deptMap[d].count})</option>`).join("");
     if (prev && depts.includes(prev)) deptSelect.value = prev;
 
-    // Store globally for re-renders
-    _data = { skuList, processedUsers, deptMap, skuStats, days };
-
-    renderAll();
+    // ── Stage 1: render immediately with pre-audit data ──
+    renderInitial(processedUsers, skuList, deptMap, skuStats, days);
     setPhase(null);
+
+    // ── Stage 2: audit batch verification (fine-tune pass) ──
+    const inactiveCandidates = processedUsers.filter(u => u.inactive && u.totalCost > 0);
+    let reclaimedAudit = 0;
+
+    if (inactiveCandidates.length > 0) {
+      const BATCH   = 20;
+      const total   = inactiveCandidates.length;
+      const batches = Math.ceil(total / BATCH);
+      const auditMap = {};
+
+      for (let i = 0; i < total; i += BATCH) {
+        const chunk    = inactiveCandidates.slice(i, i + BATCH);
+        const batchNum = Math.floor(i / BATCH) + 1;
+
+        try {
+          const batchRes = await gwr(() => ITTools.graph.post(
+            "https://graph.microsoft.com/v1.0/$batch",
+            {
+              requests: chunk.map((u, idx) => ({
+                id:     String(idx),
+                method: "GET",
+                url:    `/auditLogs/signIns?$filter=userId eq '${u.id}'&$top=1&$orderby=createdDateTime desc&$select=createdDateTime`
+              }))
+            }
+          ));
+          (batchRes.responses || []).forEach(r => {
+            const userId = chunk[parseInt(r.id)].id;
+            auditMap[userId] = r.status === 200 ? (r.body?.value?.[0]?.createdDateTime || null) : null;
+          });
+        } catch(_) {
+          chunk.forEach(u => { auditMap[u.id] = null; });
+        }
+
+        // Apply batch results in place
+        for (const u of chunk) {
+          const latest = auditMap[u.id];
+          if (latest) {
+            const auditDate = new Date(latest);
+            if (!u.lastSignIn || auditDate > u.lastSignIn) {
+              u.lastSignIn = auditDate;
+              u.daysSince  = Math.floor((Date.now() - auditDate.getTime()) / 86400000);
+              const wasInactive = u.inactive;
+              u.inactive   = auditDate < cutoff;
+              if (wasInactive && !u.inactive) reclaimedAudit++;
+            }
+          }
+        }
+
+        // Update global data and tick progress bar
+        _data.processedUsers = processedUsers;
+        const waste = skuList.reduce((s, sk) => s + sk.wasteCost, 0);
+        updateBatchProgress(batchNum, batches, processedUsers, waste);
+      }
+    }
+
+    // ── Stage 2 complete ──
+    finaliseDashboard(reclaimedAudit);
 
   } catch(e) {
     document.getElementById("errBanner").textContent   = ITTools.graph.friendlyError(e);
     document.getElementById("errBanner").style.display = "block";
     setPhase(null);
+    hideStepTracker();
+    const bar = document.getElementById("finetuneBar");
+    if (bar) bar.classList.remove("visible");
   }
 }
 
