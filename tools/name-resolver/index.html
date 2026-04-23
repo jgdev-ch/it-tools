@@ -584,10 +584,7 @@ function setMode(m) {
     document.getElementById("fileDrop").ondrop = e => { e.preventDefault(); dragLeave(); handleFileDrop(e.dataTransfer.files[0]); };
   }
   clearInput();
-  // Hide column mapper in paste mode — not needed with single implicit Name column
-  document.getElementById('mapCard').style.display = m === 'paste' ? 'none' : '';
-  // Clear detected panel when switching away from paste
-  if (m !== 'paste') renderDetectedPanel([]);
+  if (m === 'paste') document.getElementById('mapCard').style.display = 'none';
 }
 
 function dragOver(e)  { e.preventDefault(); document.getElementById("fileDrop").classList.add("drag-over"); }
