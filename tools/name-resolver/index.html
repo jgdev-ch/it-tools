@@ -386,6 +386,74 @@ const st = {
                       // status: "pending"|"matched"|"ambiguous"|"notfound"|"skipped"|"chosen"
 };
 
+// ── Paste scrubber ────────────────────────────────────────────
+const SCRUB_TRANSFORMS = [
+  // 1. stripListPrefix — removes leading list markers (silent, no tag)
+  v => {
+    const cleaned = v.replace(/^\s*(\d+[\.\)]\s*|[•\*\u2013\u2014\-]\s*)/, '');
+    return { value: cleaned };
+  },
+  // 2. stripMentions — removes leading @ symbol
+  v => {
+    if (!v.startsWith('@')) return { value: v };
+    return { value: v.slice(1).trimStart(), tag: '@ stripped' };
+  },
+  // 3. stripTitles — removes leading honorifics (case-insensitive)
+  v => {
+    const m = v.match(/^(Dr\.|Mr\.|Ms\.|Mrs\.|Prof\.)\s+/i);
+    if (!m) return { value: v };
+    return { value: v.slice(m[0].length), tag: m[1] + ' removed' };
+  },
+  // 4. stripSuffixes — removes (parentheticals) and [brackets] anywhere
+  v => {
+    const tags = [];
+    let out = v;
+    out = out.replace(/\s*\(([^)]*)\)/g, (_, inner) => { tags.push('(' + inner + ') removed'); return ''; });
+    out = out.replace(/\s*\[([^\]]*)\]/g, (_, inner) => { tags.push('[' + inner + '] removed'); return ''; });
+    return tags.length ? { value: out.trim(), tag: tags[0] } : { value: out };
+  },
+  // 5. flipLastFirst — detects "Last, First" pattern and reverses to "First Last"
+  v => {
+    const SUFFIXES = /^(jr\.?|sr\.?|ii|iii|iv)$/i;
+    const parts = v.split(',');
+    if (parts.length !== 2) return { value: v };
+    const last = parts[0].trim(), first = parts[1].trim();
+    if (last.length < 2 || first.length < 2) return { value: v };
+    const allWords = [...last.split(/\s+/), ...first.split(/\s+/)];
+    if (allWords.some(w => SUFFIXES.test(w))) return { value: v };
+    return { value: first + ' ' + last, tag: 'Last, First → flipped' };
+  },
+  // 6. normalizeSpace — collapses multiple spaces and trims (silent, no tag)
+  v => ({ value: v.replace(/\s+/g, ' ').trim() })
+];
+
+function scrubLine(raw) {
+  let value = raw.trim();
+  const tags = [];
+  for (const transform of SCRUB_TRANSFORMS) {
+    const result = transform(value);
+    value = result.value;
+    if (result.tag) tags.push(result.tag);
+  }
+  return { name: value, tags };
+}
+
+function scrubNames(text) {
+  const lines = text.includes('\n') ? text.split(/\r?\n/) : text.split(',');
+  const seen = new Set();
+  const results = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const { name, tags } = scrubLine(line);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push({ name, tags });
+  }
+  return results;
+}
+
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   ITTools.theme.init();
