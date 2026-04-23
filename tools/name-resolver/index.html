@@ -402,7 +402,8 @@ const SCRUB_TRANSFORMS = [
   v => {
     const m = v.match(/^(Dr\.|Mr\.|Ms\.|Mrs\.|Prof\.)\s+/i);
     if (!m) return { value: v };
-    return { value: v.slice(m[0].length), tag: m[1] + ' removed' };
+    const TITLE_CANONICAL = { 'dr.': 'Dr.', 'mr.': 'Mr.', 'ms.': 'Ms.', 'mrs.': 'Mrs.', 'prof.': 'Prof.' };
+    return { value: v.slice(m[0].length), tag: (TITLE_CANONICAL[m[1].toLowerCase()] || m[1]) + ' removed' };
   },
   // 4. stripSuffixes — removes (parentheticals) and [brackets] anywhere
   v => {
@@ -439,7 +440,7 @@ function scrubLine(raw) {
 }
 
 function scrubNames(text) {
-  const lines = text.includes('\n') ? text.split(/\r?\n/) : text.split(',');
+  const lines = text.split(/\r?\n/);
   const seen = new Set();
   const results = [];
   for (const line of lines) {
