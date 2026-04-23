@@ -525,6 +525,42 @@ function showErr(id, msg) {
   el.textContent = msg; el.className = "banner error"; el.style.display = msg ? "block" : "none";
 }
 
+function renderDetectedPanel(items) {
+  const panel       = document.getElementById('detectedPanel');
+  const list        = document.getElementById('detectedList');
+  const countEl     = document.getElementById('detectedCount');
+  const transformEl = document.getElementById('detectedTransformed');
+
+  if (!items.length) {
+    panel.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  const transformedCount = items.filter(i => i.tags.length > 0).length;
+  countEl.textContent = '✦ ' + items.length + ' name' + (items.length === 1 ? '' : 's') + ' detected';
+
+  if (transformedCount > 0) {
+    transformEl.textContent = transformedCount + ' transformed';
+    transformEl.style.display = '';
+  } else {
+    transformEl.style.display = 'none';
+  }
+
+  list.innerHTML = items.map(({ name, tags }) => `
+    <div class="detected-row">
+      <div class="detected-left">
+        <span class="detected-dot"></span>
+        <span>${esc(name)}</span>
+      </div>
+      <div class="detected-tags">
+        ${tags.map(t => `<span class="scrub-tag">${esc(t)}</span>`).join('')}
+      </div>
+    </div>`).join('');
+
+  panel.style.display = 'block';
+}
+
 // ── Input mode ────────────────────────────────────────────────
 let _mode = "file";   // "file" | "excel" | "paste"
 let _parsedRows = []; // array of plain objects from CSV/Excel
@@ -594,16 +630,20 @@ function loadExcel(file) {
 }
 
 function handlePaste() {
-  const raw = document.getElementById("pasteIn").value.trim();
-  if (!raw) { _parsedRows = []; updateS1([]); return; }
-  // One name per line; fall back to comma-split only if no newlines detected
-  const lines = raw.includes("\n")
-    ? raw.split(/\r?\n/)
-    : raw.split(",");
-  const names = lines.map(l => l.trim()).filter(l => l);
-  // Treat as single-column "Name" for the column mapper
-  _parsedRows = names.map(n => ({ Name: n }));
-  renderColumnMapper(["Name"], _parsedRows);
+  const raw = document.getElementById('pasteIn').value.trim();
+  if (!raw) {
+    _parsedRows = [];
+    renderDetectedPanel([]);
+    updateS1([]);
+    return;
+  }
+  const items = scrubNames(raw);
+  renderDetectedPanel(items);
+  _parsedRows = items.map(i => ({ Name: i.name }));
+  // _selCol1 must be set here — renderColumnMapper() is skipped in paste mode
+  // but buildNames() still reads row[_selCol1] when s1Next() is called
+  _selCol1 = 'Name';
+  updateS1(items.map(i => i.name));
 }
 
 function showFileLoaded(name, count) {
