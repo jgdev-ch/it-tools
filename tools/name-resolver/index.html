@@ -108,6 +108,17 @@
   .btn-retry      { padding:3px 9px; border-radius:5px; border:1px solid var(--border); background:transparent; font-size:11px; color:var(--muted); cursor:pointer; font-family:inherit; }
   .btn-retry:hover { color:var(--blue-dark); border-color:var(--blue); }
 
+  /* ── Detected names panel ── */
+  .detected-hdr  { display:flex; justify-content:space-between; align-items:center; background:var(--blue-light); padding:7px 12px; font-size:11px; font-weight:700; color:var(--blue-dark); text-transform:uppercase; letter-spacing:.05em; }
+  .detected-hdr .detected-transformed { color:var(--blue); font-weight:500; text-transform:none; letter-spacing:0; }
+  .detected-list { background:var(--surface); }
+  .detected-row  { display:flex; align-items:center; justify-content:space-between; padding:7px 12px; border-bottom:1px solid var(--border); font-size:12px; gap:8px; }
+  .detected-row:last-child { border-bottom:none; }
+  .detected-left { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .detected-dot  { width:6px; height:6px; border-radius:50%; background:var(--blue); flex-shrink:0; }
+  .detected-tags { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
+  .scrub-tag     { font-size:10px; font-weight:600; background:var(--amber-light); color:var(--amber); padding:2px 8px; border-radius:10px; border:1px solid var(--amber-border); white-space:nowrap; }
+
   /* ── Progress ── */
   .progress-wrap { margin:4px 0; }
   .progress-meta { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:6px; }
@@ -218,8 +229,17 @@
 
           <!-- Paste zone -->
           <div id="pasteZone" style="display:none">
-            <textarea class="paste-area" id="pasteIn" placeholder="One name per line&#10;e.g.&#10;Sarah Johnson&#10;Mark Davies&#10;Ali Hassan" oninput="handlePaste()"></textarea>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">One name per line. Comma-separated inline lists are also accepted.</div>
+            <textarea class="paste-area" id="pasteIn"
+              placeholder="One name per line&#10;e.g.&#10;Sarah Johnson&#10;Mark Davies&#10;Ali Hassan"
+              oninput="handlePaste()"></textarea>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">One name per line. Numbered lists, bullets, and @ mentions are cleaned automatically.</div>
+            <div id="detectedPanel" style="display:none;margin-top:10px;border:1px solid #bfdbfe;border-radius:8px;overflow:hidden">
+              <div class="detected-hdr">
+                <span id="detectedCount"></span>
+                <span class="detected-transformed" id="detectedTransformed" style="display:none"></span>
+              </div>
+              <div class="detected-list" id="detectedList"></div>
+            </div>
           </div>
         </div>
 
