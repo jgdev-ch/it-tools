@@ -682,12 +682,23 @@ async function doSignIn(btn) {
     await ITTools.ui.withButtonSpinner(btn, async () => {
       const acct = await ITTools.auth.signIn();
       document.getElementById("authScreen").style.display = "none";
-      document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
-      await Promise.all([checkFinanceAccess(), loadSkus(), loadCosts()]);
+      await Promise.all([checkFinanceAccess(), checkLicenseModifyAccess(), checkReportingAndGsdAccess(), loadSkus(), loadCosts()]);
+      if (!_hasReportingAccess) {
+        document.getElementById("reportingDeniedScreen").style.display = "flex";
+        return;
+      }
+      document.getElementById("appScreen").style.display = "block";
+      document.getElementById("reportingViewIndicator").style.display = "inline-flex";
       if (_hasFinanceAccess) {
         document.getElementById("financeIndicator").style.display = "inline-flex";
         rebuildDropdown();
+      }
+      if (_hasLicenseModifyAccess) {
+        document.getElementById("licenseAdminIndicator").style.display = "inline-flex";
+      }
+      if (_hasGsdAccess) {
+        document.getElementById("gsdIndicator").style.display = "inline-flex";
       }
     }, "Signing in…");
   } catch(e) {
