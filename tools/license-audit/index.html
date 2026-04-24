@@ -665,6 +665,7 @@ async function init() {
     },
     onSignOut: () => {
       document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("reportingDeniedScreen").style.display = "none";
       document.getElementById("authScreen").style.display = "flex";
       ITTools.ui.clearUser();
       _hasFinanceAccess       = false;
@@ -683,6 +684,7 @@ async function doSignIn(btn) {
   try {
     await ITTools.ui.withButtonSpinner(btn, async () => {
       const acct = await ITTools.auth.signIn();
+      document.getElementById("reportingDeniedScreen").style.display = "none";
       document.getElementById("authScreen").style.display = "none";
       ITTools.ui.setUser(acct);
       await Promise.all([checkFinanceAccess(), checkLicenseModifyAccess(), checkReportingAndGsdAccess(), loadSkus(), loadCosts()]);
