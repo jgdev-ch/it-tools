@@ -11,7 +11,8 @@
       "permissions": ["User.Read.All", "AuditLog.Read.All"],
       "accent": "#1a56db",
       "iconBg": "#e8f0fe",
-      "category": "reporting-audit"
+      "category": "reporting-audit",
+      "reportingOnly": true
     },
     {
       "id": "group-import",
@@ -49,7 +50,8 @@
       "permissions": ["UserAuthMethod.Read.All"],
       "accent": "#92400e",
       "iconBg": "#fef3c7",
-      "category": "reporting-audit"
+      "category": "reporting-audit",
+      "reportingOnly": true
     },
     {
       "id": "guest-audit",
@@ -62,7 +64,8 @@
       "permissions": ["User.Read.All", "User.ReadWrite.All", "Directory.Read.All", "AuditLog.Read.All"],
       "accent": "#5b21b6",
       "iconBg": "#ede9fe",
-      "category": "reporting-audit"
+      "category": "reporting-audit",
+      "reportingOnly": true
     },
     {
       "id": "finance-dashboard",
