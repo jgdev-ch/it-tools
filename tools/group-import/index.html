@@ -61,11 +61,22 @@
   #authScreen { display:none; }
 
   @media (max-width:640px) { .sidebar { display:none; } .main-content { padding:1rem; } }
+
+  .gsd-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--blue-light); border: 1px solid var(--blue-border);
+    color: var(--blue-dark); border-radius: 20px;
+    padding: 3px 10px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
 </style>
 </head>
 <body>
 
 <div id="topbar"></div>
+<div id="gsdBadgeBar" style="display:none;padding:6px 1.25rem 0;align-items:center;gap:6px">
+  <span class="gsd-badge" id="gsdIndicator"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> GSD Access</span>
+</div>
 
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
@@ -271,7 +282,26 @@
 
 <script src="../../shared/auth.js"></script>
 <script>
+const GSD_GROUP_ID = "3e1a4757-8189-4908-a611-b6029399e69e";
+let _hasGsdAccess  = false;
+
 const TOOL_SCOPES = ["User.Read.All","Group.ReadWrite.All","GroupMember.ReadWrite.All","Directory.Read.All"];
+
+async function checkGsdAccess() {
+  try {
+    const token = await ITTools.auth.getToken();
+    const res = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [GSD_GROUP_ID] }),
+    });
+    if (!res.ok) { _hasGsdAccess = false; return; }
+    const data = await res.json();
+    _hasGsdAccess = (data.value || []).includes(GSD_GROUP_ID);
+  } catch (_) {
+    _hasGsdAccess = false;
+  }
+}
 
 async function init() {
   ITTools.theme.init();
@@ -281,13 +311,19 @@ async function init() {
   let _sessionFound = false;
   await ITTools.auth.init({
     scopes: TOOL_SCOPES,
-    onSignIn: acct => {
+    onSignIn: async acct => {
       _sessionFound = true;
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
+      await checkGsdAccess();
+      if (_hasGsdAccess) {
+        document.getElementById("gsdBadgeBar").style.display = "flex";
+      }
     },
     onSignOut: () => {
+      _hasGsdAccess = false;
+      document.getElementById("gsdBadgeBar").style.display = "none";
       document.getElementById("appScreen").style.display  = "none";
       document.getElementById("authScreen").style.display = "flex";
       ITTools.ui.clearUser();
@@ -304,6 +340,10 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
+    await checkGsdAccess();
+    if (_hasGsdAccess) {
+      document.getElementById("gsdBadgeBar").style.display = "flex";
+    }
   } catch(e) {
     const el = document.getElementById("authErr");
     el.textContent = e.message; el.style.display = "block";
