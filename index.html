@@ -30,6 +30,19 @@
 }
 .hub-topbar-right { display: flex; align-items: center; gap: 8px; }
 
+/* ── Hub access badges ── */
+.hub-access-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.hub-access-badge--amber {
+  background: var(--amber-light); border: 1px solid var(--amber-border); color: var(--amber);
+}
+.hub-access-badge--blue {
+  background: var(--blue-light); border: 1px solid var(--blue-border); color: var(--blue-dark);
+}
+
 .btn-signin {
   display: flex; align-items: center; gap: 7px;
   padding: 5px 13px; border-radius: var(--radius-sm);
@@ -257,6 +270,9 @@
       </svg>
     </a>
 
+    <!-- Access badges — shown after gate checks -->
+    <div id="hubBadges" style="display:none;align-items:center;gap:6px"></div>
+
     <!-- User chip — visible after sign-in -->
     <div class="user-chip" id="userChip">
       <div class="user-avatar" id="userInitials"></div>
@@ -374,6 +390,8 @@ function showSignedOut() {
   document.getElementById("userChip").classList.remove("show");
   document.getElementById("signOutBtn").classList.remove("show");
   document.getElementById("signInBtn").style.display  = "";
+  document.getElementById("hubBadges").style.display = "none";
+  document.getElementById("hubBadges").innerHTML = "";
 }
 
 // ── Card HTML builders ────────────────────────────────────────────────────────
@@ -473,15 +491,47 @@ async function checkMembership(token, groupId) {
   } catch(_) { return false; }
 }
 
+// ── Render hub access badge pills ────────────────────────────────────────────
+function renderHubBadges(unlockedGates) {
+  const BADGE_DEFS = {
+    finance: {
+      label: "Finance View",
+      cls:   "hub-access-badge--amber",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    },
+    reporting: {
+      label: "Reporting View",
+      cls:   "hub-access-badge--blue",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    },
+    gsd: {
+      label: "GSD Access",
+      cls:   "hub-access-badge--blue",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+    },
+  };
+  const container = document.getElementById("hubBadges");
+  const html = unlockedGates
+    .filter(k => BADGE_DEFS[k])
+    .map(k => `<span class="hub-access-badge ${BADGE_DEFS[k].cls}">${BADGE_DEFS[k].icon} ${BADGE_DEFS[k].label}</span>`)
+    .join("");
+  if (!html) { container.style.display = "none"; return; }
+  container.innerHTML = html;
+  container.style.display = "flex";
+}
+
 // ── Run all gate checks after sign-in ─────────────────────────────────────────
 async function runGateChecks(token) {
+  const unlocked = [];
   for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
     const isMember = await checkMembership(token, gate.id);
     if (isMember) {
       localStorage.setItem(gate.localKey, "true");
       unlockCard(gateKey);
+      unlocked.push(gateKey);
     }
   }
+  renderHubBadges(unlocked);
 }
 
 // ── Restore locks from localStorage (instant, no network) ────────────────────
