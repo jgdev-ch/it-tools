@@ -395,6 +395,8 @@ async function init() {
       ITTools.ui.clearUser();
       _hasReportingAccess = false;
       _hasGsdAccess       = false;
+      document.getElementById("reportingViewIndicator").style.display = "none";
+      document.getElementById("gsdIndicator").style.display           = "none";
     }
   });
   if (!_sessionFound) {

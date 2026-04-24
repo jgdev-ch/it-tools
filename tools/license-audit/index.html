@@ -672,7 +672,10 @@ async function init() {
       _hasLicenseModifyAccess = false;
       _hasReportingAccess     = false;
       _hasGsdAccess           = false;
-      document.getElementById("licenseAdminIndicator").style.display = "none";
+      document.getElementById("licenseAdminIndicator").style.display  = "none";
+      document.getElementById("reportingViewIndicator").style.display = "none";
+      document.getElementById("financeIndicator").style.display       = "none";
+      document.getElementById("gsdIndicator").style.display           = "none";
     }
   });
   if (!_sessionFound) {
