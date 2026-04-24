@@ -154,6 +154,9 @@
   display: flex; align-items: center; gap: 4px;
   white-space: nowrap; flex-shrink: 0;
 }
+.tool-card.locked--reporting .lock-hint {
+  color: var(--amber);
+}
 
 /* ── Coming-soon frosted overlay ── */
 .tool-overlay {
@@ -325,7 +328,15 @@ const GROUP_GATES = {
   "finance": {
     id:       "ff9c3232-251f-4570-9564-340039d17aa9",
     localKey: "it-tools-finance-unlocked",
-  }
+  },
+  "reporting": {
+    id:       "cea8f0fe-a3d5-4f8a-9f77-e9ce6fdf7b8d",
+    localKey: "it-tools-reporting-unlocked",
+  },
+  "gsd": {
+    id:       "3e1a4757-8189-4908-a611-b6029399e69e",
+    localKey: "it-tools-gsd-unlocked",
+  },
 };
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -377,8 +388,12 @@ function ribbonHtml(status) {
 }
 
 function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms, betaNote }) {
-  const permsStr = (perms || []).join("|");
-  return `<div class="tool-card locked" id="gate-${gateKey}"
+  const permsStr  = (perms || []).join("|");
+  const lockClass = gateKey === "reporting" ? " locked--reporting" : "";
+  const lockTitle = gateKey === "reporting"
+    ? "Requires reporting access — contact your IT administrator"
+    : "Permissions required — sign in with an authorized account to unlock this tool.";
+  return `<div class="tool-card locked${lockClass}" data-gate="${gateKey}"
       data-path="${path}" data-iconbg="${iconBg}"
       data-icon="${icon}" data-status="${status}"
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
@@ -388,9 +403,9 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
     <div class="tool-icon">${icon}</div>
     <div class="tool-name-row">
       <div class="tool-name">${name}</div>
-      <div class="lock-hint"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="lock-hint" title="${lockTitle}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
     </div>
-    <div class="tool-desc">Permissions required — sign in with an authorized account to unlock this tool.</div>
+    <div class="tool-desc">${lockTitle}</div>
   </div>`;
 }
 
@@ -409,36 +424,37 @@ function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, betaNot
 
 // ── Card lock / unlock ────────────────────────────────────────────────────────
 function unlockCard(gateKey) {
-  const locked = document.getElementById(`gate-${gateKey}`);
-  if (!locked) return;
-
-  locked.outerHTML = buildLiveCard({
-    path:     locked.dataset.path,
-    iconBg:   locked.dataset.iconbg,
-    icon:     locked.dataset.icon,
-    status:   locked.dataset.status,
-    name:     locked.dataset.name,
-    desc:     locked.dataset.desc,
-    betaNote: locked.dataset.betanote || "",
+  document.querySelectorAll(`[data-gate="${gateKey}"]`).forEach(locked => {
+    locked.outerHTML = buildLiveCard({
+      path:     locked.dataset.path,
+      iconBg:   locked.dataset.iconbg,
+      icon:     locked.dataset.icon,
+      status:   locked.dataset.status,
+      name:     locked.dataset.name,
+      desc:     locked.dataset.desc,
+      betaNote: locked.dataset.betanote || "",
+    });
   });
 }
 
 function lockCard(gateKey) {
-  const meta = _gateCardMeta[gateKey];
-  if (!meta) return;
-  const live = document.querySelector(`a.tool-card[href="${meta.path}"]`);
-  if (!live) return;
-  live.outerHTML = buildLockedCard({
-    gateKey,
-    path:     meta.path,
-    iconBg:   meta.iconBg,
-    icon:     meta.icon,
-    status:   meta.status,
-    name:     meta.name,
-    desc:     meta.desc,
-    perms:    meta.perms,
-    betaNote: meta.betaNote || "",
-  });
+  const metas = _gateCardMeta[gateKey];
+  if (!metas) return;
+  for (const meta of metas) {
+    const live = document.querySelector(`a.tool-card[href="${meta.path}"]`);
+    if (!live) continue;
+    live.outerHTML = buildLockedCard({
+      gateKey,
+      path:     meta.path,
+      iconBg:   meta.iconBg,
+      icon:     meta.icon,
+      status:   meta.status,
+      name:     meta.name,
+      desc:     meta.desc,
+      perms:    meta.perms,
+      betaNote: meta.betaNote || "",
+    });
+  }
 }
 
 // Populated during loadTools() so lockCard() has the data it needs on sign-out
@@ -571,8 +587,20 @@ async function loadTools() {
           status: tool.status, name: tool.name, desc: tool.description,
           perms, betaNote: tool.betaNote || "",
         };
-        _gateCardMeta["finance"] = meta;
+        if (!_gateCardMeta["finance"]) _gateCardMeta["finance"] = [];
+        _gateCardMeta["finance"].push(meta);
         return buildLockedCard({ gateKey: "finance", ...meta });
+      }
+
+      if (tool.reportingOnly) {
+        const meta = {
+          path: tool.path, iconBg: tool.iconBg, icon: tool.icon,
+          status: tool.status, name: tool.name, desc: tool.description,
+          perms, betaNote: tool.betaNote || "",
+        };
+        if (!_gateCardMeta["reporting"]) _gateCardMeta["reporting"] = [];
+        _gateCardMeta["reporting"].push(meta);
+        return buildLockedCard({ gateKey: "reporting", ...meta });
       }
 
       if (clickable.includes(tool.status) && tool.path) {
