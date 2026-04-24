@@ -511,6 +511,7 @@ function renderHubBadges(unlockedGates) {
     },
   };
   const container = document.getElementById("hubBadges");
+  if (!container) return;
   const html = unlockedGates
     .filter(k => BADGE_DEFS[k])
     .map(k => `<span class="hub-access-badge ${BADGE_DEFS[k].cls}">${BADGE_DEFS[k].icon} ${BADGE_DEFS[k].label}</span>`)
@@ -536,11 +537,14 @@ async function runGateChecks(token) {
 
 // ── Restore locks from localStorage (instant, no network) ────────────────────
 function restoreFromLocalStorage() {
+  const unlocked = [];
   for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
     if (localStorage.getItem(gate.localKey) === "true") {
       unlockCard(gateKey);
+      unlocked.push(gateKey);
     }
   }
+  if (unlocked.length) renderHubBadges(unlocked);
 }
 
 // ── Clear all gate flags on sign-out ─────────────────────────────────────────
