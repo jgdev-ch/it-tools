@@ -151,11 +151,44 @@ Set to visible after `checkReportingAccess()` returns `true`.
 
 License Audit already shows Finance View and License Admin badges. Reporting View badge is added as a third indicator — shown when user also holds `SG-IT-Tools-Reporting-View`.
 
+### GSD Access badge — shown in every tool
+
+The GSD Access badge renders in the topbar of **every tool** when the signed-in user is a GSD member. This is their designation indicator regardless of which tool they're using.
+
+Implementation: each tool batches the GSD group ID into its existing `checkMemberObjects` call. Tools that currently make no group check (Group Import, Name Resolver) get a lightweight GSD-only `checkMemberObjects` call on sign-in. If the response includes the GSD group ID, the badge renders.
+
+```js
+const GSD_GROUP_ID = "<SG-IT-Tools-GSD Object ID>";
+
+// In tools with an existing group check — add GSD_GROUP_ID to the ids array:
+body: JSON.stringify({ ids: [REPORTING_GROUP_ID, GSD_GROUP_ID] })
+
+// In tools with no existing group check (Group Import, Name Resolver):
+async function checkGsdAccess() {
+  const token = await ITTools.auth.getToken();
+  const res = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: [GSD_GROUP_ID] }),
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  return (data.value || []).includes(GSD_GROUP_ID);
+}
+```
+
+```html
+<span id="gsdIndicator" class="badge badge--blue" style="display:none">
+  <!-- Lucide globe SVG -->
+  GSD Access
+</span>
+```
+
 ---
 
 ## What GSD Does Now vs. Later
 
-**Now:** `SG-IT-Tools-GSD` is added to `GROUP_GATES` and checked on sign-in. The GSD Access badge renders on the hub for GSD members. No tool currently requires this gate.
+**Now:** `SG-IT-Tools-GSD` is added to `GROUP_GATES` on the hub and checked in every tool on sign-in. The GSD Access badge renders in the hub topbar and in every individual tool topbar for GSD members. No tools are gated behind this group yet.
 
 **Later:** Any new tool built for the GSD team gets a `gsdOnly: true` flag in config.json and the existing unlock flow handles it automatically — no further hub plumbing needed.
 
