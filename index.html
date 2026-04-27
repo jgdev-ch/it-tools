@@ -814,9 +814,10 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   const dropdown = document.getElementById("accountDropdown");
-  const btn      = document.getElementById("accountBtn");
-  if (dropdown) dropdown.style.display = "none";
-  if (btn)      { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+  if (!dropdown || dropdown.style.display === "none") return;
+  const btn = document.getElementById("accountBtn");
+  dropdown.style.display = "none";
+  if (btn) { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
 });
 
 loadTools();
