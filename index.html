@@ -270,17 +270,30 @@
       </svg>
     </a>
 
-    <!-- Access badges — shown after gate checks -->
-    <div id="hubBadges" style="display:none;align-items:center;gap:6px"></div>
-
-    <!-- User chip — visible after sign-in -->
-    <div class="user-chip" id="userChip">
-      <div class="user-avatar" id="userInitials"></div>
-      <span id="userName"></span>
+    <!-- Account button + dropdown — visible after sign-in -->
+    <div style="position:relative">
+      <button class="account-btn" id="accountBtn" onclick="toggleAccountDropdown()" style="display:none" aria-label="Account menu">
+        <span id="accountInitials"></span>
+      </button>
+      <div class="account-dropdown" id="accountDropdown" style="display:none">
+        <div class="account-panel-head">
+          <div class="account-panel-avatar" id="accountPanelAvatar"></div>
+          <div>
+            <div class="account-panel-name" id="accountPanelName"></div>
+            <div class="account-panel-email" id="accountPanelEmail"></div>
+          </div>
+        </div>
+        <div class="account-panel-access" id="accountPanelAccess" style="display:none">
+          <div class="account-panel-access-label">Access</div>
+          <div class="account-panel-pills" id="accountPanelPills"></div>
+        </div>
+        <div class="account-panel-divider"></div>
+        <button class="account-panel-signout" onclick="hubSignOut()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign out
+        </button>
+      </div>
     </div>
-
-    <!-- Sign out — visible after sign-in -->
-    <button class="btn-signout" id="signOutBtn" onclick="hubSignOut()">Sign out</button>
 
     <!-- Sign in — visible when signed out -->
     <button class="btn-signin" id="signInBtn" onclick="hubSignIn()">
