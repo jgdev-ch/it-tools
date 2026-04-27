@@ -93,6 +93,7 @@ ITTools.auth = (() => {
   }
 
   async function signOut() {
+    ITTools.ui.clearUser?.();
     await _msal.logoutPopup({ account: _account });
     _account = null;
     ITTools.auth._onSignOut?.();
@@ -408,19 +409,29 @@ ITTools.ui = (() => {
 
   function setUser(account) {
     if (!account) return;
-    const name = account.name || account.username || "User";
+    const name     = account.name || account.username || "User";
+    const email    = account.username || "";
     const initials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
-    const chip = document.getElementById("userChip");
-    const btn  = document.getElementById("signOutBtn");
-    if (chip) { document.getElementById("userInitials").textContent = initials; document.getElementById("userName").textContent = name; chip.style.display = "flex"; }
-    if (btn)  btn.style.display = "block";
+    document.getElementById("accountInitials").textContent    = initials;
+    document.getElementById("accountPanelAvatar").textContent = initials;
+    document.getElementById("accountPanelName").textContent   = name;
+    document.getElementById("accountPanelEmail").textContent  = email;
+    document.getElementById("accountBtn").style.display       = "flex";
+    _loadGatePills();
   }
 
   function clearUser() {
-    const chip = document.getElementById("userChip");
-    const btn  = document.getElementById("signOutBtn");
-    if (chip) chip.style.display = "none";
-    if (btn)  btn.style.display  = "none";
+    const btn      = document.getElementById("accountBtn");
+    const dropdown = document.getElementById("accountDropdown");
+    if (!btn) return;
+    btn.style.display = "none";
+    btn.classList.remove("open");
+    btn.setAttribute("aria-expanded", "false");
+    if (dropdown) dropdown.style.display = "none";
+    const pillsEl  = document.getElementById("accountPanelPills");
+    const accessEl = document.getElementById("accountPanelAccess");
+    if (pillsEl)  pillsEl.innerHTML      = "";
+    if (accessEl) accessEl.style.display = "none";
   }
 
   /** Show/hide a banner element. type: "error"|"warn"|"info"|"success" */
