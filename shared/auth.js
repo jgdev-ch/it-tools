@@ -236,6 +236,8 @@ ITTools.theme = (() => {
 // ─────────────────────────────────────────────────────────────
 ITTools.ui = (() => {
 
+  let _listenersAdded = false;
+
   const GROUP_GATE_IDS = {
     finance:           "ff9c3232-251f-4570-9564-340039d17aa9",
     reporting:         "cea8f0fe-a3d5-4f8a-9f77-e9ce6fdf7b8d",
@@ -371,24 +373,27 @@ ITTools.ui = (() => {
 
     document.getElementById("accountBtn").addEventListener("click", _toggleAccountDropdown);
     document.getElementById("accountSignOutBtn").addEventListener("click", () => ITTools.auth.signOut());
-    document.addEventListener("click", e => {
-      const dropdown = document.getElementById("accountDropdown");
-      const btn      = document.getElementById("accountBtn");
-      if (!dropdown || dropdown.style.display === "none") return;
-      if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+    if (!_listenersAdded) {
+      _listenersAdded = true;
+      document.addEventListener("click", e => {
+        const dropdown = document.getElementById("accountDropdown");
+        const btn      = document.getElementById("accountBtn");
+        if (!dropdown || dropdown.style.display === "none") return;
+        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+          dropdown.style.display = "none";
+          btn.classList.remove("open");
+          btn.setAttribute("aria-expanded", "false");
+        }
+      });
+      document.addEventListener("keydown", e => {
+        if (e.key !== "Escape") return;
+        const dropdown = document.getElementById("accountDropdown");
+        if (!dropdown || dropdown.style.display === "none") return;
+        const btn = document.getElementById("accountBtn");
         dropdown.style.display = "none";
-        btn.classList.remove("open");
-        btn.setAttribute("aria-expanded", "false");
-      }
-    });
-    document.addEventListener("keydown", e => {
-      if (e.key !== "Escape") return;
-      const dropdown = document.getElementById("accountDropdown");
-      if (!dropdown || dropdown.style.display === "none") return;
-      const btn = document.getElementById("accountBtn");
-      dropdown.style.display = "none";
-      if (btn) { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
-    });
+        if (btn) { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+      });
+    }
   }
 
   function syncThemeIcon() {
