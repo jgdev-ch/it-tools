@@ -789,6 +789,36 @@ function applySetupState(open) {
 document.getElementById("baseUri").textContent = ITTools.auth.redirectUri();
 initTheme();
 applySetupState(localStorage.getItem('it-tools-setup-open') === 'true');
+
+// ── Account dropdown toggle and dismiss ───────────────────────────────────────
+function toggleAccountDropdown() {
+  const dropdown = document.getElementById("accountDropdown");
+  const btn      = document.getElementById("accountBtn");
+  const isOpen   = dropdown.style.display !== "none";
+  dropdown.style.display = isOpen ? "none" : "block";
+  btn.classList.toggle("open", !isOpen);
+  btn.setAttribute("aria-expanded", String(!isOpen));
+}
+
+document.addEventListener("click", e => {
+  const dropdown = document.getElementById("accountDropdown");
+  const btn      = document.getElementById("accountBtn");
+  if (!dropdown || dropdown.style.display === "none") return;
+  if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+    dropdown.style.display = "none";
+    btn.classList.remove("open");
+    btn.setAttribute("aria-expanded", "false");
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  const dropdown = document.getElementById("accountDropdown");
+  const btn      = document.getElementById("accountBtn");
+  if (dropdown) dropdown.style.display = "none";
+  if (btn)      { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+});
+
 loadTools();
 </script>
 </body>
