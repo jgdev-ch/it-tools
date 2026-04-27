@@ -269,6 +269,7 @@ ITTools.ui = (() => {
   function _toggleAccountDropdown() {
     const dropdown = document.getElementById("accountDropdown");
     const btn      = document.getElementById("accountBtn");
+    if (!dropdown || !btn) return;
     const isOpen   = dropdown.style.display !== "none";
     dropdown.style.display = isOpen ? "none" : "block";
     btn.classList.toggle("open", !isOpen);
@@ -290,7 +291,7 @@ ITTools.ui = (() => {
         .filter(([, id]) => unlockedIds.has(id))
         .map(([key]) => key);
       _renderPills(unlockedKeys);
-    } catch (_) {}
+    } catch (err) { console.warn("[ITTools.ui] _loadGatePills failed:", err); }
   }
 
   function _renderPills(keys) {
