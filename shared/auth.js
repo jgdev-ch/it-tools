@@ -409,6 +409,8 @@ ITTools.ui = (() => {
 
   function setUser(account) {
     if (!account) return;
+    const btn = document.getElementById("accountBtn");
+    if (!btn) return;
     const name     = account.name || account.username || "User";
     const email    = account.username || "";
     const initials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
@@ -416,7 +418,7 @@ ITTools.ui = (() => {
     document.getElementById("accountPanelAvatar").textContent = initials;
     document.getElementById("accountPanelName").textContent   = name;
     document.getElementById("accountPanelEmail").textContent  = email;
-    document.getElementById("accountBtn").style.display       = "flex";
+    btn.style.display = "flex";
     _loadGatePills();
   }
 
