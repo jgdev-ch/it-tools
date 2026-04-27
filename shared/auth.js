@@ -339,15 +339,56 @@ ITTools.ui = (() => {
         <button class="btn-icon" id="themeBtn" title="Toggle theme" onclick="ITTools.theme.toggle(); ITTools.ui.syncThemeIcon()">
           <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"></svg>
         </button>
-        <div class="user-chip" id="userChip" style="display:none">
-          <div class="user-avatar" id="userInitials"></div>
-          <span id="userName"></span>
+        <div style="position:relative" id="accountWrap">
+          <button type="button" class="account-btn" id="accountBtn"
+            style="display:none" aria-label="Account menu"
+            aria-expanded="false" aria-controls="accountDropdown">
+            <span id="accountInitials"></span>
+          </button>
+          <div class="account-dropdown" id="accountDropdown" style="display:none">
+            <div class="account-panel-head">
+              <div class="account-panel-avatar" id="accountPanelAvatar"></div>
+              <div>
+                <div class="account-panel-name" id="accountPanelName"></div>
+                <div class="account-panel-email" id="accountPanelEmail"></div>
+              </div>
+            </div>
+            <div class="account-panel-access" id="accountPanelAccess" style="display:none">
+              <div class="account-panel-access-label">Access</div>
+              <div class="account-panel-pills" id="accountPanelPills"></div>
+            </div>
+            <div class="account-panel-divider"></div>
+            <button type="button" class="account-panel-signout" id="accountSignOutBtn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign out
+            </button>
+          </div>
         </div>
-        <button class="btn-sm-ghost" id="signOutBtn" onclick="ITTools.auth.signOut()" style="display:none">Sign out</button>
       </div>
     `;
 
     syncThemeIcon();
+
+    document.getElementById("accountBtn").addEventListener("click", _toggleAccountDropdown);
+    document.getElementById("accountSignOutBtn").addEventListener("click", () => ITTools.auth.signOut());
+    document.addEventListener("click", e => {
+      const dropdown = document.getElementById("accountDropdown");
+      const btn      = document.getElementById("accountBtn");
+      if (!dropdown || dropdown.style.display === "none") return;
+      if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+        dropdown.style.display = "none";
+        btn.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+      }
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Escape") return;
+      const dropdown = document.getElementById("accountDropdown");
+      if (!dropdown || dropdown.style.display === "none") return;
+      const btn = document.getElementById("accountBtn");
+      dropdown.style.display = "none";
+      if (btn) { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+    });
   }
 
   function syncThemeIcon() {
