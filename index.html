@@ -33,18 +33,18 @@
 /* ── Account avatar button ── */
 .account-btn {
   width: 30px; height: 30px; border-radius: 50%;
-  background: var(--accent); border: none;
+  background: var(--blue); border: none;
   font-size: 11px; font-weight: 800; color: #fff;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: opacity .15s; flex-shrink: 0;
 }
 .account-btn:hover { opacity: .85; }
-.account-btn.open { box-shadow: 0 0 0 2px var(--accent); }
+.account-btn.open { box-shadow: 0 0 0 2px var(--surface2), 0 0 0 4px var(--blue); }
 
 /* ── Account dropdown panel ── */
 .account-dropdown {
   position: absolute; right: 0; top: calc(100% + 8px);
-  background: var(--card); border: 1px solid var(--border);
+  background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.35);
   min-width: 220px; max-width: 320px; z-index: 200; overflow: hidden;
 }
@@ -54,13 +54,13 @@
 }
 .account-panel-avatar {
   width: 36px; height: 36px; border-radius: 50%;
-  background: var(--accent); flex-shrink: 0;
+  background: var(--blue); flex-shrink: 0;
   font-size: 13px; font-weight: 800; color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
 .account-panel-name  { font-size: 13px; font-weight: 700; color: var(--text); }
 .account-panel-email { font-size: 11px; color: var(--muted2); margin-top: 1px; }
-.account-panel-access { padding: 10px 14px 8px; border-bottom: 1px solid var(--border); }
+.account-panel-access { padding: 10px 14px 8px; }
 .account-panel-access-label {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .06em; color: var(--muted2); margin-bottom: 7px;
