@@ -407,22 +407,32 @@ function syncThemeIcon(t) {
     : `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
 }
 
+let _accountData = null; // { initials, name, email } — set on sign-in, cleared on sign-out
+
 // ── Topbar state ──────────────────────────────────────────────────────────────
 function showSignedIn(account) {
   const name     = account?.name || account?.username || "";
+  const email    = account?.username || "";
   const initials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "ME";
-  document.getElementById("userInitials").textContent = initials;
-  document.getElementById("userName").textContent     = name;
-  document.getElementById("userChip").classList.add("show");
-  document.getElementById("signOutBtn").classList.add("show");
-  document.getElementById("signInBtn").style.display  = "none";
+  _accountData   = { initials, name, email };
+  document.getElementById("accountInitials").textContent    = initials;
+  document.getElementById("accountPanelAvatar").textContent = initials;
+  document.getElementById("accountPanelName").textContent   = name;
+  document.getElementById("accountPanelEmail").textContent  = email;
+  document.getElementById("accountBtn").style.display       = "flex";
+  document.getElementById("signInBtn").style.display        = "none";
 }
 function showSignedOut() {
-  document.getElementById("userChip").classList.remove("show");
-  document.getElementById("signOutBtn").classList.remove("show");
-  document.getElementById("signInBtn").style.display  = "";
-  document.getElementById("hubBadges").style.display = "none";
-  document.getElementById("hubBadges").innerHTML = "";
+  _accountData = null;
+  const btn      = document.getElementById("accountBtn");
+  const dropdown = document.getElementById("accountDropdown");
+  btn.style.display        = "none";
+  btn.classList.remove("open");
+  btn.setAttribute("aria-expanded", "false");
+  dropdown.style.display   = "none";
+  document.getElementById("accountPanelPills").innerHTML       = "";
+  document.getElementById("accountPanelAccess").style.display  = "none";
+  document.getElementById("signInBtn").style.display           = "";
 }
 
 // ── Card HTML builders ────────────────────────────────────────────────────────
@@ -522,34 +532,34 @@ async function checkMembership(token, groupId) {
   } catch(_) { return false; }
 }
 
-// ── Render hub access badge pills ────────────────────────────────────────────
-function renderHubBadges(unlockedGates) {
-  const BADGE_DEFS = {
+// ── Render account dropdown access pills ──────────────────────────────────────
+function renderAccountDropdown(unlockedGates) {
+  const PILL_DEFS = {
     finance: {
       label: "Finance View",
-      cls:   "hub-access-badge--amber",
-      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+      cls:   "account-pill--amber",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
     },
     reporting: {
       label: "Reporting View",
-      cls:   "hub-access-badge--blue",
-      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
+      cls:   "account-pill--blue",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
     },
     gsd: {
       label: "GSD Access",
-      cls:   "hub-access-badge--blue",
-      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+      cls:   "account-pill--blue",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
     },
   };
-  const container = document.getElementById("hubBadges");
-  if (!container) return;
-  const html = unlockedGates
-    .filter(k => BADGE_DEFS[k])
-    .map(k => `<span class="hub-access-badge ${BADGE_DEFS[k].cls}">${BADGE_DEFS[k].icon} ${BADGE_DEFS[k].label}</span>`)
+  const pills    = unlockedGates.filter(k => PILL_DEFS[k]);
+  const pillsEl  = document.getElementById("accountPanelPills");
+  const accessEl = document.getElementById("accountPanelAccess");
+  if (!pillsEl || !accessEl) return;
+  if (!pills.length) { accessEl.style.display = "none"; return; }
+  pillsEl.innerHTML = pills
+    .map(k => `<span class="account-pill ${PILL_DEFS[k].cls}">${PILL_DEFS[k].icon} ${PILL_DEFS[k].label}</span>`)
     .join("");
-  if (!html) { container.style.display = "none"; return; }
-  container.innerHTML = html;
-  container.style.display = "flex";
+  accessEl.style.display = "block";
 }
 
 // ── Run all gate checks after sign-in ─────────────────────────────────────────
@@ -563,7 +573,7 @@ async function runGateChecks(token) {
       unlocked.push(gateKey);
     }
   }
-  renderHubBadges(unlocked);
+  renderAccountDropdown(unlocked);
 }
 
 // ── Restore locks from localStorage (instant, no network) ────────────────────
@@ -575,7 +585,7 @@ function restoreFromLocalStorage() {
       unlocked.push(gateKey);
     }
   }
-  if (unlocked.length) renderHubBadges(unlocked);
+  renderAccountDropdown(unlocked);
 }
 
 // ── Clear all gate flags on sign-out ─────────────────────────────────────────
