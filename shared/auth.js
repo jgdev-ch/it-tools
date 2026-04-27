@@ -236,6 +236,76 @@ ITTools.theme = (() => {
 // ─────────────────────────────────────────────────────────────
 ITTools.ui = (() => {
 
+  const GROUP_GATE_IDS = {
+    finance:           "ff9c3232-251f-4570-9564-340039d17aa9",
+    reporting:         "cea8f0fe-a3d5-4f8a-9f77-e9ce6fdf7b8d",
+    gsd:               "3e1a4757-8189-4908-a611-b6029399e69e",
+    "license-modify":  "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8",
+  };
+
+  const PILL_DEFS = {
+    finance: {
+      label: "Finance View",
+      cls:   "account-pill--amber",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>`,
+    },
+    reporting: {
+      label: "Reporting View",
+      cls:   "account-pill--blue",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    },
+    gsd: {
+      label: "GSD Access",
+      cls:   "account-pill--blue",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+    },
+    "license-modify": {
+      label: "License Admin",
+      cls:   "account-pill--amber",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+    },
+  };
+
+  function _toggleAccountDropdown() {
+    const dropdown = document.getElementById("accountDropdown");
+    const btn      = document.getElementById("accountBtn");
+    const isOpen   = dropdown.style.display !== "none";
+    dropdown.style.display = isOpen ? "none" : "block";
+    btn.classList.toggle("open", !isOpen);
+    btn.setAttribute("aria-expanded", String(!isOpen));
+  }
+
+  async function _loadGatePills() {
+    try {
+      const token = await ITTools.auth.getToken();
+      const res = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+        method:  "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body:    JSON.stringify({ ids: Object.values(GROUP_GATE_IDS) }),
+      });
+      if (!res.ok) return;
+      const data        = await res.json();
+      const unlockedIds = new Set(data.value || []);
+      const unlockedKeys = Object.entries(GROUP_GATE_IDS)
+        .filter(([, id]) => unlockedIds.has(id))
+        .map(([key]) => key);
+      _renderPills(unlockedKeys);
+    } catch (_) {}
+  }
+
+  function _renderPills(keys) {
+    const pillsEl  = document.getElementById("accountPanelPills");
+    const accessEl = document.getElementById("accountPanelAccess");
+    if (!pillsEl || !accessEl) return;
+    const pills = keys.filter(k => PILL_DEFS[k])
+                      .sort((a, b) => PILL_DEFS[a].cls.localeCompare(PILL_DEFS[b].cls));
+    if (!pills.length) { accessEl.style.display = "none"; return; }
+    pillsEl.innerHTML = pills
+      .map(k => `<span class="account-pill ${PILL_DEFS[k].cls}">${PILL_DEFS[k].icon} ${PILL_DEFS[k].label}</span>`)
+      .join("");
+    accessEl.style.display = "block";
+  }
+
   /** Render the standard topbar into #topbar.
    *  Expects: <div id="topbar"></div> in the page.
    *  toolName: short display name e.g. "License Audit"
