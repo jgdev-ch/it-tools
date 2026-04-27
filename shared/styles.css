@@ -12,6 +12,7 @@
    RESET
 ───────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button, input, select, textarea { font-family: inherit; }
 
 /* ─────────────────────────────────────────────────────────────
    DESIGN TOKENS — light mode
@@ -37,6 +38,7 @@
   --blue-light:  #e8f0fe;
   --blue-dark:   #1239a3;
   --blue-mid:    #4285f4;
+  --blue-border: #93c5fd;
 
   /* Semantic */
   --green:       #047857;
@@ -86,6 +88,7 @@
   --blue-light:  #1e2d4a;
   --blue-dark:   #7ab3e8;
   --blue-mid:    #5a9fd4;
+  --blue-border: #2d4a7a;
 
   --green:       #34d399;
   --green-light: #052e1c;
@@ -156,18 +159,6 @@ a:hover { text-decoration: underline; }
 
 .topbar-right  { display: flex; align-items: center; gap: 10px; }
 
-.user-chip {
-  display: flex; align-items: center; gap: 7px;
-  background: var(--surface3); border-radius: 20px;
-  padding: 3px 12px 3px 4px; font-size: 13px; font-weight: 500;
-}
-.user-avatar {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--blue-light); color: var(--blue-dark);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700;
-}
-
 .btn-icon {
   width: 32px; height: 32px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: transparent;
@@ -175,6 +166,73 @@ a:hover { text-decoration: underline; }
   color: var(--muted); transition: all .12s;
 }
 .btn-icon:hover { background: var(--surface3); color: var(--text); }
+
+/* ── Account avatar button (topbar) ── */
+.account-btn {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--blue); border: none;
+  font-size: 11px; font-weight: 800; color: #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: opacity .15s; flex-shrink: 0;
+}
+.account-btn:hover { opacity: .85; }
+.account-btn.open { box-shadow: 0 0 0 2px var(--surface2), 0 0 0 4px var(--blue); }
+
+/* ── Dropdown panel ── */
+.account-dropdown {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.35);
+  min-width: 220px; max-width: 320px; z-index: 200; overflow: hidden;
+}
+
+/* Panel head — avatar + name + email */
+.account-panel-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 14px 12px; border-bottom: 1px solid var(--border);
+}
+.account-panel-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--blue); flex-shrink: 0;
+  font-size: 13px; font-weight: 800; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.account-panel-name  { font-size: 13px; font-weight: 700; color: var(--text); }
+.account-panel-email { font-size: 11px; color: var(--muted2); margin-top: 1px; }
+
+/* Access section */
+.account-panel-access { padding: 10px 14px 8px; }
+.account-panel-access-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted2); margin-bottom: 7px;
+}
+.account-panel-pills { display: flex; flex-direction: column; gap: 5px; }
+
+/* Access pills */
+.account-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  width: fit-content;
+}
+.account-pill--amber {
+  background: var(--amber-light); border: 1px solid var(--amber-border); color: var(--amber);
+}
+.account-pill--blue {
+  background: var(--blue-light); border: 1px solid var(--blue-border); color: var(--blue-dark);
+}
+
+/* Divider */
+.account-panel-divider { height: 1px; background: var(--border); }
+
+/* Sign out row */
+.account-panel-signout {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 14px;
+  background: transparent; border: none;
+  font-size: 12px; color: var(--muted2); cursor: pointer; text-align: left; font-family: inherit;
+}
+.account-panel-signout:hover { color: var(--red); background: var(--red-light); }
 
 .btn-sm-ghost {
   padding: 5px 12px; border-radius: var(--radius-sm);
@@ -417,5 +475,4 @@ tr:hover td { background: var(--surface2); }
 
 @media (max-width: 640px) {
   .hide-mobile { display: none !important; }
-  .user-chip span:not(.user-avatar) { display: none; }
 }
