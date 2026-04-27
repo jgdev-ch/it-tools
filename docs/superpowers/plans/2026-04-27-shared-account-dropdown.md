@@ -14,7 +14,7 @@
 
 | File | Change |
 |---|---|
-| `shared/styles.css` | Remove `.user-chip`, `.user-avatar`, mobile rule; add `--blue-border` token; add account dropdown CSS |
+| `shared/styles.css` | Add `button { font-family: inherit; }` to reset; remove `.user-chip`, `.user-avatar`, mobile rule; add `--blue-border` token; add account dropdown CSS |
 | `shared/auth.js` | Add `GROUP_GATE_IDS`, `PILL_DEFS`, `_toggleAccountDropdown`, `_loadGatePills`, `_renderPills`; update `renderTopbar()`, `setUser()`, `clearUser()`, `signOut()` |
 
 **Note:** `.btn-sm-ghost` in `shared/styles.css` must NOT be removed — `finance-dashboard` uses it for pagination buttons.
@@ -26,7 +26,23 @@
 **Files:**
 - Modify: `shared/styles.css`
 
-- [ ] **Step 1: Add `--blue-border` token to `:root`**
+- [ ] **Step 1: Add `button { font-family: inherit; }` to the CSS reset**
+
+Browsers don't inherit `font-family` from `body` on `<button>` elements by default — they use the system font. This one-line fix ensures Open Sans is used on all buttons (avatar circle, dropdown sign-out, pagination, etc.) globally without patching each class individually.
+
+Find the reset block at the top of `shared/styles.css`:
+
+```css
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+```
+
+Add the following line immediately after it:
+
+```css
+button, input, select, textarea { font-family: inherit; }
+```
+
+- [ ] **Step 2: Add `--blue-border` token to `:root`**
 
 In `shared/styles.css`, find the `--blue-mid` line inside `:root` and add the token on the next line:
 
@@ -35,7 +51,7 @@ In `shared/styles.css`, find the `--blue-mid` line inside `:root` and add the to
   --blue-border: #93c5fd;
 ```
 
-- [ ] **Step 2: Add `--blue-border` token to `[data-theme="dark"]`**
+- [ ] **Step 3: Add `--blue-border` token to `[data-theme="dark"]`**
 
 Find `--blue-mid` inside `[data-theme="dark"]` and add:
 
@@ -44,7 +60,7 @@ Find `--blue-mid` inside `[data-theme="dark"]` and add:
   --blue-border: #2d4a7a;
 ```
 
-- [ ] **Step 3: Remove `.user-chip` and `.user-avatar` blocks**
+- [ ] **Step 4: Remove `.user-chip` and `.user-avatar` blocks**
 
 Find and delete this entire block (lines ~159–169):
 
@@ -62,7 +78,7 @@ Find and delete this entire block (lines ~159–169):
 }
 ```
 
-- [ ] **Step 4: Remove the mobile `.user-chip` rule**
+- [ ] **Step 5: Remove the mobile `.user-chip` rule**
 
 Find and delete this line inside the `@media (max-width: 640px)` block (line ~420):
 
@@ -70,7 +86,7 @@ Find and delete this line inside the `@media (max-width: 640px)` block (line ~42
   .user-chip span:not(.user-avatar) { display: none; }
 ```
 
-- [ ] **Step 5: Add account dropdown CSS after the `.btn-icon` block**
+- [ ] **Step 6: Add account dropdown CSS after the `.btn-icon` block**
 
 Find the end of the `.btn-icon:hover` rule:
 
@@ -149,15 +165,15 @@ Insert the following block immediately after it:
 .account-panel-signout:hover { color: var(--red); background: var(--red-light); }
 ```
 
-- [ ] **Step 6: Verify CSS parses cleanly**
+- [ ] **Step 7: Verify CSS parses cleanly**
 
 Open any tool in a browser (e.g. `tools/license-audit/index.html` via the preview URL). Open DevTools → Console. Confirm no CSS parse errors. The topbar still renders (auth button visible, theme toggle works). No visual regressions on non-auth elements.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add shared/styles.css
-git commit -m "style: replace user-chip CSS with account dropdown styles"
+git commit -m "style: add font-family reset, replace user-chip CSS with account dropdown styles"
 ```
 
 ---
