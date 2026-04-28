@@ -80,6 +80,18 @@
       "iconBg": "#fef3c7",
       "financeOnly": true,
       "category": "reporting-audit"
+    },
+    {
+      "id": "adobe-license-monitor",
+      "name": "Adobe License Monitor",
+      "description": "Live seat utilization and Entra group sync across Acrobat DC Pro, Creative Cloud All Apps, and Captivate.",
+      "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#9a0000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='3' width='20' height='14' rx='2'/><line x1='8' y1='21' x2='16' y2='21'/><line x1='12' y1='17' x2='12' y2='21'/><path d='M9 8l2 2 4-4'/></svg>",
+      "status": "live",
+      "path": "tools/adobe-license-monitor/",
+      "permissions": ["User.Read", "GroupMember.Read.All"],
+      "accent": "#9a0000",
+      "iconBg": "#fee2e2",
+      "category": "reporting-audit"
     }
   ]
 }
