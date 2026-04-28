@@ -147,6 +147,8 @@
     padding: 3px 10px; font-size: 11px; font-weight: 700;
     text-transform: uppercase; letter-spacing: .04em;
   }
+  .export-opt { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text); margin-bottom:8px; cursor:pointer; user-select:none; }
+  .export-opt input[type=checkbox] { width:15px; height:15px; cursor:pointer; accent-color:var(--blue); flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -359,12 +361,16 @@
 
         <div class="card" style="margin-top:1rem">
           <div class="card-title">Export</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
-            Single <code>email</code> column. Blank rows for not-found and skipped names — Group Import skips these automatically.
+          <label class="export-opt">
+            <input type="checkbox" id="includeAll" checked/>
+            Include all rows — adds <code>Input Name</code> and <code>Status</code> columns
+          </label>
+          <p style="font-size:11px;color:var(--muted2);margin-bottom:14px">
+            Uncheck to export matched emails only (for pasting into Group Import).
           </p>
           <div class="btn-row" style="margin:0">
             <button class="btn btn-primary" onclick="downloadCSV()">⬇ Download CSV</button>
-            <button class="btn btn-secondary" onclick="copyToClipboard()">Copy to clipboard</button>
+            <button class="btn btn-secondary" onclick="copyToClipboard()">Copy emails to clipboard</button>
           </div>
           <div class="banner success" id="copyOk" style="display:none;margin-top:10px">Copied to clipboard.</div>
           <p id="s3Err" class="form-error" style="display:none"></p>
@@ -1173,11 +1179,27 @@ function renderTally() {
 }
 
 function buildOutputRows() {
-  return st.rawNames.map((name, i) => ({
-    email: (st.results[i].status === "matched" || st.results[i].status === "chosen")
-      ? st.results[i].email
-      : ""
-  }));
+  const includeAll = document.getElementById("includeAll")?.checked ?? true;
+  const STATUS_LABELS = {
+    matched:   "Matched",
+    chosen:    "Chosen",
+    ambiguous: "Ambiguous",
+    notfound:  "Not Found",
+    skipped:   "Skipped",
+    pending:   "Pending",
+  };
+  if (includeAll) {
+    return st.rawNames.map((name, i) => ({
+      "Input Name": name,
+      "Email": (st.results[i].status === "matched" || st.results[i].status === "chosen")
+        ? st.results[i].email
+        : "",
+      "Status": STATUS_LABELS[st.results[i].status] ?? st.results[i].status,
+    }));
+  }
+  return st.results
+    .filter(r => r.status === "matched" || r.status === "chosen")
+    .map(r => ({ email: r.email }));
 }
 
 function downloadCSV() {
@@ -1185,7 +1207,10 @@ function downloadCSV() {
 }
 
 function copyToClipboard() {
-  const text = buildOutputRows().map(r => r.email).join("\n");
+  const text = st.results
+    .filter(r => r.status === "matched" || r.status === "chosen")
+    .map(r => r.email)
+    .join("\n");
   navigator.clipboard.writeText(text).then(() => {
     const el = document.getElementById("copyOk");
     el.style.display = "block";
