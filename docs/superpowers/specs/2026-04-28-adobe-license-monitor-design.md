@@ -46,21 +46,24 @@ const ADOBE_CLIENT_SECRET = "";   // from Adobe Developer Console project
 
 const PRODUCTS = [
   {
-    name:    "Acrobat DC Pro",
-    groupId: "",   // Entra Object ID for P-EID-SG-STD-SSO-Adobe_AcrobatDC_Pro
+    name:       "Acrobat DC Pro",          // display name shown in UI
+    adobeMatch: "Acrobat Pro DC",          // substring matched against UMAPI productName
+    groupId:    "422c070e-b330-4df5-ac34-70b91d9ed0bc",
   },
   {
-    name:    "Creative Cloud All Apps",
-    groupId: "",   // Entra Object ID for P-EID-SG-STD-SSO-Adobe_CreativeCloud_AllApps
+    name:       "Creative Cloud All Apps",
+    adobeMatch: "All Apps",               // matches "All Apps - Edition 4"
+    groupId:    "06d901c3-e604-4991-aec6-b044c51de773",
   },
   {
-    name:    "Captivate",
-    groupId: "",   // Entra Object ID for P-EID-SG-STD-SSO-Adobe_Captivate
+    name:       "Captivate",
+    adobeMatch: "Captivate",             // matches "Adobe Captivate"
+    groupId:    "1f5c83ec-22d0-4dce-b811-284cdbaf3c64",
   },
 ];
 ```
 
-Adobe products are matched to `PRODUCTS` entries by case-insensitive substring match on `productName` from the UMAPI response — no Adobe product ID needs to be pre-configured.
+Adobe products are matched to `PRODUCTS` entries using `adobeMatch` — a case-insensitive substring matched against the UMAPI `productName`. Display names shown in the UI (`name`) intentionally differ from Adobe's naming (e.g. "All Apps - Edition 4" in Adobe vs "Creative Cloud All Apps" in the UI).
 
 #### Adobe authentication — `_getAdobeToken()`
 
@@ -125,7 +128,7 @@ async function loadDashboard() {
     ]);
     const results = PRODUCTS.map((p, i) => {
       const ap = adobeProducts.find(x =>
-        x.productName.toLowerCase().includes(p.name.toLowerCase())
+        x.productName.toLowerCase().includes(p.adobeMatch.toLowerCase())
       );
       return {
         name:      p.name,
@@ -222,7 +225,7 @@ The `scope` required is `openid,AdobeID,user_management_sdk`.
 
 | Case | Behaviour |
 |---|---|
-| Adobe product name doesn't match | Card shows `—` for Adobe columns; Entra still renders. Name matching is case-insensitive substring match. |
+| Adobe product name doesn't match | Card shows `—` for Adobe columns; Entra still renders. `adobeMatch` is a case-insensitive substring checked against the UMAPI `productName` field. |
 | Purchased seats = 0 | Bar renders empty (0%), no divide-by-zero crash |
 | Entra group returns 0 members | Shows 0, marked as in sync if Adobe assigned is also 0 |
 | Token expires mid-session | Refresh button re-fetches both tokens |
