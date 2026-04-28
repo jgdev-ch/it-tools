@@ -245,17 +245,19 @@ async function loadDashboard() {
   setLoading(true);
   document.getElementById("pageErr").style.display = "none";
   try {
-    const [adobeToken, graphToken] = await Promise.all([
-      _getAdobeToken(),
+    const [adobeTokenResult, graphToken] = await Promise.all([
+      _getAdobeToken().catch(() => null),
       ITTools.auth.getToken(),
     ]);
 
     let adobeProducts = [];
-    let adobeFailed   = false;
-    try {
-      adobeProducts = await _getAdobeProducts(adobeToken);
-    } catch (_) {
-      adobeFailed = true;
+    let adobeFailed   = adobeTokenResult === null;
+    if (!adobeFailed) {
+      try {
+        adobeProducts = await _getAdobeProducts(adobeTokenResult);
+      } catch (_) {
+        adobeFailed = true;
+      }
     }
 
     const groupCounts = await Promise.all(
@@ -390,7 +392,7 @@ function renderCards(results) {
 
 function setLoading(loading) {
   const stack = document.getElementById("productStack");
-  if (!loading) return;
+  if (!loading) { stack.innerHTML = ""; return; }
   stack.innerHTML = PRODUCTS.map(() => `
     <div class="product-card">
       <div class="card-identity" style="gap:10px">
