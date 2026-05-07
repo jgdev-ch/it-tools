@@ -92,24 +92,6 @@
       "accent": "#9a0000",
       "iconBg": "#fee2e2",
       "category": "reporting-audit"
-    },
-    {
-      "id": "network-speed-monitor",
-      "name": "Network Speed Monitor",
-      "description": "Investigate upload/download speeds on a specific Intune-enrolled device and export a trend report for leadership.",
-      "betaNote": "Early test build — requires Intune Proactive Remediation setup and a SharePoint results list before use. See setup instructions in the tool.",
-      "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#1a56db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 12h-4l-3 9L9 3l-3 9H2'/></svg>",
-      "status": "beta",
-      "path": "tools/network-speed-monitor/",
-      "permissions": [
-        "DeviceManagementManagedDevices.Read.All",
-        "DeviceManagementConfiguration.ReadWrite.All",
-        "Sites.ReadWrite.All"
-      ],
-      "accent": "#1a56db",
-      "iconBg": "#e8f0fe",
-      "category": "reporting-audit",
-      "reportingOnly": true
     }
   ]
 }
