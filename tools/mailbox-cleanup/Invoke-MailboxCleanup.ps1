@@ -190,6 +190,7 @@ try {
         Write-Detail ("Recoverable Items: {0} / {1} ({2}% full)" -f `
             (Format-Size $afterBytes), (Format-Size $limitBytes), $afterPct) `
             $(if ($afterPct -ge 70) { 'Yellow' } else { 'Green' })
+        Write-Detail "Note: quota may still show full — Exchange reclaims space within a few hours as the Managed Folder Assistant runs in the background." White
     }
 
     if ($policy) {
@@ -212,4 +213,5 @@ try {
     }
 }
 
-Write-Host "`nDone. $Mailbox is clear to send and receive.`n" -ForegroundColor Green
+Write-Host "`nDone. Purge complete for $Mailbox." -ForegroundColor Green
+Write-Host "      The user can send and receive once Exchange reclaims the purged space (typically within 1-3 hours).`n" -ForegroundColor Gray
