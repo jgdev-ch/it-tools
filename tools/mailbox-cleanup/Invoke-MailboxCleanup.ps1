@@ -51,3 +51,20 @@ function Get-RecoverableStats {
 # --- Main ---
 Write-Host "`nMailbox Cleanup" -ForegroundColor White
 Write-Host "Target: $Mailbox`n" -ForegroundColor Gray
+
+# --- Phase 1: Connect ---
+Write-Step 1 "Connecting to Exchange Online and Security & Compliance..."
+try {
+    Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
+    Write-Detail "Exchange Online: connected" Green
+} catch {
+    Write-Host "ERROR: Could not connect to Exchange Online. $_" -ForegroundColor Red
+    exit 1
+}
+try {
+    Connect-IPPSSession -ErrorAction Stop
+    Write-Detail "Security & Compliance: connected" Green
+} catch {
+    Write-Host "ERROR: Could not connect to Security & Compliance (IPPSSession). $_" -ForegroundColor Red
+    exit 1
+}
