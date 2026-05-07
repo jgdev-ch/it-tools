@@ -87,3 +87,41 @@ $pct         = if ($limitBytes -gt 0) { [int](($usedBytes / $limitBytes) * 100) 
 Write-Detail ("Recoverable Items: {0} / {1} ({2}% full)" -f `
     (Format-Size $usedBytes), (Format-Size $limitBytes), $pct) `
     $(if ($pct -ge 90) { 'Red' } elseif ($pct -ge 70) { 'Yellow' } else { 'Green' })
+
+# --- Phase 3: Purview policy exclusion ---
+Write-Step 3 "Adding Purview policy exclusion..."
+$policy = $null
+try {
+    $policy = Get-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME -ErrorAction Stop
+} catch {
+    Write-Host "ERROR: Retention policy '$RETENTION_POLICY_NAME' not found. Update `$RETENTION_POLICY_NAME in the script constants." -ForegroundColor Red
+    exit 1
+}
+
+try {
+    Set-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME `
+        -AddExchangeLocationException $Mailbox -ErrorAction Stop
+    Write-Detail "Policy exception added for $Mailbox" Green
+
+    $elapsed = 0
+    while ($elapsed -lt $PROPAGATION_WAIT_SECONDS) {
+        $remaining = $PROPAGATION_WAIT_SECONDS - $elapsed
+        Write-Host "`r      Waiting for propagation: ${remaining}s..." -NoNewline -ForegroundColor Yellow
+        $sleep = [Math]::Min($POLL_INTERVAL_SECONDS, $remaining)
+        Start-Sleep -Seconds $sleep
+        $elapsed += $sleep
+    }
+    Write-Host "`r      Propagation wait complete.                    " -ForegroundColor Green
+
+} finally {
+    # Minimal finally — exception removal only. Expanded in Task 7.
+    if ($policy) {
+        try {
+            Set-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME `
+                -RemoveExchangeLocationException $Mailbox -ErrorAction Stop
+            Write-Detail "Purview policy exception removed." Green
+        } catch {
+            Write-Detail "WARNING: Could not remove Purview exception. Remove '$Mailbox' from '$RETENTION_POLICY_NAME' exceptions in Purview manually." Yellow
+        }
+    }
+}
