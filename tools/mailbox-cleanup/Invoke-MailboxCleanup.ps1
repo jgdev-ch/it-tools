@@ -164,7 +164,18 @@ try {
     Write-Detail "Purge complete." Green
 
 } finally {
-    # Minimal finally — exception removal only. Expanded in Task 7.
+    # --- Phase 5: Verify and restore (always runs) ---
+    Write-Step 5 "Verifying and restoring..."
+
+    if ($mbx) {
+        $statsAfter = Get-RecoverableStats -MailboxAddress $Mailbox
+        $afterBytes = $statsAfter.FolderAndSubfolderSize.ToBytes()
+        $afterPct   = if ($limitBytes -gt 0) { [int](($afterBytes / $limitBytes) * 100) } else { 0 }
+        Write-Detail ("Recoverable Items: {0} / {1} ({2}% full)" -f `
+            (Format-Size $afterBytes), (Format-Size $limitBytes), $afterPct) `
+            $(if ($afterPct -ge 70) { 'Yellow' } else { 'Green' })
+    }
+
     if ($policy) {
         try {
             Set-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME `
@@ -174,4 +185,15 @@ try {
             Write-Detail "WARNING: Could not remove Purview exception. Remove '$Mailbox' from '$RETENTION_POLICY_NAME' exceptions in Purview manually." Yellow
         }
     }
+
+    if ($searchName) {
+        try {
+            Remove-ComplianceSearch -Identity $searchName -Confirm:$false -ErrorAction Stop
+            Write-Detail "Compliance search deleted." Green
+        } catch {
+            Write-Detail "WARNING: Could not delete compliance search '$searchName'. Delete it manually from the Security & Compliance portal." Yellow
+        }
+    }
 }
+
+Write-Host "`nDone. $Mailbox is clear to send and receive.`n" -ForegroundColor Green
