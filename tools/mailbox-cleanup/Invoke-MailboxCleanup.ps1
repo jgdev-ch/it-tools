@@ -9,7 +9,7 @@ $installed = Get-Module -ListAvailable -Name ExchangeOnlineManagement |
     Sort-Object Version -Descending | Select-Object -First 1
 if ($null -eq $installed -or $installed.Version -lt $minVersion) {
     Write-Host "Installing/updating ExchangeOnlineManagement to v3.9.0+..." -ForegroundColor Yellow
-    Install-Module ExchangeOnlineManagement -Force -Scope CurrentUser
+    Install-Module ExchangeOnlineManagement -Force -AllowClobber -Scope CurrentUser
 }
 try {
     Import-Module ExchangeOnlineManagement -ErrorAction Stop
