@@ -42,6 +42,19 @@ function Format-Size {
     return "{0:N0} B" -f $Bytes
 }
 
+function ConvertTo-Bytes {
+    param($Value)
+    if ($null -eq $Value) { return [long]0 }
+    # ByteQuantifiedSize object (legacy RPS mode)
+    if ($Value.GetType().Name -eq 'ByteQuantifiedSize') { return $Value.ToBytes() }
+    # REST module returns strings like "28.4 GB (30,480,000,000 bytes)"
+    if ($Value -is [string] -and $Value -match '\((\d[\d,]*)\s+bytes?\)') {
+        return [long]($Matches[1] -replace ',', '')
+    }
+    # Numeric fallback (already bytes)
+    try { return [long]$Value } catch { return [long]0 }
+}
+
 function Get-RecoverableStats {
     param([string]$MailboxAddress)
     Get-MailboxFolderStatistics -Identity $MailboxAddress -FolderScope RecoverableItems |
@@ -80,8 +93,8 @@ try {
 }
 
 $statsBefore = Get-RecoverableStats -MailboxAddress $Mailbox
-$usedBytes   = $statsBefore.FolderAndSubfolderSize.ToBytes()
-$limitBytes  = $mbx.RecoverableItemsQuota.ToBytes()
+$usedBytes   = ConvertTo-Bytes $statsBefore.FolderAndSubfolderSize
+$limitBytes  = ConvertTo-Bytes $mbx.RecoverableItemsQuota
 $pct         = if ($limitBytes -gt 0) { [int](($usedBytes / $limitBytes) * 100) } else { 0 }
 
 Write-Detail ("Recoverable Items: {0} / {1} ({2}% full)" -f `
@@ -169,7 +182,7 @@ try {
 
     if ($mbx) {
         $statsAfter = Get-RecoverableStats -MailboxAddress $Mailbox
-        $afterBytes = $statsAfter.FolderAndSubfolderSize.ToBytes()
+        $afterBytes = ConvertTo-Bytes $statsAfter.FolderAndSubfolderSize
         $afterPct   = if ($limitBytes -gt 0) { [int](($afterBytes / $limitBytes) * 100) } else { 0 }
         Write-Detail ("Recoverable Items: {0} / {1} ({2}% full)" -f `
             (Format-Size $afterBytes), (Format-Size $limitBytes), $afterPct) `
