@@ -3,9 +3,12 @@ param(
     [string]$Mailbox
 )
 
-# --- Module auto-install (runs silently on machines that already have it) ---
-if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
-    Write-Host "ExchangeOnlineManagement module not found. Installing..." -ForegroundColor Yellow
+# --- Module install/update (requires v3.9.0+ for EnableSearchOnlySession) ---
+$minVersion = [Version]"3.9.0"
+$installed = Get-Module -ListAvailable -Name ExchangeOnlineManagement |
+    Sort-Object Version -Descending | Select-Object -First 1
+if ($null -eq $installed -or $installed.Version -lt $minVersion) {
+    Write-Host "Installing/updating ExchangeOnlineManagement to v3.9.0+..." -ForegroundColor Yellow
     Install-Module ExchangeOnlineManagement -Force -Scope CurrentUser
 }
 try {
@@ -75,7 +78,7 @@ try {
     exit 1
 }
 try {
-    Connect-IPPSSession -EnableSearchOnlySession -ShowBanner:$false -ErrorAction Stop
+    Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop
     Write-Detail "Security & Compliance: connected" Green
 } catch {
     Write-Host "ERROR: Could not connect to Security & Compliance (IPPSSession). $_" -ForegroundColor Red
