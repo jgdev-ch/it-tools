@@ -68,3 +68,22 @@ try {
     Write-Host "ERROR: Could not connect to Security & Compliance (IPPSSession). $_" -ForegroundColor Red
     exit 1
 }
+
+# --- Phase 2: Pre-flight ---
+Write-Step 2 "Pre-flight: $Mailbox"
+$mbx = $null
+try {
+    $mbx = Get-Mailbox -Identity $Mailbox -ErrorAction Stop
+} catch {
+    Write-Host "ERROR: Mailbox '$Mailbox' not found. Check the UPN and try again." -ForegroundColor Red
+    exit 1
+}
+
+$statsBefore = Get-RecoverableStats -MailboxAddress $Mailbox
+$usedBytes   = $statsBefore.FolderAndSubfolderSize.ToBytes()
+$limitBytes  = $mbx.RecoverableItemsQuota.ToBytes()
+$pct         = if ($limitBytes -gt 0) { [int](($usedBytes / $limitBytes) * 100) } else { 0 }
+
+Write-Detail ("Recoverable Items: {0} / {1} ({2}% full)" -f `
+    (Format-Size $usedBytes), (Format-Size $limitBytes), $pct) `
+    $(if ($pct -ge 90) { 'Red' } elseif ($pct -ge 70) { 'Yellow' } else { 'Green' })
