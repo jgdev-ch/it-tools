@@ -132,10 +132,12 @@ Generated client-side using jsPDF. Single-page portrait layout:
 ## PowerShell Remediation Script (device-side)
 
 The script runs on the target device when triggered via Intune. Responsibilities:
-- Run `speedtest.exe --format=json` (Speedtest CLI must be pre-installed or bundled)
+- Download `speedtest.exe` (Ookla Speedtest CLI) from an internally-hosted location (Azure Blob Storage or SharePoint document library) to `$env:TEMP` at runtime — no pre-installation required on devices
+- Run `speedtest.exe --format=json --accept-license --accept-gdpr`
 - Parse JSON output: download, upload, latency, jitter, ISP, external IP
 - Authenticate to Graph API using a dedicated app registration (client ID + secret stored as Intune script parameters or Intune-managed secret)
 - POST result to SharePoint `NetworkSpeedTests` list via Graph API
+- Delete the temp `speedtest.exe` after use
 - Exit 0 on success, exit 1 on failure (Intune reports compliance state)
 
 ---
@@ -147,7 +149,7 @@ The script runs on the target device when triggered via Intune. Responsibilities
 | Device not found in Intune | Error message below search bar; no panel shown |
 | Device found, no prior tests | Panel shows device header + "No prior tests yet" message + Run Fresh Test button; stat tiles and chart hidden |
 | Fresh test triggered, device not yet checked in | Pending banner shown; existing history still visible |
-| Speedtest CLI not installed on device | Script exits 1; Intune marks remediation as failed; tool shows no new result after polling window |
+| Speedtest CLI download fails (no internet or hosting URL unreachable) | Script exits 1; Intune marks remediation as failed; tool shows no new result after polling window |
 | SharePoint list empty for device | Same as no prior tests |
 
 ---
