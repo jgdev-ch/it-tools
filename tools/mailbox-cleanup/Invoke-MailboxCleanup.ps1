@@ -142,6 +142,27 @@ try {
     Write-Detail ("Search complete — {0:N0} items found ({1})" -f `
         $search.Items, (Format-Size ($search.Size))) Green
 
+    # --- Phase 4b: Purge ---
+    Write-Detail "Running purge (HardDelete)..." Yellow
+
+    New-ComplianceSearchAction -SearchName $searchName `
+        -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
+
+    $actionName = "$searchName`_Purge"
+    $elapsed    = 0
+    do {
+        Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+        $elapsed += $POLL_INTERVAL_SECONDS
+        $action = Get-ComplianceSearchAction -Identity $actionName
+        Write-Detail "Purging... (${elapsed}s) — $($action.Status)"
+    } while ($action.Status -notin @('Completed', 'Failed'))
+
+    if ($action.Status -eq 'Failed') {
+        throw "Compliance purge action '$actionName' failed. Check the Security & Compliance portal for details."
+    }
+
+    Write-Detail "Purge complete." Green
+
 } finally {
     # Minimal finally — exception removal only. Expanded in Task 7.
     if ($policy) {
