@@ -132,14 +132,14 @@ try {
         Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
         $elapsed += $POLL_INTERVAL_SECONDS
         $search = Get-ComplianceSearch -Identity $searchName
-        Write-Detail "Searching... (${elapsed}s) — $($search.Status)"
+        Write-Detail "Searching... (${elapsed}s) - $($search.Status)"
     } while ($search.Status -notin @('Completed', 'Failed'))
 
     if ($search.Status -eq 'Failed') {
         throw "Compliance search '$searchName' failed. Check the Security & Compliance portal for details."
     }
 
-    Write-Detail ("Search complete — {0:N0} items found ({1})" -f `
+    Write-Detail ("Search complete - {0:N0} items found ({1})" -f `
         $search.Items, (Format-Size ($search.Size))) Green
 
     # --- Phase 4b: Purge ---
@@ -154,7 +154,7 @@ try {
         Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
         $elapsed += $POLL_INTERVAL_SECONDS
         $action = Get-ComplianceSearchAction -Identity $actionName
-        Write-Detail "Purging... (${elapsed}s) — $($action.Status)"
+        Write-Detail "Purging... (${elapsed}s) - $($action.Status)"
     } while ($action.Status -notin @('Completed', 'Failed'))
 
     if ($action.Status -eq 'Failed') {
