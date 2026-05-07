@@ -75,7 +75,7 @@ try {
     exit 1
 }
 try {
-    Connect-IPPSSession -ErrorAction Stop
+    Connect-IPPSSession -EnableSearchOnlySession -ShowBanner:$false -ErrorAction Stop
     Write-Detail "Security & Compliance: connected" Green
 } catch {
     Write-Host "ERROR: Could not connect to Security & Compliance (IPPSSession). $_" -ForegroundColor Red
