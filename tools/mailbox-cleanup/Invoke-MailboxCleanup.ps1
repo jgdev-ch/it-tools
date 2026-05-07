@@ -16,7 +16,7 @@ try {
 }
 
 # --- Constants (update $RETENTION_POLICY_NAME if policy is renamed) ---
-$RETENTION_POLICY_NAME    = "3 Year Retention Policy"
+$RETENTION_POLICY_NAME    = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS = 120
 $POLL_INTERVAL_SECONDS    = 30
 
