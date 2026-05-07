@@ -113,6 +113,35 @@ try {
     }
     Write-Host "`r      Propagation wait complete.                    " -ForegroundColor Green
 
+    # --- Phase 4: Compliance search ---
+    $alias      = ($Mailbox -split '@')[0]
+    $timestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $searchName = "RecovItems-$alias-$timestamp"
+
+    Write-Step 4 "Compliance search: $searchName"
+
+    New-ComplianceSearch -Name $searchName `
+        -ExchangeLocation $Mailbox `
+        -ContentMatchQuery 'folderpath:"recoverable items"' `
+        -ErrorAction Stop | Out-Null
+
+    Start-ComplianceSearch -Identity $searchName -ErrorAction Stop
+
+    $elapsed = 0
+    do {
+        Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+        $elapsed += $POLL_INTERVAL_SECONDS
+        $search = Get-ComplianceSearch -Identity $searchName
+        Write-Detail "Searching... (${elapsed}s) — $($search.Status)"
+    } while ($search.Status -notin @('Completed', 'Failed'))
+
+    if ($search.Status -eq 'Failed') {
+        throw "Compliance search '$searchName' failed. Check the Security & Compliance portal for details."
+    }
+
+    Write-Detail ("Search complete — {0:N0} items found ({1})" -f `
+        $search.Items, (Format-Size ($search.Size))) Green
+
 } finally {
     # Minimal finally — exception removal only. Expanded in Task 7.
     if ($policy) {
