@@ -162,7 +162,7 @@
                 <div style="font-size:22px">📋</div>
                 <p>Drag &amp; drop CSV or <strong onclick="document.getElementById('addFileIn').click()">browse</strong></p>
                 <p style="font-size:11px">or paste below</p>
-                <input type="file" id="addFileIn" accept=".csv" onchange="addHandleFile(event)"/>
+                <input type="file" id="addFileIn" accept=".csv" style="display:none" onchange="addHandleFile(event)"/>
               </div>
               <textarea id="addPasteIn" rows="3"
                 placeholder="Or paste names / emails here…"
