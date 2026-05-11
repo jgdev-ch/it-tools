@@ -144,20 +144,28 @@
 .ribbon-soon    { background: var(--surface3);     color: var(--muted2); }
 .ribbon-finance { background: var(--amber-light);  color: var(--amber); }
 
-/* ── Ribbon tooltip ── */
-.ribbon-tooltip {
-  position: absolute; top: calc(100% + 5px); right: 0;
-  width: 210px; border-radius: 8px;
-  padding: 9px 12px; font-size: 11px; font-weight: 400;
-  line-height: 1.5; text-transform: none; letter-spacing: 0; white-space: normal;
-  opacity: 0; transition: opacity .15s; pointer-events: none;
-  z-index: 20; box-shadow: 0 4px 12px rgba(0,0,0,.08);
+/* ── Status overlay (ribbon hover) — colored glass matching pill ── */
+.tool-card:has(.tool-status-overlay) .tool-ribbon { cursor: help; z-index: 2; }
+.tool-status-overlay {
+  position: absolute; inset: 0; border-radius: 12px;
+  backdrop-filter: blur(10px);
+  padding: 1rem; font-size: 12px; line-height: 1.6;
+  display: flex; align-items: center;
+  opacity: 0; transition: opacity .2s; pointer-events: none;
+  z-index: 1;
 }
-.tool-ribbon:hover .ribbon-tooltip { opacity: 1; }
-.ribbon-beta    .ribbon-tooltip { background: var(--blue-light);  border: 1px solid var(--blue-border);  color: var(--blue-dark); }
-.ribbon-live    .ribbon-tooltip { background: var(--green-light); border: 1px solid var(--green-border); color: var(--green); }
-.ribbon-soon    .ribbon-tooltip { background: var(--surface);     border: 1px solid var(--border);       color: var(--muted); }
-.ribbon-finance .ribbon-tooltip { background: var(--amber-light); border: 1px solid var(--amber-border); color: var(--amber); }
+.tool-card:has(.tool-status-overlay):has(.tool-ribbon:hover) .tool-desc { opacity: 0; }
+.tool-card:has(.tool-status-overlay):has(.tool-ribbon:hover) .tool-status-overlay { opacity: 1; }
+
+.tool-status-overlay--beta    { background: rgba(219,234,254,.90); border: 1px solid var(--blue-border,  #bfdbfe); color: var(--blue-dark); }
+.tool-status-overlay--live    { background: rgba(209,250,229,.90); border: 1px solid var(--green-border, #a7f3d0); color: var(--green); }
+.tool-status-overlay--finance { background: rgba(254,243,199,.90); border: 1px solid var(--amber-border, #fde68a); color: var(--amber); }
+.tool-status-overlay--soon    { background: rgba(248,250,252,.82); border: 1px solid var(--border-mid);            color: var(--muted); }
+
+[data-theme="dark"] .tool-status-overlay--beta    { background: rgba(23,37,84,.88);  color: #93c5fd; }
+[data-theme="dark"] .tool-status-overlay--live    { background: rgba(6,50,40,.88);   color: #6ee7b7; }
+[data-theme="dark"] .tool-status-overlay--finance { background: rgba(78,45,8,.88);   color: #fcd34d; }
+[data-theme="dark"] .tool-status-overlay--soon    { background: rgba(22,25,35,.84);  color: var(--muted); }
 
 /* ── Card body ── */
 .tool-icon {
@@ -444,12 +452,18 @@ function showSignedOut() {
 const RIBBON_LABELS = { "live":"Live", "beta":"Beta", "coming-soon":"Soon", "in-development":"Dev", "deprecated":"Depr." };
 const RIBBON_CLASS  = { "live":"ribbon-live", "beta":"ribbon-beta", "coming-soon":"ribbon-soon", "in-development":"ribbon-soon", "deprecated":"ribbon-soon" };
 
-function ribbonHtml(status, betaNote) {
-  const cls     = RIBBON_CLASS[status]  || "ribbon-soon";
-  const label   = RIBBON_LABELS[status] || status;
-  const tooltip = betaNote ? `<div class="ribbon-tooltip">${betaNote}</div>` : "";
-  const cursor  = betaNote ? " style=\"cursor:help\"" : "";
-  return `<div class="tool-ribbon ${cls}"${cursor}>${label}${tooltip}</div>`;
+const STATUS_OVERLAY_CLASS = {
+  "beta":           "tool-status-overlay--beta",
+  "live":           "tool-status-overlay--live",
+  "coming-soon":    "tool-status-overlay--soon",
+  "in-development": "tool-status-overlay--soon",
+  "deprecated":     "tool-status-overlay--soon",
+};
+
+function ribbonHtml(status) {
+  const cls   = RIBBON_CLASS[status]  || "ribbon-soon";
+  const label = RIBBON_LABELS[status] || status;
+  return `<div class="tool-ribbon ${cls}">${label}</div>`;
 }
 
 function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms, betaNote }) {
@@ -464,7 +478,7 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
       data-betanote="${betaNote || ""}"
       style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status, betaNote)}
+    ${ribbonHtml(status)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name-row">
       <div class="tool-name">${name}</div>
@@ -475,11 +489,16 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
 }
 
 function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, betaNote }) {
+  const oClass  = STATUS_OVERLAY_CLASS[status] || "tool-status-overlay--soon";
+  const overlay = betaNote
+    ? `<div class="tool-status-overlay ${oClass}">${betaNote}</div>`
+    : "";
   return `<a class="tool-card" href="${path}" style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status, betaNote)}
+    ${ribbonHtml(status)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
+    ${overlay}
   </a>`;
 }
 
