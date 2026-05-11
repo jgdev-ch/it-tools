@@ -161,7 +161,7 @@
               <div class="tab-col-label">Bulk — CSV or paste</div>
               <div class="tab-drop tab-drop--green" id="addDrop"
                    ondragover="addDragOver(event)" ondragleave="addDragLeave()" ondrop="addDropFile(event)">
-                <div style="font-size:22px">📋</div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
                 <p>Drag &amp; drop CSV or <strong onclick="document.getElementById('addFileIn').click()">browse</strong></p>
                 <p style="font-size:11px">or paste below</p>
                 <input type="file" id="addFileIn" accept=".csv" style="display:none" onchange="addHandleFile(event)"/>
@@ -190,7 +190,7 @@
               <div class="tab-col-label">Bulk — CSV or paste</div>
               <div class="tab-drop tab-drop--red" id="removeDrop"
                    ondragover="removeDragOver(event)" ondragleave="removeDragLeave()" ondrop="removeDropFile(event)">
-                <div style="font-size:22px">📋</div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
                 <p>Drag &amp; drop CSV or <strong onclick="document.getElementById('removeFileIn').click()">browse</strong></p>
                 <p style="font-size:11px">or paste below</p>
                 <input type="file" id="removeFileIn" accept=".csv" style="display:none" onchange="removeHandleFile(event)"/>
@@ -249,7 +249,7 @@
         </table>
       </div>
       <div class="empty-state" id="logEmpty" style="display:none">
-        <div class="empty-icon">🔍</div><div class="empty-title">No matching results</div>
+        <div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><div class="empty-title">No matching results</div>
       </div>
     </div>
 
@@ -261,6 +261,11 @@
 const GSD_GROUP_ID = "3e1a4757-8189-4908-a611-b6029399e69e";
 const TOOL_SCOPES  = ["User.Read.All","Group.ReadWrite.All","GroupMember.ReadWrite.All","Directory.Read.All"];
 let _hasGsdAccess  = false;
+
+// ── Lucide icon constants ────────────────────────────────
+const ICON_CHECK_SM = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg>';
+const ICON_X_SM     = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+const ICON_MINUS_SM = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 
 // ── State ────────────────────────────────────────────────
 const st = {
@@ -483,8 +488,8 @@ async function addResolveBulk(text) {
   }
 
   chips.innerHTML = results.map(({ident, user}) => user
-    ? `<span class="chip chip--green">✓ ${esc(user.displayName)}<button class="chip-dismiss" onclick="dismissAddChip('${esc(user.id)}')">✕</button></span>`
-    : `<span class="chip chip--red">✗ ${esc(ident)}</span>`
+    ? `<span class="chip chip--green">${ICON_CHECK_SM} ${esc(user.displayName)}<button class="chip-dismiss" onclick="dismissAddChip('${esc(user.id)}')">${ICON_X_SM}</button></span>`
+    : `<span class="chip chip--red">${ICON_X_SM} ${esc(ident)}</span>`
   ).join("");
   updateAddBtn();
   } catch(e) {
@@ -549,15 +554,15 @@ async function addSingleUser(userId, displayName, upn, btn) {
     await ITTools.graph.post(`/groups/${st.groupId}/members/$ref`,
       {"@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${userId}`});
     entry.action="Added"; entry.message="Success";
-    btn.textContent="✓"; btn.style.background="var(--green)";
+    btn.innerHTML=ICON_CHECK_SM; btn.style.background="var(--green)";
   } catch(e) {
     const msg = ITTools.graph.friendlyError(e);
     if (msg.toLowerCase().includes("already exist")) {
       entry.action="Skipped"; entry.message="Already a member";
-      btn.textContent="✓"; btn.style.background="var(--muted)"; btn.style.opacity="0.6";
+      btn.innerHTML=ICON_CHECK_SM; btn.style.background="var(--muted)"; btn.style.opacity="0.6";
     } else {
       entry.action="Error"; entry.message=msg;
-      btn.textContent="✕"; btn.style.background="var(--red)";
+      btn.innerHTML=ICON_X_SM; btn.style.background="var(--red)";
       btn.disabled=false;
       btn.onclick = () => document.getElementById("sr-"+userId)?.remove();
       st.lastLog=[...st.lastLog, entry]; st.lastLogType="add";
@@ -721,9 +726,9 @@ async function removeHandlePaste() {
     }
 
     chips.innerHTML = results.map(({ident, user, isMember}) => {
-      if (!user)     return `<span class="chip chip--red">✗ ${esc(ident)}</span>`;
-      if (!isMember) return `<span class="chip chip--amber">~ ${esc(user.displayName)} (not a member)</span>`;
-      return `<span class="chip chip--green">✓ ${esc(user.displayName)}</span>`;
+      if (!user)     return `<span class="chip chip--red">${ICON_X_SM} ${esc(ident)}</span>`;
+      if (!isMember) return `<span class="chip chip--amber">${ICON_MINUS_SM} ${esc(user.displayName)} (not a member)</span>`;
+      return `<span class="chip chip--green">${ICON_CHECK_SM} ${esc(user.displayName)}</span>`;
     }).join("");
 
     st._removeBulkResolved = results.filter(r=>r.user&&r.isMember).map(r=>r.user);
