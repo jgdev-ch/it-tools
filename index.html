@@ -391,6 +391,14 @@
     </div>
   </div>
 
+  <div id="downloadsSection" style="display:none;margin-top:1.5rem">
+    <div class="section-label" id="downloadsToggle" onclick="toggleDownloads()" style="cursor:pointer;display:flex;align-items:center">
+      Scripts &amp; Downloads
+      <span id="downloadsChevron" style="font-size:10px;color:var(--muted2);margin-left:auto">▾</span>
+    </div>
+    <div id="downloadsGrid" class="downloads-grid"></div>
+  </div>
+
   <button class="setup-toggle" id="setupToggle" onclick="toggleSetup()">
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     <span>Setup</span>
@@ -400,11 +408,6 @@
     <p>All tools share a single <strong>Entra ID app registration</strong>. Add the following redirect URI to your app under <em>Authentication → Single-page application</em>:</p>
     <div class="setup-uri" id="baseUri"></div>
     <p>Each tool will automatically use its own sub-path as the redirect URI. You only need one registration for the whole hub.</p>
-  </div>
-
-  <div id="downloadsSection" style="display:none;margin-top:1.5rem">
-    <div class="section-label">Scripts &amp; Downloads</div>
-    <div id="downloadsGrid" class="downloads-grid"></div>
   </div>
 </div>
 
@@ -903,6 +906,7 @@ async function loadDownloads() {
     const data = await res.json();
     document.getElementById("downloadsGrid").innerHTML = data.scripts.map(buildDownloadRow).join("");
     document.getElementById("downloadsSection").style.display = "";
+    applyDownloadsCollapse(localStorage.getItem('it-tools-downloads-open') !== 'false');
   } catch(_) {}
 }
 
@@ -911,6 +915,21 @@ function hideDownloads() {
   if (!section) return;
   section.style.display = "none";
   document.getElementById("downloadsGrid").innerHTML = "";
+}
+
+// ── Downloads collapse ────────────────────────────────────────────────────────
+function toggleDownloads() {
+  const open = localStorage.getItem('it-tools-downloads-open') !== 'false';
+  const next = !open;
+  localStorage.setItem('it-tools-downloads-open', String(next));
+  applyDownloadsCollapse(next);
+}
+
+function applyDownloadsCollapse(open) {
+  const grid    = document.getElementById('downloadsGrid');
+  const chevron = document.getElementById('downloadsChevron');
+  if (grid)    grid.hidden         = !open;
+  if (chevron) chevron.textContent = open ? '▾' : '▸';
 }
 
 // ── Setup toggle ──────────────────────────────────────────────────────────────
