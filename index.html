@@ -144,20 +144,20 @@
 .ribbon-soon    { background: var(--surface3);     color: var(--muted2); }
 .ribbon-finance { background: var(--amber-light);  color: var(--amber); }
 
-/* ── Beta status overlay (ribbon hover) — mirrors .tool-desc design ── */
-.tool-card:has(.tool-beta-overlay) .tool-ribbon { cursor: help; }
-.tool-beta-overlay {
-  position: absolute; inset: 0; border-radius: 12px;
-  background: rgba(248, 250, 252, 0.82); backdrop-filter: blur(10px);
-  border: 1px solid var(--border-mid);
-  padding: 1rem; font-size: 12px; color: var(--muted); line-height: 1.6;
-  display: flex; align-items: center;
-  opacity: 0; transition: opacity .2s; pointer-events: none;
+/* ── Ribbon tooltip ── */
+.ribbon-tooltip {
+  position: absolute; top: calc(100% + 5px); right: 0;
+  width: 210px; border-radius: 8px;
+  padding: 9px 12px; font-size: 11px; font-weight: 400;
+  line-height: 1.5; text-transform: none; letter-spacing: 0; white-space: normal;
+  opacity: 0; transition: opacity .15s; pointer-events: none;
+  z-index: 20; box-shadow: 0 4px 12px rgba(0,0,0,.08);
 }
-[data-theme="dark"] .tool-beta-overlay { background: rgba(22, 25, 35, 0.84); }
-/* Ribbon hover: show beta overlay, suppress feature desc */
-.tool-card:has(.tool-beta-overlay):has(.tool-ribbon:hover) .tool-desc { opacity: 0; }
-.tool-card:has(.tool-beta-overlay):has(.tool-ribbon:hover) .tool-beta-overlay { opacity: 1; }
+.tool-ribbon:hover .ribbon-tooltip { opacity: 1; }
+.ribbon-beta    .ribbon-tooltip { background: var(--blue-light);  border: 1px solid var(--blue-border);  color: var(--blue-dark); }
+.ribbon-live    .ribbon-tooltip { background: var(--green-light); border: 1px solid var(--green-border); color: var(--green); }
+.ribbon-soon    .ribbon-tooltip { background: var(--surface);     border: 1px solid var(--border);       color: var(--muted); }
+.ribbon-finance .ribbon-tooltip { background: var(--amber-light); border: 1px solid var(--amber-border); color: var(--amber); }
 
 /* ── Card body ── */
 .tool-icon {
@@ -444,10 +444,12 @@ function showSignedOut() {
 const RIBBON_LABELS = { "live":"Live", "beta":"Beta", "coming-soon":"Soon", "in-development":"Dev", "deprecated":"Depr." };
 const RIBBON_CLASS  = { "live":"ribbon-live", "beta":"ribbon-beta", "coming-soon":"ribbon-soon", "in-development":"ribbon-soon", "deprecated":"ribbon-soon" };
 
-function ribbonHtml(status) {
-  const cls   = RIBBON_CLASS[status]  || "ribbon-soon";
-  const label = RIBBON_LABELS[status] || status;
-  return `<div class="tool-ribbon ${cls}">${label}</div>`;
+function ribbonHtml(status, betaNote) {
+  const cls     = RIBBON_CLASS[status]  || "ribbon-soon";
+  const label   = RIBBON_LABELS[status] || status;
+  const tooltip = betaNote ? `<div class="ribbon-tooltip">${betaNote}</div>` : "";
+  const cursor  = betaNote ? " style=\"cursor:help\"" : "";
+  return `<div class="tool-ribbon ${cls}"${cursor}>${label}${tooltip}</div>`;
 }
 
 function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms, betaNote }) {
@@ -462,7 +464,7 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
       data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
       data-betanote="${betaNote || ""}"
       style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status)}
+    ${ribbonHtml(status, betaNote)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name-row">
       <div class="tool-name">${name}</div>
@@ -473,15 +475,11 @@ function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perm
 }
 
 function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, betaNote }) {
-  const betaOverlay = betaNote
-    ? `<div class="tool-beta-overlay">${betaNote}</div>`
-    : "";
   return `<a class="tool-card" href="${path}" style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status)}
+    ${ribbonHtml(status, betaNote)}
     <div class="tool-icon">${icon}</div>
     <div class="tool-name">${name}</div>
     <div class="tool-desc">${desc}</div>
-    ${betaOverlay}
   </a>`;
 }
 
