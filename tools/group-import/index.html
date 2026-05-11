@@ -565,10 +565,77 @@ async function runAdd() {
   btn.disabled = true;
   renderLog(log, "add");
 }
-function loadMembers()       { /* Task 7 */ }
-function loadMoreMembers()   { /* Task 7 */ }
-function filterMembers()     { /* Task 7 */ }
-function updateRemoveBtn()   { document.getElementById("removeBtn").disabled = true; /* Task 7 */ }
+async function loadMembers() {
+  if (!st.groupId) return;
+  st.members=[]; st.membersNext=null;
+  document.getElementById("memberList").innerHTML = '<div class="member-empty">Loading…</div>';
+  document.getElementById("memberCount").textContent = "";
+  document.getElementById("memberLoadMore").style.display = "none";
+  await fetchMemberPage(`/groups/${st.groupId}/members?$select=id,displayName,userPrincipalName,mail&$top=100`);
+}
+
+async function loadMoreMembers() {
+  if (!st.membersNext) return;
+  await fetchMemberPage(st.membersNext);
+}
+
+async function fetchMemberPage(url) {
+  try {
+    const full = url.startsWith("http") ? url : "https://graph.microsoft.com/v1.0"+url;
+    const page = await ITTools.graph.get(full);
+    st.members = [...st.members, ...(page.value||[])];
+    st.membersNext = page["@odata.nextLink"]||null;
+    renderMemberList(st.members);
+    document.getElementById("memberLoadMore").style.display = st.membersNext ? "block" : "none";
+  } catch(e) {
+    document.getElementById("memberList").innerHTML =
+      `<div class="member-empty" style="color:var(--red)">${esc(ITTools.graph.friendlyError(e))}</div>`;
+  }
+}
+
+function renderMemberList(members) {
+  const q = document.getElementById("memberSearch").value.toLowerCase();
+  const filtered = q
+    ? members.filter(m=>(m.displayName||"").toLowerCase().includes(q)||(m.userPrincipalName||"").toLowerCase().includes(q))
+    : members;
+  document.getElementById("memberCount").textContent = "("+members.length+(st.membersNext?"+":"")+")";
+  if (!filtered.length) {
+    document.getElementById("memberList").innerHTML = '<div class="member-empty">No members match.</div>';
+    updateRemoveBtn(); return;
+  }
+  document.getElementById("memberList").innerHTML = filtered.map(m =>
+    `<div class="member-row" id="mrow-${m.id}" onclick="toggleMemberCheck('${m.id}')">
+      <input type="checkbox" id="mchk-${m.id}" onclick="event.stopPropagation();toggleMemberCheck('${m.id}')">
+      <div class="user-avatar user-avatar--remove">${initials(m.displayName)}</div>
+      <div class="user-info">
+        <div class="user-name">${esc(m.displayName)||"—"}</div>
+        <div class="user-upn">${esc(m.userPrincipalName||m.mail||"")}</div>
+      </div>
+    </div>`
+  ).join("");
+  updateRemoveBtn();
+}
+
+function toggleMemberCheck(id) {
+  const chk=document.getElementById("mchk-"+id);
+  const row=document.getElementById("mrow-"+id);
+  if (!chk||!row) return;
+  chk.checked=!chk.checked;
+  row.classList.toggle("selected", chk.checked);
+  updateRemoveBtn();
+}
+
+function filterMembers() { renderMemberList(st.members); }
+
+function getCheckedMemberIds() {
+  return st.members.filter(m=>document.getElementById("mchk-"+m.id)?.checked);
+}
+
+function updateRemoveBtn() {
+  const fromList = getCheckedMemberIds().length;
+  const fromBulk = (st._removeBulkResolved||[]).length;
+  document.getElementById("removeBtn").disabled = (fromList+fromBulk) === 0;
+}
 function removeHandlePaste() { /* Task 8 */ }
 function runRemove()         { /* Task 8 */ }
 
