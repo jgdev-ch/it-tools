@@ -53,6 +53,7 @@
   .chip-dismiss:hover { opacity:1; }
 
   /* ── User search results ── */
+  #addSearchResults { max-height:220px; overflow-y:auto; }
   .search-result-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); margin-bottom:4px; }
   .user-avatar { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
   .user-avatar--add    { background:var(--green-light); color:var(--green); }
@@ -550,8 +551,19 @@ async function addSingleUser(userId, displayName, upn, btn) {
     entry.action="Added"; entry.message="Success";
     btn.textContent="✓"; btn.style.background="var(--green)";
   } catch(e) {
-    entry.action="Error"; entry.message=ITTools.graph.friendlyError(e);
-    btn.textContent="✗"; btn.style.background="var(--red)"; btn.disabled=false;
+    const msg = ITTools.graph.friendlyError(e);
+    if (msg.toLowerCase().includes("already exist")) {
+      entry.action="Skipped"; entry.message="Already a member";
+      btn.textContent="✓"; btn.style.background="var(--muted)"; btn.style.opacity="0.6";
+    } else {
+      entry.action="Error"; entry.message=msg;
+      btn.textContent="✕"; btn.style.background="var(--red)";
+      btn.disabled=false;
+      btn.onclick = () => document.getElementById("sr-"+userId)?.remove();
+      st.lastLog=[...st.lastLog, entry]; st.lastLogType="add";
+      renderLog(st.lastLog, "add");
+      return;
+    }
   }
   st.lastLog=[...st.lastLog, entry]; st.lastLogType="add";
   renderLog(st.lastLog, "add");
@@ -596,6 +608,8 @@ async function runAdd() {
   st.addResolved = [];
   document.getElementById("addChips").innerHTML = "";
   document.getElementById("addPasteIn").value = "";
+  document.getElementById("addSearch").value = "";
+  document.getElementById("addSearchResults").innerHTML = "";
   btn.textContent="Add to Group →";
   btn.disabled = true;
   renderLog(log, "add");
