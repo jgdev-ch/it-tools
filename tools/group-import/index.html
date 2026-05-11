@@ -522,7 +522,46 @@ async function addSingleUser(userId, displayName, upn, btn) {
   renderLog(st.lastLog, "add");
 }
 
-function runAdd()            { /* Task 6 */ }
+async function runAdd() {
+  if (!st.groupId || !st.addResolved.length) return;
+  const btn = document.getElementById("addBtn");
+  btn.disabled=true; btn.textContent="Adding…";
+  const total = st.addResolved.length;
+
+  setProgress(0, total, "Checking membership…");
+  const existing = {};
+  try {
+    let next = `/groups/${st.groupId}/members?$select=id&$top=999`;
+    while (next) {
+      const page = await ITTools.graph.get(next.startsWith("http") ? next : "https://graph.microsoft.com/v1.0"+next);
+      (page.value||[]).forEach(m=>existing[m.id]=true);
+      next = page["@odata.nextLink"]||null;
+    }
+  } catch(_) {}
+
+  const log = [];
+  for (let i=0; i<total; i++) {
+    const user = st.addResolved[i];
+    setProgress(i+1, total, `(${i+1}/${total}) ${user.displayName||user._input}`);
+    const entry = logEntry(user._input||user.userPrincipalName, user.displayName, "", "");
+    if (existing[user.id]) {
+      entry.action="Skipped"; entry.message="Already a member";
+    } else {
+      try {
+        await ITTools.graph.post(`/groups/${st.groupId}/members/$ref`,
+          {"@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${user.id}`});
+        existing[user.id]=true; entry.action="Added"; entry.message="Success";
+      } catch(e) { entry.action="Error"; entry.message=ITTools.graph.friendlyError(e); }
+      await new Promise(r=>setTimeout(r,150));
+    }
+    log.push(entry);
+  }
+
+  hideProgress();
+  btn.textContent="Add to Group →";
+  btn.disabled = st.addResolved.length === 0;
+  renderLog(log, "add");
+}
 function loadMembers()       { /* Task 7 */ }
 function loadMoreMembers()   { /* Task 7 */ }
 function filterMembers()     { /* Task 7 */ }
