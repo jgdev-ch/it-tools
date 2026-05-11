@@ -641,8 +641,96 @@ function updateRemoveBtn() {
   const fromBulk = (st._removeBulkResolved||[]).length;
   document.getElementById("removeBtn").disabled = (fromList+fromBulk) === 0;
 }
-function removeHandlePaste() { /* Task 8 */ }
-function runRemove()         { /* Task 8 */ }
+async function removeHandlePaste() {
+  const text = document.getElementById("removePasteIn").value;
+  if (!text.trim()) {
+    document.getElementById("removeChips").innerHTML="";
+    st._removeBulkResolved=[];
+    updateRemoveBtn(); return;
+  }
+  const lines = [...new Set(text.split(/\n/).map(l=>l.trim()).filter(Boolean).map(l=>l.toLowerCase()))];
+  const chips = document.getElementById("removeChips");
+  chips.innerHTML = '<span style="font-size:11px;color:var(--muted)">Resolving…</span>';
+
+  const results = [];
+  try {
+    for (const ident of lines) {
+      let user = null;
+      try {
+        const r = await fetch(
+          `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(ident)}?$select=id,displayName,userPrincipalName`,
+          { headers:{ Authorization:"Bearer "+(await ITTools.auth.getToken()) } });
+        if (r.ok) user = await r.json();
+      } catch(_) {}
+      if (!user) {
+        try {
+          const escaped = ident.replace(/'/g,"''");
+          const r = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(escaped)}'&$select=id,displayName,userPrincipalName`);
+          if (r.value?.length) user = r.value[0];
+        } catch(_) {}
+      }
+      const isMember = user && st.members.some(m=>m.id===user.id);
+      results.push({ ident, user, isMember });
+    }
+
+    chips.innerHTML = results.map(({ident, user, isMember}) => {
+      if (!user)     return `<span class="chip chip--red">✗ ${esc(ident)}</span>`;
+      if (!isMember) return `<span class="chip chip--amber">~ ${esc(user.displayName)} (not a member)</span>`;
+      return `<span class="chip chip--green">✓ ${esc(user.displayName)}</span>`;
+    }).join("");
+
+    st._removeBulkResolved = results.filter(r=>r.user&&r.isMember).map(r=>r.user);
+    updateRemoveBtn();
+  } catch(e) {
+    chips.innerHTML = `<span style="font-size:11px;color:var(--red)">Resolution error: ${esc(ITTools.graph.friendlyError(e))}</span>`;
+    updateRemoveBtn();
+  }
+}
+
+async function runRemove() {
+  if (!st.groupId) return;
+  const fromList = getCheckedMemberIds();
+  const fromBulk = st._removeBulkResolved||[];
+  const seen = new Set();
+  const targets = [...fromList, ...fromBulk].filter(u=>{ if(seen.has(u.id))return false; seen.add(u.id); return true; });
+  if (!targets.length) return;
+
+  const btn = document.getElementById("removeBtn");
+  btn.disabled=true; btn.textContent="Removing…";
+  const total = targets.length;
+
+  const log = [];
+  for (let i=0; i<total; i++) {
+    const user = targets[i];
+    setProgress(i+1, total, `(${i+1}/${total}) ${user.displayName||user.userPrincipalName}`);
+    const entry = logEntry(user.userPrincipalName||user.mail||user.id, user.displayName, "", "");
+    try {
+      const token = await ITTools.auth.getToken();
+      const res = await fetch(
+        `https://graph.microsoft.com/v1.0/groups/${st.groupId}/members/${user.id}/$ref`,
+        { method:"DELETE", headers:{ Authorization:"Bearer "+token } });
+      if (res.ok||res.status===204) {
+        entry.action="Removed"; entry.message="Success";
+        st.members = st.members.filter(m=>m.id!==user.id);
+        st.checkedMemberIds.delete(user.id);
+      } else {
+        const body = await res.json().catch(()=>({}));
+        entry.action="Error"; entry.message=body?.error?.message||"HTTP "+res.status;
+      }
+    } catch(e) { entry.action="Error"; entry.message=ITTools.graph.friendlyError(e); }
+    await new Promise(r=>setTimeout(r,150));
+    log.push(entry);
+  }
+
+  hideProgress();
+  renderMemberList(st.members);
+  st._removeBulkResolved=[];
+  document.getElementById("removePasteIn").value="";
+  document.getElementById("removeChips").innerHTML="";
+  btn.textContent="Remove from Group →";
+  updateRemoveBtn();
+  renderLog(log, "remove");
+}
 
 // ── Helpers ──────────────────────────────────────────────
 function initials(name) {
