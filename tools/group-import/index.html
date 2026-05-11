@@ -259,6 +259,7 @@ const st = {
   addResolved:       [],   // [{id, displayName, userPrincipalName, _input}]
   members:           [],   // [{id, displayName, userPrincipalName, mail}]
   membersNext:       null, // pagination nextLink
+  checkedMemberIds:  new Set(),
   _removeBulkResolved: [], // [{id, displayName, userPrincipalName}]
   lastLog:           [],
   lastLogType:       ""    // "add" | "remove"
@@ -376,6 +377,7 @@ async function lookupGroup() {
 
 function changeGroup() {
   st.groupId=""; st.groupName="";
+  st.checkedMemberIds.clear();
   document.getElementById("groupConfirmed").style.display = "none";
   document.getElementById("mainCard").style.display = "none";
   document.getElementById("groupIn").value = "";
@@ -603,16 +605,17 @@ function renderMemberList(members) {
     document.getElementById("memberList").innerHTML = '<div class="member-empty">No members match.</div>';
     updateRemoveBtn(); return;
   }
-  document.getElementById("memberList").innerHTML = filtered.map(m =>
-    `<div class="member-row" id="mrow-${m.id}" onclick="toggleMemberCheck('${m.id}')">
-      <input type="checkbox" id="mchk-${m.id}" onclick="event.stopPropagation();toggleMemberCheck('${m.id}')">
+  document.getElementById("memberList").innerHTML = filtered.map(m => {
+    const isChecked = st.checkedMemberIds.has(m.id);
+    return `<div class="member-row${isChecked?" selected":""}" id="mrow-${m.id}" onclick="toggleMemberCheck('${m.id}')">
+      <input type="checkbox" id="mchk-${m.id}" ${isChecked?"checked":""} onclick="event.stopPropagation();toggleMemberCheck('${m.id}')">
       <div class="user-avatar user-avatar--remove">${initials(m.displayName)}</div>
       <div class="user-info">
         <div class="user-name">${esc(m.displayName)||"—"}</div>
         <div class="user-upn">${esc(m.userPrincipalName||m.mail||"")}</div>
       </div>
-    </div>`
-  ).join("");
+    </div>`;
+  }).join("");
   updateRemoveBtn();
 }
 
@@ -621,6 +624,8 @@ function toggleMemberCheck(id) {
   const row=document.getElementById("mrow-"+id);
   if (!chk||!row) return;
   chk.checked=!chk.checked;
+  if (chk.checked) st.checkedMemberIds.add(id);
+  else st.checkedMemberIds.delete(id);
   row.classList.toggle("selected", chk.checked);
   updateRemoveBtn();
 }
@@ -628,7 +633,7 @@ function toggleMemberCheck(id) {
 function filterMembers() { renderMemberList(st.members); }
 
 function getCheckedMemberIds() {
-  return st.members.filter(m=>document.getElementById("mchk-"+m.id)?.checked);
+  return st.members.filter(m=>st.checkedMemberIds.has(m.id));
 }
 
 function updateRemoveBtn() {
