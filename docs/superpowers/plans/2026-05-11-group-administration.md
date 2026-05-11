@@ -312,6 +312,14 @@ This task writes the complete new file structure: auth screen, app shell, CSS fo
       </div>
     </div>
 
+    <!-- Progress bar (shared by Add and Remove batch runs) -->
+    <div id="progressCard" style="display:none;margin-top:1rem;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+      <div class="progress-wrap">
+        <div class="progress-meta"><span id="progLabel">Processing…</span><span id="progPct">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+      </div>
+    </div>
+
     <!-- Results log -->
     <div id="logSection" style="display:none;margin-top:1.5rem">
       <div class="log-header">
@@ -509,6 +517,18 @@ function initials(name) {
 function esc(s) { return (s||"").replace(/'/g,"\\'").replace(/"/g,"&quot;"); }
 function logEntry(identifier, displayName, action, message) {
   return { timestamp:new Date().toISOString().slice(0,19).replace("T"," "), identifier, displayName, action, message };
+}
+
+function setProgress(curr, total, label) {
+  const pct = total > 0 ? Math.round((curr/total)*100) : 0;
+  document.getElementById("progressCard").style.display = "block";
+  document.getElementById("progFill").style.width       = pct+"%";
+  document.getElementById("progPct").textContent        = pct+"%";
+  document.getElementById("progLabel").textContent      = label || `Processing ${curr} / ${total}`;
+}
+function hideProgress() {
+  document.getElementById("progressCard").style.display = "none";
+  document.getElementById("progFill").style.width = "0%";
 }
 
 // ── Results log ──────────────────────────────────────────
@@ -777,7 +797,9 @@ async function runAdd() {
   if (!st.groupId || !st.addResolved.length) return;
   const btn = document.getElementById("addBtn");
   btn.disabled=true; btn.textContent="Adding…";
+  const total = st.addResolved.length;
 
+  setProgress(0, total, "Checking membership…");
   const existing = {};
   try {
     let next = `/groups/${st.groupId}/members?$select=id&$top=999`;
@@ -789,7 +811,9 @@ async function runAdd() {
   } catch(_) {}
 
   const log = [];
-  for (const user of st.addResolved) {
+  for (let i=0; i<total; i++) {
+    const user = st.addResolved[i];
+    setProgress(i+1, total, `(${i+1}/${total}) ${user.displayName||user._input}`);
     const entry = logEntry(user._input||user.userPrincipalName, user.displayName, "", "");
     if (existing[user.id]) {
       entry.action="Skipped"; entry.message="Already a member";
@@ -804,6 +828,7 @@ async function runAdd() {
     log.push(entry);
   }
 
+  hideProgress();
   btn.textContent="Add to Group →";
   btn.disabled = st.addResolved.length === 0;
   renderLog(log, "add");
@@ -992,9 +1017,12 @@ async function runRemove() {
 
   const btn = document.getElementById("removeBtn");
   btn.disabled=true; btn.textContent="Removing…";
+  const total = targets.length;
 
   const log = [];
-  for (const user of targets) {
+  for (let i=0; i<total; i++) {
+    const user = targets[i];
+    setProgress(i+1, total, `(${i+1}/${total}) ${user.displayName||user.userPrincipalName}`);
     const entry = logEntry(user.userPrincipalName||user.mail||user.id, user.displayName, "", "");
     try {
       const token = await ITTools.auth.getToken();
@@ -1013,6 +1041,7 @@ async function runRemove() {
     log.push(entry);
   }
 
+  hideProgress();
   renderMemberList(st.members);
   st._removeBulkResolved=[];
   document.getElementById("removePasteIn").value="";
