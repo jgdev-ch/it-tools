@@ -161,7 +161,7 @@
               <div class="tab-col-label">Bulk — CSV or paste</div>
               <div class="tab-drop tab-drop--green" id="addDrop"
                    ondragover="addDragOver(event)" ondragleave="addDragLeave()" ondrop="addDropFile(event)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);pointer-events:none"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
                 <p>Drag &amp; drop CSV or <strong onclick="document.getElementById('addFileIn').click()">browse</strong></p>
                 <p style="font-size:11px">or paste below</p>
                 <input type="file" id="addFileIn" accept=".csv" style="display:none" onchange="addHandleFile(event)"/>
@@ -190,7 +190,7 @@
               <div class="tab-col-label">Bulk — CSV or paste</div>
               <div class="tab-drop tab-drop--red" id="removeDrop"
                    ondragover="removeDragOver(event)" ondragleave="removeDragLeave()" ondrop="removeDropFile(event)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);pointer-events:none"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
                 <p>Drag &amp; drop CSV or <strong onclick="document.getElementById('removeFileIn').click()">browse</strong></p>
                 <p style="font-size:11px">or paste below</p>
                 <input type="file" id="removeFileIn" accept=".csv" style="display:none" onchange="removeHandleFile(event)"/>
@@ -410,7 +410,19 @@ function addHandleFile(e){ addLoadFile(e.target.files[0]); }
 function addLoadFile(file) {
   if (!file || !file.name.toLowerCase().endsWith(".csv")) return;
   const reader = new FileReader();
-  reader.onload = ev => addResolveBulk(ev.target.result);
+  reader.onload = ev => {
+    let lines;
+    const text = ev.target.result;
+    try {
+      const parsed = ITTools.csv.parse(text);
+      const col = ITTools.csv.detectEmailColumn(parsed.headers, parsed.rows);
+      lines = parsed.rows.map(r=>r[col]||"").filter(v=>v);
+    } catch(_) {
+      lines = text.split(/[\n,]+/).map(l=>l.trim()).filter(Boolean);
+    }
+    document.getElementById("addPasteIn").value = lines.join("\n");
+    addHandlePaste();
+  };
   reader.readAsText(file);
 }
 
