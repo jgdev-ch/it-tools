@@ -854,7 +854,9 @@ function downloadFile(path) {
   const a = document.createElement("a");
   a.href     = GITHUB_RAW + path;
   a.download = path.split("/").pop();
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 }
 
 function buildDownloadRow(script) {
@@ -893,6 +895,7 @@ function buildDownloadRow(script) {
 async function loadDownloads() {
   try {
     const res  = await fetch("downloads.json?v=" + Date.now());
+    if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     document.getElementById("downloadsGrid").innerHTML = data.scripts.map(buildDownloadRow).join("");
     document.getElementById("downloadsSection").style.display = "";
