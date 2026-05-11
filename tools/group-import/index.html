@@ -426,6 +426,7 @@ async function addResolveBulk(text) {
   chips.innerHTML = '<span style="font-size:11px;color:var(--muted)">Resolving…</span>';
 
   const results = [];
+  try {
   for (const ident of lines) {
     let user = null;
     try {
@@ -450,6 +451,10 @@ async function addResolveBulk(text) {
     : `<span class="chip chip--red">✗ ${esc(ident)}</span>`
   ).join("");
   updateAddBtn();
+  } catch(e) {
+    chips.innerHTML = `<span style="font-size:11px;color:var(--red)">Resolution error: ${esc(ITTools.graph.friendlyError(e))}</span>`;
+    updateAddBtn();
+  }
 }
 
 function dismissAddChip(userId) {
