@@ -409,7 +409,7 @@
 </div>
 
 <footer class="hub-footer">
-  <span>Built by Josh Garrett · <a href="https://github.com/jgdev-ch/it-tools" style="color:var(--muted2)">github.com/jgdev-ch/it-tools</a> · <span style="color:var(--muted2)">v1.5.0</span></span>
+  <span>Built by Josh Garrett · <a href="https://github.com/jgdev-ch/it-tools" style="color:var(--muted2)">github.com/jgdev-ch/it-tools</a> · <span style="color:var(--muted2)">v1.6.0</span></span>
   <div class="footer-links">
     <a href="https://learn.microsoft.com/en-us/graph/overview" target="_blank">Graph API docs</a>
     <a href="https://portal.azure.com" target="_blank">Entra admin</a>
@@ -683,6 +683,7 @@ async function hubSignIn() {
     showSignedIn(acct);
     const token = await ITTools.auth.getToken();
     await runGateChecks(token);
+    await loadDownloads();
   } catch(_) {
     // User cancelled or popup blocked — silent fail
   } finally {
@@ -706,6 +707,7 @@ async function hubSignOut() {
     // signOut callback still fires; clear gates regardless
     clearAllGates();
     showSignedOut();
+    hideDownloads();
   }
 }
 
@@ -722,11 +724,13 @@ async function trySilentRestore() {
       try {
         const token = await ITTools.auth.getToken();
         await runGateChecks(token);
+        await loadDownloads();
       } catch(_) {}
     },
     onSignOut: () => {
       clearAllGates();
       showSignedOut();
+      hideDownloads();
     }
   });
   // No active session — clear any stale localStorage unlock flags and re-lock cards
