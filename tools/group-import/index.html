@@ -558,8 +558,11 @@ async function runAdd() {
   }
 
   hideProgress();
+  st.addResolved = [];
+  document.getElementById("addChips").innerHTML = "";
+  document.getElementById("addPasteIn").value = "";
   btn.textContent="Add to Group →";
-  btn.disabled = st.addResolved.length === 0;
+  btn.disabled = true;
   renderLog(log, "add");
 }
 function loadMembers()       { /* Task 7 */ }
