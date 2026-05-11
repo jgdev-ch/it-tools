@@ -84,9 +84,10 @@
     {
       "id": "adobe-license-monitor",
       "name": "Adobe License Monitor",
-      "description": "Live seat utilization and Entra group sync across Acrobat DC Pro, Creative Cloud All Apps, and Captivate.",
+      "description": "Entra group membership counts for Adobe products, with seat utilization once the Azure Function proxy is provisioned.",
+      "betaNote": "Adobe seat data (purchased vs assigned) requires an Azure Function proxy pending infrastructure provisioning. Entra group counts are live.",
       "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#9a0000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='3' width='20' height='14' rx='2'/><line x1='8' y1='21' x2='16' y2='21'/><line x1='12' y1='17' x2='12' y2='21'/><path d='M9 8l2 2 4-4'/></svg>",
-      "status": "live",
+      "status": "beta",
       "path": "tools/adobe-license-monitor/",
       "permissions": ["User.Read", "GroupMember.Read.All"],
       "accent": "#9a0000",
