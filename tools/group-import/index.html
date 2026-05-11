@@ -7,11 +7,11 @@
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
-  .ga-shell     { max-width:760px; margin:0 auto; padding:1.5rem; }
+  .ga-shell     { max-width:960px; margin:0 auto; padding:1.5rem; }
 
   /* ── Group picker ── */
-  .picker-row   { display:flex; gap:8px; align-items:flex-end; }
-  .picker-row .field { flex:1; }
+  .picker-row   { display:flex; gap:8px; align-items:center; }
+  .picker-row input { flex:1; margin-bottom:0; }
   .group-confirmed { display:none; align-items:center; gap:10px; background:var(--green-light); border:1px solid var(--green-border); border-radius:6px; padding:10px 12px; margin-top:8px; }
   .group-confirmed-name { font-size:13px; font-weight:700; color:var(--green); flex:1; }
   .group-confirmed-id   { font-size:11px; color:var(--muted); font-family:'Cascadia Code','Consolas',monospace; }
@@ -37,8 +37,11 @@
   .tab-drop     { border:1.5px dashed var(--border); border-radius:8px; padding:16px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s; min-height:76px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; }
   .tab-drop--green { border-color:var(--green-border); }
   .tab-drop--green:hover, .tab-drop--green.drag-over { border-color:var(--green); background:var(--green-light); }
+  .tab-drop--red { border-color:var(--red-border); }
+  .tab-drop--red:hover, .tab-drop--red.drag-over { border-color:var(--red); background:var(--red-light); }
   .tab-drop p   { font-size:12px; color:var(--muted); margin:0; }
-  .tab-drop strong { color:#16a34a; cursor:pointer; }
+  .tab-drop--green strong { color:#16a34a; cursor:pointer; }
+  .tab-drop--red strong   { color:#dc2626; cursor:pointer; }
 
   /* ── Resolution chips ── */
   .chip-row   { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
@@ -123,12 +126,10 @@
     <div class="card" style="margin-bottom:1rem">
       <div class="card-title">Target group</div>
       <div class="banner error" id="pickerErr" style="display:none"></div>
+      <label class="field-label">Group name or GUID</label>
       <div class="picker-row">
-        <div class="field">
-          <label class="field-label">Group name or GUID</label>
-          <input type="text" id="groupIn" placeholder="e.g. IT-Security-Team or 00000000-0000-…" onkeydown="if(event.key==='Enter')lookupGroup()"/>
-        </div>
-        <button class="btn btn-secondary" id="lookupBtn" onclick="lookupGroup()" style="white-space:nowrap;margin-bottom:0">Look up</button>
+        <input type="text" id="groupIn" placeholder="e.g. IT-Security-Team or 00000000-0000-…" onkeydown="if(event.key==='Enter')lookupGroup()"/>
+        <button class="btn btn-secondary" id="lookupBtn" onclick="lookupGroup()" style="white-space:nowrap;flex-shrink:0">Look up</button>
       </div>
       <div class="group-confirmed" id="groupConfirmed">
         <div style="flex:1">
@@ -185,11 +186,18 @@
         <div class="tab-panel tab-panel--remove" id="removePanel">
           <div class="tab-cols">
             <div>
-              <div class="tab-col-label">Bulk remove — paste emails</div>
-              <textarea id="removePasteIn" rows="4"
-                placeholder="Paste emails or UPNs to remove…"
+              <div class="tab-col-label">Bulk — CSV or paste</div>
+              <div class="tab-drop tab-drop--red" id="removeDrop"
+                   ondragover="removeDragOver(event)" ondragleave="removeDragLeave()" ondrop="removeDropFile(event)">
+                <div style="font-size:22px">📋</div>
+                <p>Drag &amp; drop CSV or <strong onclick="document.getElementById('removeFileIn').click()">browse</strong></p>
+                <p style="font-size:11px">or paste below</p>
+                <input type="file" id="removeFileIn" accept=".csv" style="display:none" onchange="removeHandleFile(event)"/>
+              </div>
+              <textarea id="removePasteIn" rows="3"
+                placeholder="Or paste emails / UPNs here…"
                 oninput="removeHandlePaste()"
-                style="width:100%;font-size:12px;padding:7px 9px;border-radius:6px;border:1px solid var(--border);resize:vertical;background:var(--surface2)"></textarea>
+                style="width:100%;margin-top:6px;font-size:12px;padding:7px 9px;border-radius:6px;border:1px solid var(--border);resize:vertical;background:var(--surface2)"></textarea>
               <div id="removeChips" class="chip-row"></div>
             </div>
             <div>
@@ -397,6 +405,31 @@ function addLoadFile(file) {
   if (!file || !file.name.toLowerCase().endsWith(".csv")) return;
   const reader = new FileReader();
   reader.onload = ev => addResolveBulk(ev.target.result);
+  reader.readAsText(file);
+}
+
+// ── Remove tab — drag/drop wiring ────────────────────────
+function removeDragOver(e)  { e.preventDefault(); document.getElementById("removeDrop").classList.add("drag-over"); }
+function removeDragLeave()  { document.getElementById("removeDrop").classList.remove("drag-over"); }
+function removeDropFile(e)  { e.preventDefault(); removeDragLeave(); const f=e.dataTransfer.files[0]; if(f) removeLoadFile(f); }
+function removeHandleFile(e){ removeLoadFile(e.target.files[0]); }
+
+function removeLoadFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith(".csv")) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    let lines;
+    const text = ev.target.result;
+    try {
+      const parsed = ITTools.csv.parse(text);
+      const col = ITTools.csv.detectEmailColumn(parsed.headers, parsed.rows);
+      lines = parsed.rows.map(r=>r[col]||"").filter(v=>v);
+    } catch(_) {
+      lines = text.split(/[\n,]+/).map(l=>l.trim()).filter(Boolean);
+    }
+    document.getElementById("removePasteIn").value = lines.join("\n");
+    removeHandlePaste();
+  };
   reader.readAsText(file);
 }
 
