@@ -13,7 +13,8 @@
       "updated": "2026-05",
       "files": [
         { "label": "Download .ps1", "path": "tools/mailbox-cleanup/Invoke-MailboxCleanup.ps1", "primary": true },
-        { "label": "Launcher .bat", "path": "tools/mailbox-cleanup/Run-MailboxCleanup.bat" }
+        { "label": "Launcher .bat", "path": "tools/mailbox-cleanup/Run-MailboxCleanup.bat" },
+        { "label": "README .txt", "path": "tools/mailbox-cleanup/README.txt" }
       ]
     }
   ]
