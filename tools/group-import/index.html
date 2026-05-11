@@ -346,7 +346,7 @@ async function lookupGroup() {
       document.getElementById("lookupBtn"),
       async () => {
         let group;
-        if (/^[0-9a-f-]{36}$/i.test(input)) {
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input)) {
           group = await ITTools.graph.get(`/groups/${input}`);
         } else {
           const escaped = input.replace(/'/g,"''");
@@ -439,11 +439,11 @@ function renderLog(log, type) {
   const pillMap = { Added:"pill-added", Removed:"pill-added", Skipped:"pill-skipped", NotMember:"pill-skipped", Error:"pill-error", NotFound:"pill-notfound" };
   document.getElementById("logTitle").textContent = type==="add" ? "Add results" : "Remove results";
   document.getElementById("logBody").innerHTML = log.map(r =>
-    `<tr data-search="${(r.identifier+" "+r.displayName).toLowerCase()}">
+    `<tr data-search="${esc(r.identifier+" "+(r.displayName||"")).toLowerCase()}">
       <td><span class="status-pill ${pillMap[r.action]||""}">${r.action}</span></td>
-      <td class="mono text-xs">${r.identifier}</td>
-      <td>${r.displayName||"—"}</td>
-      <td class="muted text-xs">${r.message}</td>
+      <td class="mono text-xs">${esc(r.identifier)}</td>
+      <td>${esc(r.displayName)||"—"}</td>
+      <td class="muted text-xs">${esc(r.message)}</td>
       <td class="muted text-xs" style="white-space:nowrap">${r.timestamp}</td>
     </tr>`
   ).join("");
