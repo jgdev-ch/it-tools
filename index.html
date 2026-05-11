@@ -392,9 +392,9 @@
   </div>
 
   <div id="downloadsSection" style="display:none;margin-top:1.5rem;margin-bottom:1.5rem">
-    <div class="section-label" id="downloadsToggle" onclick="toggleDownloads()" style="cursor:pointer;display:flex;align-items:center">
+    <div class="section-label" id="downloadsToggle" onclick="toggleDownloads()" style="cursor:pointer;display:flex;align-items:center;user-select:none">
       Scripts &amp; Downloads
-      <span id="downloadsChevron" style="font-size:10px;color:var(--muted2);margin-left:auto">▾</span>
+      <span id="downloadsChevron" style="font-size:14px;color:var(--muted);margin-left:auto;line-height:1">▾</span>
     </div>
     <div id="downloadsGrid" class="downloads-grid"></div>
   </div>
@@ -935,7 +935,7 @@ function toggleDownloads() {
 function applyDownloadsCollapse(open) {
   const grid    = document.getElementById('downloadsGrid');
   const chevron = document.getElementById('downloadsChevron');
-  if (grid)    grid.hidden         = !open;
+  if (grid)    grid.style.display  = open ? '' : 'none';
   if (chevron) chevron.textContent = open ? '▾' : '▸';
 }
 
