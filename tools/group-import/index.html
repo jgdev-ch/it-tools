@@ -466,7 +466,62 @@ function dismissAddChip(userId) {
 function updateAddBtn() {
   document.getElementById("addBtn").disabled = st.addResolved.length === 0;
 }
-function addSearchDebounced(){ /* Task 5 */ }
+let _addSearchTimer = null;
+function addSearchDebounced() {
+  clearTimeout(_addSearchTimer);
+  _addSearchTimer = setTimeout(addSearchUsers, 300);
+}
+
+async function addSearchUsers() {
+  const q = document.getElementById("addSearch").value.trim();
+  const container = document.getElementById("addSearchResults");
+  if (q.length < 2) { container.innerHTML=""; return; }
+  container.innerHTML = '<span style="font-size:11px;color:var(--muted)">Searching…</span>';
+  try {
+    const token = await ITTools.auth.getToken();
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users?$search="displayName:${encodeURIComponent(q)}"&$select=id,displayName,userPrincipalName,mail&$top=8`,
+      { headers:{ Authorization:"Bearer "+token, ConsistencyLevel:"eventual" } }
+    );
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const users = data.value||[];
+    if (!users.length) { container.innerHTML='<span style="font-size:11px;color:var(--muted)">No results.</span>'; return; }
+    container.innerHTML = users.map(u =>
+      `<div class="search-result-row" id="sr-${u.id}">
+        <div class="user-avatar user-avatar--add">${initials(u.displayName)}</div>
+        <div class="user-info">
+          <div class="user-name">${esc(u.displayName)}</div>
+          <div class="user-upn">${esc(u.userPrincipalName||u.mail||"")}</div>
+        </div>
+        <button onclick="addSingleUser('${u.id}','${esc(u.displayName)}','${esc(u.userPrincipalName||u.mail||"")}',this)"
+          style="font-size:11px;padding:4px 10px;border-radius:5px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-weight:600;white-space:nowrap">
+          Add
+        </button>
+      </div>`
+    ).join("");
+  } catch(e) {
+    container.innerHTML = `<span style="font-size:11px;color:var(--red)">${esc(ITTools.graph.friendlyError(e))}</span>`;
+  }
+}
+
+async function addSingleUser(userId, displayName, upn, btn) {
+  if (!st.groupId) return;
+  btn.disabled=true; btn.textContent="…";
+  const entry = logEntry(upn||displayName, displayName, "", "");
+  try {
+    await ITTools.graph.post(`/groups/${st.groupId}/members/$ref`,
+      {"@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${userId}`});
+    entry.action="Added"; entry.message="Success";
+    btn.textContent="✓"; btn.style.background="var(--green)";
+  } catch(e) {
+    entry.action="Error"; entry.message=ITTools.graph.friendlyError(e);
+    btn.textContent="✗"; btn.style.background="var(--red)"; btn.disabled=false;
+  }
+  st.lastLog=[...st.lastLog, entry]; st.lastLogType="add";
+  renderLog(st.lastLog, "add");
+}
+
 function runAdd()            { /* Task 6 */ }
 function loadMembers()       { /* Task 7 */ }
 function loadMoreMembers()   { /* Task 7 */ }
