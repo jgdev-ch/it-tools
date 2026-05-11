@@ -399,8 +399,68 @@ function addLoadFile(file) {
 }
 
 // ── Stubs (filled in Tasks 4–8) ──────────────────────────
-function addHandlePaste()    { /* Task 4 */ }
-function addResolveBulk(text){ /* Task 4 */ }
+function addHandlePaste() {
+  const text = document.getElementById("addPasteIn").value;
+  if (!text.trim()) { document.getElementById("addChips").innerHTML=""; updateAddBtn(); return; }
+  addResolveBulk(text);
+}
+
+async function addResolveBulk(text) {
+  let lines;
+  if (text.includes(",") && !text.includes("\n")) {
+    try {
+      const parsed = ITTools.csv.parse(text);
+      const col = ITTools.csv.detectEmailColumn(parsed.headers, parsed.rows);
+      lines = parsed.rows.map(r=>r[col]||"").filter(v=>v);
+    } catch(_) {
+      lines = text.split(/[\n,]+/).map(l=>l.trim()).filter(Boolean);
+    }
+  } else {
+    lines = text.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  }
+  lines = [...new Set(lines.map(l=>l.toLowerCase()))];
+  if (!lines.length) { document.getElementById("addChips").innerHTML=""; updateAddBtn(); return; }
+
+  st.addResolved = [];
+  const chips = document.getElementById("addChips");
+  chips.innerHTML = '<span style="font-size:11px;color:var(--muted)">Resolving…</span>';
+
+  const results = [];
+  for (const ident of lines) {
+    let user = null;
+    try {
+      const r = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(ident)}?$select=id,displayName,userPrincipalName`,
+        { headers:{ Authorization:"Bearer "+(await ITTools.auth.getToken()) } });
+      if (r.ok) user = await r.json();
+    } catch(_) {}
+    if (!user) {
+      try {
+        const escaped = ident.replace(/'/g,"''");
+        const r = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(escaped)}'&$select=id,displayName,userPrincipalName`);
+        if (r.value?.length) user = r.value[0];
+      } catch(_) {}
+    }
+    results.push({ ident, user });
+    if (user) st.addResolved.push({...user, _input:ident});
+  }
+
+  chips.innerHTML = results.map(({ident, user}) => user
+    ? `<span class="chip chip--green">✓ ${esc(user.displayName)}<button class="chip-dismiss" onclick="dismissAddChip('${esc(user.id)}')">✕</button></span>`
+    : `<span class="chip chip--red">✗ ${esc(ident)}</span>`
+  ).join("");
+  updateAddBtn();
+}
+
+function dismissAddChip(userId) {
+  st.addResolved = st.addResolved.filter(u=>u.id!==userId);
+  document.querySelector(`.chip--green button[onclick="dismissAddChip('${userId}')"]`)?.closest(".chip")?.remove();
+  updateAddBtn();
+}
+
+function updateAddBtn() {
+  document.getElementById("addBtn").disabled = st.addResolved.length === 0;
+}
 function addSearchDebounced(){ /* Task 5 */ }
 function runAdd()            { /* Task 6 */ }
 function loadMembers()       { /* Task 7 */ }
