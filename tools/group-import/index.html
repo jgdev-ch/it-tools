@@ -394,12 +394,15 @@ function clearFile() {
   document.getElementById("s1Err").style.display = "none";
 }
 
-function loadFile(file) {
+async function loadFile(file) {
   if (!file) return;
   if (!file.name.toLowerCase().endsWith(".csv")) { showErr("s1Err","Please upload a .csv file."); return; }
-  const reader = new FileReader();
-  reader.onload = e => parseAndRender(file.name, e.target.result);
-  reader.readAsText(file);
+  try {
+    const text = await file.text();
+    parseAndRender(file.name, text);
+  } catch(e) {
+    showErr("s1Err", "Could not read file — try saving it to your Desktop first, then upload. (" + e.message + ")");
+  }
 }
 
 let _parsed = null;
