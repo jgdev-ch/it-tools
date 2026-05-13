@@ -231,3 +231,76 @@ Write-Detail "  Step 2 — If still missing after restart, rebuild the local" Wh
 Write-Detail "           Outlook profile: Control Panel > Mail > Show Profiles." Gray
 Write-Host "      ================================================" -ForegroundColor DarkCyan
 Write-Host ""
+
+# --- Ticket export ---
+Write-Host ""
+$export = Read-Host "      Export summary report for ticket? [Y/N]"
+if ($export -match '^[Yy]') {
+    $reportAlias = ($Mailbox -split '@')[0]
+    $reportFile  = "$([System.Environment]::GetFolderPath('Desktop'))\SharedMailboxRepair-$reportAlias-$reportTimestamp.txt"
+
+    $refreshedCount = ($results | Where-Object { $_.Outcome -eq 'Refreshed' }).Count
+    $skippedCount   = ($results | Where-Object { $_.Outcome -eq 'Skipped'   }).Count
+    $failedCount    = ($results | Where-Object { $_.Outcome -eq 'Failed'    }).Count
+
+    $sep  = "=" * 60
+    $dash = "-" * 60
+
+    $report = @(
+        $sep
+        " SHARED MAILBOX REPAIR REPORT"
+        $sep
+        " Date   : $reportTime"
+        " Target : $Mailbox"
+        ""
+        $dash
+        " PRE-FLIGHT"
+        $dash
+        (" Shared mailboxes found : {0}" -f $allMailboxes.Count)
+        (" To be refreshed        : {0} (AutoMapping enabled)"  -f $toRefresh.Count)
+        (" Skipped                : {0} (AutoMapping disabled)" -f $skipped.Count)
+        ""
+        $dash
+        " RESULTS"
+        $dash
+    )
+
+    foreach ($r in $results) {
+        $suffix = switch ($r.Outcome) {
+            'Skipped'  { ' (AutoMapping disabled)' }
+            'Failed'   { " — $($r.Reason)" }
+            default    { '' }
+        }
+        $report += (" {0,-50} {1}{2}" -f $r.Address, $r.Outcome, $suffix)
+    }
+
+    $report += @(
+        ""
+        $dash
+        " OUTCOME"
+        $dash
+    )
+
+    if ($failedCount -eq 0) {
+        $report += " Repair complete."
+    } else {
+        $report += " Repair complete with $failedCount failure(s) — manual follow-up required."
+    }
+
+    $report += @(
+        " Step 1: Ask user to close and reopen Outlook."
+        "         Shared mailboxes should reappear within a few minutes."
+        " Step 2: If still missing after restart, rebuild the Outlook profile"
+        "         via Control Panel > Mail > Show Profiles."
+        $sep
+    )
+
+    $report | Out-File -FilePath $reportFile -Encoding UTF8
+    Write-Host ""
+    Write-Host "      Report saved to: $reportFile" -ForegroundColor Green
+    Write-Host ""
+}
+
+# --- Session cleanup ---
+Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+Write-Host "  Exchange Online session disconnected.`n" -ForegroundColor DarkGray
