@@ -180,3 +180,54 @@ foreach ($mbx in $skipped) {
         Reason  = 'AutoMapping disabled'
     }
 }
+
+# --- Phase 4: Verify and summarise ---
+Write-Step 4 "Verifying and summarising..."
+Write-Host ""
+
+# Re-query to confirm each refresh landed
+foreach ($r in $results | Where-Object { $_.Outcome -eq 'Refreshed' }) {
+    $verify = Get-EXOMailboxPermission -Identity $r.Address -User $Mailbox -ErrorAction SilentlyContinue |
+        Where-Object { $_.AccessRights -contains 'FullAccess' -and -not $_.Deny }
+    if (-not $verify) {
+        $r.Outcome = 'Failed'
+        $r.Reason  = 'Permission not found after refresh — verify manually in Exchange admin'
+        $failureCount++
+    }
+}
+
+# Result table
+Write-Host "      ================================================" -ForegroundColor DarkCyan
+Write-Host "       Results" -ForegroundColor White
+foreach ($r in $results) {
+    $color = switch ($r.Outcome) {
+        'Refreshed' { 'Green'  }
+        'Skipped'   { 'Gray'   }
+        'Failed'    { 'Red'    }
+        default     { 'White'  }
+    }
+    $suffix = if ($r.Outcome -eq 'Skipped') { '  (AutoMapping disabled)' } `
+              elseif ($r.Outcome -eq 'Failed') { "  — $($r.Reason)" } `
+              else { '' }
+    Write-Detail ("  {0,-50} {1}{2}" -f $r.Address, $r.Outcome, $suffix) $color
+}
+Write-Host "      ================================================" -ForegroundColor DarkCyan
+Write-Host ""
+
+# Failure callout
+if ($failureCount -gt 0) {
+    Write-Detail "$failureCount mailbox(es) failed to refresh — manual remediation required." Red
+    Write-Detail "Check Exchange admin permissions and re-run, or grant Full Access manually." Gray
+    Write-Host ""
+}
+
+# Outlook restart instructions
+$alias = ($Mailbox -split '@')[0]
+Write-Host "      ================================================" -ForegroundColor DarkCyan
+Write-Host "       Next Steps" -ForegroundColor White
+Write-Detail "  Step 1 — Ask $alias to close and reopen Outlook." White
+Write-Detail "           Shared mailboxes should reappear within a few minutes." Gray
+Write-Detail "  Step 2 — If still missing after restart, rebuild the local" White
+Write-Detail "           Outlook profile: Control Panel > Mail > Show Profiles." Gray
+Write-Host "      ================================================" -ForegroundColor DarkCyan
+Write-Host ""
