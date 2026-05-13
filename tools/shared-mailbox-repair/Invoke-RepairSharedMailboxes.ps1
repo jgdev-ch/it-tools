@@ -44,3 +44,13 @@ Write-Host "   Shared Mailbox Repair Tool" -ForegroundColor White
 Write-Host "  ================================================" -ForegroundColor DarkCyan
 Write-Host "   Target: $Mailbox" -ForegroundColor Gray
 Write-Host ""
+
+# --- Phase 1: Connect to Exchange Online ---
+Write-Step 1 "Connecting to Exchange Online..."
+try {
+    Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
+    Write-Detail "Exchange Online: connected" Green
+} catch {
+    Write-Host "ERROR: Could not connect to Exchange Online. $_" -ForegroundColor Red
+    exit 1
+}
