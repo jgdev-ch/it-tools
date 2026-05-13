@@ -21,6 +21,7 @@ try {
 # --- State ---
 $allMailboxes    = @()
 $toRefresh       = @()
+$skipped         = @()
 $results         = @()
 $failureCount    = 0
 $reportTime      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
@@ -214,9 +215,13 @@ foreach ($r in $results) {
 Write-Host "      ================================================" -ForegroundColor DarkCyan
 Write-Host ""
 
+$refreshedCount = ($results | Where-Object { $_.Outcome -eq 'Refreshed' }).Count
+$skippedCount   = ($results | Where-Object { $_.Outcome -eq 'Skipped'   }).Count
+$failedCount    = ($results | Where-Object { $_.Outcome -eq 'Failed'    }).Count
+
 # Failure callout
-if ($failureCount -gt 0) {
-    Write-Detail "$failureCount mailbox(es) failed to refresh — manual remediation required." Red
+if ($failedCount -gt 0) {
+    Write-Detail "$failedCount mailbox(es) failed to refresh — manual remediation required." Red
     Write-Detail "Check Exchange admin permissions and re-run, or grant Full Access manually." Gray
     Write-Host ""
 }
@@ -238,10 +243,6 @@ $export = Read-Host "      Export summary report for ticket? [Y/N]"
 if ($export -match '^[Yy]') {
     $reportAlias = ($Mailbox -split '@')[0]
     $reportFile  = "$([System.Environment]::GetFolderPath('Desktop'))\SharedMailboxRepair-$reportAlias-$reportTimestamp.txt"
-
-    $refreshedCount = ($results | Where-Object { $_.Outcome -eq 'Refreshed' }).Count
-    $skippedCount   = ($results | Where-Object { $_.Outcome -eq 'Skipped'   }).Count
-    $failedCount    = ($results | Where-Object { $_.Outcome -eq 'Failed'    }).Count
 
     $sep  = "=" * 60
     $dash = "-" * 60
