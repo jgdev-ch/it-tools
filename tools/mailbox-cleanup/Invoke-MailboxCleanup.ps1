@@ -123,7 +123,7 @@ $pct         = if ($limitBytes -gt 0) { [int](($usedBytes / $limitBytes) * 100) 
 $sirEnabled           = $mbx.SingleItemRecoveryEnabled
 $retentionHoldEnabled = $mbx.RetentionHoldEnabled
 
-Write-Detail ("Recoverable Items : {0} / {1} ({2}% full)" -f `
+Write-Detail ("Recoverable Items  : {0} / {1} ({2}% full)" -f `
     (Format-Size $usedBytes), (Format-Size $limitBytes), $pct) `
     $(if ($pct -ge 90) { 'Red' } elseif ($pct -ge 70) { 'Yellow' } else { 'Green' })
 
@@ -147,7 +147,7 @@ $holdDisplay = if ($holdFlags.Count -gt 0) { $holdFlags -join ', ' } else { 'Non
 $holdColor   = if ($mbx.LitigationHoldEnabled) { 'Red' } `
                elseif ($mbx.DelayHoldApplied -or $mbx.ComplianceTagHoldApplied -or ($mbx.InPlaceHolds -and $mbx.InPlaceHolds.Count -gt 0)) { 'Yellow' } `
                else { 'Green' }
-Write-Detail ("Holds active      : {0}" -f $holdDisplay) $holdColor
+Write-Detail ("Holds active       : {0}" -f $holdDisplay) $holdColor
 
 if ($mbx.LitigationHoldEnabled) {
     Write-Host ""
@@ -168,7 +168,7 @@ $folderBreakdown = Get-MailboxFolderStatistics -Identity $Mailbox -FolderScope R
     Where-Object { $_.ItemsInFolder -gt 0 }
 $discoveryHoldsBytes = 0
 if ($folderBreakdown) {
-    Write-Detail "Folder breakdown  :" Gray
+    Write-Detail "Folder breakdown   :" Gray
     $folderBreakdown | ForEach-Object {
         $note = if ($_.FolderType -eq 'RecoverableItemsPurges') { '  <- queued for deletion, pending MFA' } else { '' }
         if ($_.FolderPath -eq '/DiscoveryHolds') { $discoveryHoldsBytes = ConvertTo-Bytes $_.FolderAndSubfolderSize }
@@ -455,11 +455,11 @@ if ($export -match '^[Yy]') {
         $dash
         " PRE-FLIGHT"
         $dash
-        (" Recoverable Items : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
+        (" Recoverable Items  : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
         (" SingleItemRecovery : {0}" -f $(if ($sirEnabled) { 'Enabled' } else { 'DISABLED (pre-existing)' }))
-        (" RetentionHold     : {0}" -f $(if ($retentionHoldEnabled) { 'ENABLED (MFA will not reclaim space while active)' } else { 'False' }))
-        (" Holds active      : {0}" -f $holdDisplay)
-        " Folder breakdown  :"
+        (" RetentionHold      : {0}" -f $(if ($retentionHoldEnabled) { 'ENABLED (MFA will not reclaim space while active)' } else { 'False' }))
+        (" Holds active       : {0}" -f $holdDisplay)
+        " Folder breakdown   :"
     )
     if ($folderBreakdown) {
         $folderBreakdown | ForEach-Object {
