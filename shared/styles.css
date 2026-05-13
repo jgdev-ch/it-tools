@@ -464,6 +464,13 @@ tr:hover td { background: var(--surface2); }
 .file-drop input[type="file"] {
   position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
 }
+.file-drop.file-reading { pointer-events: none; }
+.file-drop.file-reading .file-drop-idle { display: none; }
+.file-drop .file-drop-busy { display: none; }
+.file-drop.file-reading .file-drop-busy {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 0.5rem 0; font-size: 13px; color: var(--muted);
+}
 
 /* ─────────────────────────────────────────────────────────────
    UTILITY

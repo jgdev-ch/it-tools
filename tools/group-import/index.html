@@ -135,9 +135,12 @@
         <div class="card">
           <div class="card-title">Source file</div>
           <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
-            <div style="font-size:28px;margin-bottom:8px">📄</div>
-            <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p>
-            <p style="font-size:11px;color:var(--muted2);margin-top:4px">.csv files only</p>
+            <div class="file-drop-idle">
+              <div style="font-size:28px;margin-bottom:8px">📄</div>
+              <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p>
+              <p style="font-size:11px;color:var(--muted2);margin-top:4px">.csv files only</p>
+            </div>
+            <div class="file-drop-busy"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Reading file…</div>
             <input type="file" id="fileIn" accept=".csv" onchange="handleFile(event)"/>
           </div>
           <div class="file-loaded" id="fileLoaded" style="display:none">
@@ -387,7 +390,9 @@ function handleFile(e){ loadFile(e.target.files[0]); }
 function clearFile() {
   st.csvName = ""; st.identifiers = [];
   ["fileLoaded","colCard","optCard"].forEach(id => document.getElementById(id).style.display="none");
-  document.getElementById("fileDrop").style.display = "block";
+  const drop = document.getElementById("fileDrop");
+  drop.classList.remove("file-reading");
+  drop.style.display = "block";
   document.getElementById("s1Btn").disabled = true;
   document.getElementById("s1Msg").textContent = "";
   document.getElementById("fileIn").value = "";
@@ -397,11 +402,23 @@ function clearFile() {
 async function loadFile(file) {
   if (!file) return;
   if (!file.name.toLowerCase().endsWith(".csv")) { showErr("s1Err","Please upload a .csv file."); return; }
+  const drop = document.getElementById("fileDrop");
+  drop.classList.add("file-reading");
+  document.getElementById("s1Err").style.display = "none";
   try {
-    const text = await file.text();
+    const text = await Promise.race([
+      file.text(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("AV_TIMEOUT")), 10000))
+    ]);
     parseAndRender(file.name, text);
   } catch(e) {
-    showErr("s1Err", "Could not read file — try saving it to your Desktop first, then upload. (" + e.message + ")");
+    drop.classList.remove("file-reading");
+    document.getElementById("fileIn").value = "";
+    if (e.message === "AV_TIMEOUT") {
+      showErr("s1Err", "File took too long to read — Windows Defender may be scanning it. Wait a moment and try again.");
+    } else {
+      showErr("s1Err", "Could not read file. (" + e.message + ")");
+    }
   }
 }
 
