@@ -135,3 +135,48 @@ if ($go -notmatch '^[Yy]') {
     Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
     exit 0
 }
+
+# --- Phase 3: Permission refresh ---
+Write-Step 3 "Refreshing permissions..."
+Write-Host ""
+
+$results = @()
+$i = 0
+foreach ($mbx in $toRefresh) {
+    $label = "[{0}/{1}] {2}" -f ($i + 1), $toRefresh.Count, $mbx.Address
+    Write-Host ("      {0,-68}" -f $label) -NoNewline
+
+    try {
+        Remove-MailboxPermission -Identity $mbx.Address -User $Mailbox `
+            -AccessRights FullAccess -Confirm:$false -ErrorAction Stop
+        Add-MailboxPermission -Identity $mbx.Address -User $Mailbox `
+            -AccessRights FullAccess -AutoMapping $true -ErrorAction Stop | Out-Null
+
+        Write-Host "Done" -ForegroundColor Green
+        $results += [PSCustomObject]@{
+            Address = $mbx.Address
+            Outcome = 'Refreshed'
+            Reason  = ''
+        }
+    } catch {
+        $errMsg = $_.Exception.Message
+        Write-Host "Failed" -ForegroundColor Red
+        Write-Detail "    $errMsg" Red
+        $results += [PSCustomObject]@{
+            Address = $mbx.Address
+            Outcome = 'Failed'
+            Reason  = $errMsg
+        }
+        $failureCount++
+    }
+    $i++
+}
+
+# Add skipped mailboxes to results for reporting
+foreach ($mbx in $skipped) {
+    $results += [PSCustomObject]@{
+        Address = $mbx.Address
+        Outcome = 'Skipped'
+        Reason  = 'AutoMapping disabled'
+    }
+}
