@@ -339,8 +339,9 @@ if ($export -match '^[Yy]') {
         " PRE-FLIGHT"
         $dash
         (" Shared mailboxes found : {0}" -f $allMailboxes.Count)
-        (" To be refreshed        : {0} (AutoMapping enabled)"  -f $toRefresh.Count)
-        (" Skipped                : {0} (AutoMapping disabled)" -f $skipped.Count)
+        (" To be repaired         : {0} (AutoMapping pointer refresh)"         -f (($toProcess | Where-Object { $_.Action -eq 'Repair'  }).Count))
+        (" To be disabled         : {0} (AutoMapping will be set to disabled)" -f (($toProcess | Where-Object { $_.Action -eq 'Disable' }).Count))
+        (" Skipped                : {0} (AutoMapping already disabled)"         -f ($allMailboxes | Where-Object { $_.Action -eq 'Skip' }).Count)
         ""
         $dash
         " RESULTS"
@@ -349,7 +350,8 @@ if ($export -match '^[Yy]') {
 
     foreach ($r in $results) {
         $suffix = switch ($r.Outcome) {
-            'Skipped'  { ' (AutoMapping disabled)' }
+            'Skipped'  { " ($($r.Reason))" }
+            'Disabled' { ' (AutoMapping disabled — manually add in Outlook)' }
             'Failed'   { " — $($r.Reason)" }
             default    { '' }
         }
@@ -364,18 +366,28 @@ if ($export -match '^[Yy]') {
     )
 
     if ($failedCount -eq 0) {
-        $report += " Repair complete."
+        $report += " Operation complete."
     } else {
-        $report += " Repair complete with $failedCount failure(s) — manual follow-up required."
+        $report += " Operation complete with $failedCount failure(s) — manual follow-up required."
     }
 
-    $report += @(
-        " Step 1: Ask user to close and reopen Outlook."
-        "         Shared mailboxes should reappear within a few minutes."
-        " Step 2: If still missing after restart, rebuild the Outlook profile"
-        "         via Control Panel > Mail > Show Profiles."
-        $sep
-    )
+    $rStep = 1
+    if ($refreshedCount -gt 0) {
+        $report += " Step ${rStep}: Ask user to close and reopen Outlook."
+        $report += "         Repaired mailboxes should reappear within a few minutes."
+        $rStep++
+    }
+    if ($disabledCount -gt 0) {
+        $report += " Step ${rStep}: Manually add disabled mailboxes in Outlook:"
+        $report += "         Classic: File > Account Settings > Change > More Settings > Advanced"
+        $report += "         New Outlook: Right-click Folders > Add shared folder"
+        $rStep++
+    }
+    if ($refreshedCount -gt 0) {
+        $report += " Step ${rStep}: If repaired mailboxes still missing after restart, rebuild"
+        $report += "         the Outlook profile via Control Panel > Mail > Show Profiles."
+    }
+    $report += $sep
 
     $report | Out-File -FilePath $reportFile -Encoding UTF8
     Write-Host ""
