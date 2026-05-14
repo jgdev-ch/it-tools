@@ -22,6 +22,7 @@ try {
 $allMailboxes    = @()
 $toRefresh       = @()
 $skipped         = @()
+$toProcess       = @()
 $results         = @()
 $failureCount    = 0
 $reportTime      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
@@ -30,7 +31,7 @@ $reportTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 # --- Helpers ---
 function Write-Step {
     param([int]$Step, [string]$Message)
-    Write-Host "`n[$Step/4] $Message" -ForegroundColor Cyan
+    Write-Host "`n[$Step/5] $Message" -ForegroundColor Cyan
 }
 
 function Write-Detail {
@@ -82,6 +83,7 @@ foreach ($mbx in $sharedMailboxes) {
             Address     = $mbx.PrimarySmtpAddress
             DisplayName = $mbx.DisplayName
             AutoMapping = $autoMap
+            Action      = if ($autoMap) { 'Repair' } else { 'Skip' }
         }
     }
 }
@@ -114,7 +116,7 @@ foreach ($mbx in $allMailboxes) {
 }
 
 Write-Host ""
-Write-Detail ("{0} mailbox(es) found — {1} will be refreshed" -f $allMailboxes.Count, $toRefresh.Count) White
+Write-Detail ("{0} mailbox(es) found — {1} automapped, {2} already disabled" -f $allMailboxes.Count, $toRefresh.Count, $skipped.Count) White
 
 # --- Exit: all mailboxes have AutoMapping disabled ---
 if ($toRefresh.Count -eq 0) {
