@@ -12,11 +12,7 @@
       "requires": "ExchangeOnlineManagement v3.9+",
       "updated": "2026-05",
       "files": [
-        { "label": "Download all (.zip)", "path": "tools/mailbox-cleanup.zip", "primary": true },
-        { "label": "Script .ps1",         "path": "tools/mailbox-cleanup/Invoke-MailboxCleanup.ps1" },
-        { "label": "Launcher .bat",       "path": "tools/mailbox-cleanup/Run-MailboxCleanup.bat" },
-        { "label": "Install prereqs .bat","path": "tools/mailbox-cleanup/Install-Prerequisites.bat" },
-        { "label": "README .txt",         "path": "tools/mailbox-cleanup/README.txt" }
+        { "label": "Download (.zip)", "path": "tools/mailbox-cleanup.zip", "primary": true }
       ]
     }
   ]
