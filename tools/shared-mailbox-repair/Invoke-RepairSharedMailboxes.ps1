@@ -198,25 +198,28 @@ if ($go -notmatch '^[Yy]') {
 }
 
 # --- Phase 4: Permission refresh ---
-Write-Step 4 "Refreshing permissions..."
+Write-Step 4 "Permission Operations..."
 Write-Host ""
 
 $results = @()
-$i = 0
-foreach ($mbx in $toRefresh) {
-    $label = "[{0}/{1}] {2}" -f ($i + 1), $toRefresh.Count, $mbx.Address
+$i       = 0
+foreach ($mbx in $toProcess) {
+    $label = "[{0}/{1}] {2}" -f ($i + 1), $toProcess.Count, $mbx.Address
     Write-Host ("      {0,-68}" -f $label) -NoNewline
 
     try {
         Remove-MailboxPermission -Identity $mbx.Address -User $Mailbox `
             -AccessRights FullAccess -Confirm:$false -ErrorAction Stop
         Add-MailboxPermission -Identity $mbx.Address -User $Mailbox `
-            -AccessRights FullAccess -AutoMapping $true -ErrorAction Stop | Out-Null
+            -AccessRights FullAccess -AutoMapping ($mbx.Action -eq 'Repair') -ErrorAction Stop | Out-Null
 
-        Write-Host "Done" -ForegroundColor Green
+        $outcome      = if ($mbx.Action -eq 'Repair') { 'Refreshed' } else { 'Disabled' }
+        $outcomeColor = if ($mbx.Action -eq 'Repair') { 'Green' }     else { 'Yellow' }
+        Write-Host $outcome -ForegroundColor $outcomeColor
         $results += [PSCustomObject]@{
             Address = $mbx.Address
-            Outcome = 'Refreshed'
+            Action  = $mbx.Action
+            Outcome = $outcome
             Reason  = ''
         }
     } catch {
@@ -225,6 +228,7 @@ foreach ($mbx in $toRefresh) {
         Write-Detail "    $errMsg" Red
         $results += [PSCustomObject]@{
             Address = $mbx.Address
+            Action  = $mbx.Action
             Outcome = 'Failed'
             Reason  = $errMsg
         }
@@ -233,12 +237,14 @@ foreach ($mbx in $toRefresh) {
     $i++
 }
 
-# Add skipped mailboxes to results for reporting
-foreach ($mbx in $skipped) {
+# Add skipped mailboxes to results
+foreach ($mbx in $allMailboxes | Where-Object { $_.Action -eq 'Skip' }) {
+    $skipReason = if (-not $mbx.AutoMapping) { 'AutoMapping already disabled' } else { 'Skipped by tech' }
     $results += [PSCustomObject]@{
         Address = $mbx.Address
+        Action  = 'Skip'
         Outcome = 'Skipped'
-        Reason  = 'AutoMapping disabled'
+        Reason  = $skipReason
     }
 }
 
