@@ -133,7 +133,7 @@ if ($toRefresh.Count -eq 0) {
 Write-Step 3 "Action Selection"
 Write-Host ""
 
-$disableChoice = Read-Host "      Disable AutoMapping on any of these mailboxes? [Y/N]"
+$disableChoice = Read-Host "      Disable AutoMapping on any automapped mailboxes? [Y/N]"
 Write-Host ""
 
 if ($disableChoice -match '^[Yy]') {
@@ -167,9 +167,9 @@ Write-Detail ("{0,-50} {1}" -f 'Mailbox', 'Action') Gray
 Write-Detail ("{0,-50} {1}" -f '-------', '------') Gray
 foreach ($mbx in $allMailboxes) {
     $actionLabel = switch ($mbx.Action) {
-        'Repair'  { 'Repair'                              }
-        'Disable' { 'Disable AutoMapping'                  }
-        'Skip'    { 'Skip  (already disabled / orphaned)'  }
+        'Repair'  { 'Repair  (refresh AutoMapping pointer)' }
+        'Disable' { 'Disable AutoMapping'                   }
+        'Skip'    { 'Skip  (already disabled / orphaned)'   }
     }
     $actionColor = switch ($mbx.Action) {
         'Repair'  { 'Green'  }
