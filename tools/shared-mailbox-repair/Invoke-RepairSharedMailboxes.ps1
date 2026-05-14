@@ -260,6 +260,10 @@ foreach ($r in $results | Where-Object { $_.Outcome -in 'Refreshed', 'Disabled' 
         $r.Outcome = 'Failed'
         $r.Reason  = 'Permission not found after operation — verify manually in Exchange admin'
         $failureCount++
+    } elseif ($null -ne $verify.AutoMapping -and $verify.AutoMapping -ne ($r.Action -eq 'Repair')) {
+        $r.Outcome = 'Failed'
+        $r.Reason  = 'AutoMapping flag mismatch after operation — verify manually in Exchange admin'
+        $failureCount++
     }
 }
 
