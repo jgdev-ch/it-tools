@@ -253,12 +253,12 @@ Write-Step 5 "Verifying and summarising..."
 Write-Host ""
 
 # Re-query to confirm each refresh landed
-foreach ($r in $results | Where-Object { $_.Outcome -eq 'Refreshed' }) {
+foreach ($r in $results | Where-Object { $_.Outcome -in 'Refreshed', 'Disabled' }) {
     $verify = Get-EXOMailboxPermission -Identity $r.Address -User $Mailbox -ErrorAction SilentlyContinue |
         Where-Object { $_.AccessRights -contains 'FullAccess' -and -not $_.Deny }
     if (-not $verify) {
         $r.Outcome = 'Failed'
-        $r.Reason  = 'Permission not found after refresh — verify manually in Exchange admin'
+        $r.Reason  = 'Permission not found after operation — verify manually in Exchange admin'
         $failureCount++
     }
 }
@@ -269,11 +269,12 @@ Write-Host "       Results" -ForegroundColor White
 foreach ($r in $results) {
     $color = switch ($r.Outcome) {
         'Refreshed' { 'Green'  }
+        'Disabled'  { 'Yellow' }
         'Skipped'   { 'Gray'   }
         'Failed'    { 'Red'    }
         default     { 'White'  }
     }
-    $suffix = if ($r.Outcome -eq 'Skipped') { '  (AutoMapping disabled)' } `
+    $suffix = if ($r.Outcome -eq 'Skipped') { "  ($($r.Reason))" } `
               elseif ($r.Outcome -eq 'Failed') { "  — $($r.Reason)" } `
               else { '' }
     Write-Detail ("  {0,-50} {1}{2}" -f $r.Address, $r.Outcome, $suffix) $color
@@ -282,24 +283,38 @@ Write-Host "      ================================================" -ForegroundC
 Write-Host ""
 
 $refreshedCount = ($results | Where-Object { $_.Outcome -eq 'Refreshed' }).Count
+$disabledCount  = ($results | Where-Object { $_.Outcome -eq 'Disabled'  }).Count
 $skippedCount   = ($results | Where-Object { $_.Outcome -eq 'Skipped'   }).Count
 $failedCount    = ($results | Where-Object { $_.Outcome -eq 'Failed'    }).Count
 
 # Failure callout
 if ($failedCount -gt 0) {
-    Write-Detail "$failedCount mailbox(es) failed to refresh — manual remediation required." Red
+    Write-Detail "$failedCount mailbox(es) failed — manual remediation required." Red
     Write-Detail "Check Exchange admin permissions and re-run, or grant Full Access manually." Gray
     Write-Host ""
 }
 
-# Outlook restart instructions
+# Conditional Next Steps
 $alias = ($Mailbox -split '@')[0]
+$step  = 1
 Write-Host "      ================================================" -ForegroundColor DarkCyan
 Write-Host "       Next Steps" -ForegroundColor White
-Write-Detail "  Step 1 — Ask $alias to close and reopen Outlook." White
-Write-Detail "           Shared mailboxes should reappear within a few minutes." Gray
-Write-Detail "  Step 2 — If still missing after restart, rebuild the local" White
-Write-Detail "           Outlook profile: Control Panel > Mail > Show Profiles." Gray
+if ($refreshedCount -gt 0) {
+    Write-Detail "  Step $step — Ask $alias to close and reopen Outlook." White
+    Write-Detail "           Repaired mailboxes should reappear within a few minutes." Gray
+    $step++
+}
+if ($disabledCount -gt 0) {
+    Write-Detail "  Step $step — Manually add disabled mailboxes in Outlook:" White
+    Write-Detail "           Classic: File > Account Settings > Change > More Settings" Gray
+    Write-Detail "                    > Advanced > add shared mailbox address" Gray
+    Write-Detail "           New Outlook: Right-click Folders > Add shared folder" Gray
+    $step++
+}
+if ($refreshedCount -gt 0) {
+    Write-Detail "  Step $step — If repaired mailboxes still missing after restart," White
+    Write-Detail "           rebuild the Outlook profile: Control Panel > Mail > Show Profiles." Gray
+}
 Write-Host "      ================================================" -ForegroundColor DarkCyan
 Write-Host ""
 
