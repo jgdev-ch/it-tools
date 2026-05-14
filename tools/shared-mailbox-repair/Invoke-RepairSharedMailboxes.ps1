@@ -129,9 +129,67 @@ if ($toRefresh.Count -eq 0) {
     exit 0
 }
 
-# --- Confirm ---
+# --- Phase 3: Action Selection ---
+Write-Step 3 "Action Selection"
 Write-Host ""
-$go = Read-Host "      Proceed with refresh? [Y/N]"
+
+$disableChoice = Read-Host "      Disable AutoMapping on any of these mailboxes? [Y/N]"
+Write-Host ""
+
+if ($disableChoice -match '^[Yy]') {
+    $bulkChoice = Read-Host "      Apply to all [A] or one at a time [O]?"
+    Write-Host ""
+
+    if ($bulkChoice -match '^[Aa]') {
+        foreach ($mbx in $allMailboxes | Where-Object { $_.Action -eq 'Repair' }) {
+            $mbx.Action = 'Disable'
+        }
+    } else {
+        $automapped = @($allMailboxes | Where-Object { $_.Action -eq 'Repair' })
+        for ($i = 0; $i -lt $automapped.Count; $i++) {
+            $mbx    = $automapped[$i]
+            $prompt = "      [{0}/{1}] {2,-46} [R]epair / [D]isable / [S]kip" -f ($i + 1), $automapped.Count, $mbx.Address
+            do {
+                $choice = Read-Host $prompt
+            } while ($choice -notmatch '^[RrDdSs]$')
+            switch -Regex ($choice) {
+                '^[Dd]$' { $mbx.Action = 'Disable' }
+                '^[Ss]$' { $mbx.Action = 'Skip'    }
+            }
+        }
+        Write-Host ""
+    }
+}
+
+# --- Action plan table ---
+Write-Host ""
+Write-Detail ("{0,-50} {1}" -f 'Mailbox', 'Action') Gray
+Write-Detail ("{0,-50} {1}" -f '-------', '------') Gray
+foreach ($mbx in $allMailboxes) {
+    $actionLabel = switch ($mbx.Action) {
+        'Repair'  { 'Repair'                              }
+        'Disable' { 'Disable AutoMapping'                  }
+        'Skip'    { 'Skip  (already disabled / orphaned)'  }
+    }
+    $actionColor = switch ($mbx.Action) {
+        'Repair'  { 'Green'  }
+        'Disable' { 'Yellow' }
+        'Skip'    { 'Gray'   }
+    }
+    Write-Detail ("{0,-50} {1}" -f $mbx.Address, $actionLabel) $actionColor
+}
+Write-Host ""
+
+$toProcess = @($allMailboxes | Where-Object { $_.Action -in 'Repair', 'Disable' })
+
+if ($toProcess.Count -eq 0) {
+    Write-Detail "No changes selected — all mailboxes skipped." Yellow
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Write-Host "  Exchange Online session disconnected.`n" -ForegroundColor DarkGray
+    exit 0
+}
+
+$go = Read-Host "      Proceed? [Y/N]"
 Write-Host ""
 if ($go -notmatch '^[Yy]') {
     Write-Host "  No changes made.`n" -ForegroundColor Cyan
@@ -139,8 +197,8 @@ if ($go -notmatch '^[Yy]') {
     exit 0
 }
 
-# --- Phase 3: Permission refresh ---
-Write-Step 3 "Refreshing permissions..."
+# --- Phase 4: Permission refresh ---
+Write-Step 4 "Refreshing permissions..."
 Write-Host ""
 
 $results = @()
@@ -184,8 +242,8 @@ foreach ($mbx in $skipped) {
     }
 }
 
-# --- Phase 4: Verify and summarise ---
-Write-Step 4 "Verifying and summarising..."
+# --- Phase 5: Verify and summarise ---
+Write-Step 5 "Verifying and summarising..."
 Write-Host ""
 
 # Re-query to confirm each refresh landed
