@@ -132,6 +132,10 @@ if ($toRefresh.Count -eq 0) {
 # --- Phase 3: Action Selection ---
 Write-Step 3 "Action Selection"
 Write-Host ""
+Write-Host "      NOTE: Repair refreshes the AutoMapping pointer. If Phase 4 reports" -ForegroundColor DarkGray
+Write-Host "            an ACE anomaly, the pointer may not hold — re-run and choose" -ForegroundColor DarkGray
+Write-Host "            Disable for those mailboxes if they disappear again." -ForegroundColor DarkGray
+Write-Host ""
 
 $disableChoice = Read-Host "      Disable AutoMapping on any automapped mailboxes? [Y/N]"
 Write-Host ""
@@ -208,14 +212,25 @@ foreach ($mbx in $toProcess) {
     Write-Host ("      {0,-68}" -f $label) -NoNewline
 
     try {
+        $removeWarn = @()
         Remove-MailboxPermission -Identity $mbx.Address -User $Mailbox `
-            -AccessRights FullAccess -Confirm:$false -ErrorAction Stop
+            -AccessRights FullAccess -Confirm:$false `
+            -WarningAction SilentlyContinue -WarningVariable removeWarn -ErrorAction Stop
+        $hasAce = [bool]($removeWarn | Where-Object { $_ -match 'ACE|not present|nothing' })
         Add-MailboxPermission -Identity $mbx.Address -User $Mailbox `
             -AccessRights FullAccess -AutoMapping ($mbx.Action -eq 'Repair') -ErrorAction Stop | Out-Null
 
-        $outcome      = if ($mbx.Action -eq 'Repair') { 'Refreshed' } else { 'Disabled' }
-        $outcomeColor = if ($mbx.Action -eq 'Repair') { 'Green' }     else { 'Yellow' }
+        if ($mbx.Action -eq 'Repair' -and $hasAce) {
+            $outcome      = 'Refreshed*'
+            $outcomeColor = 'Yellow'
+        } else {
+            $outcome      = if ($mbx.Action -eq 'Repair') { 'Refreshed' } else { 'Disabled' }
+            $outcomeColor = if ($mbx.Action -eq 'Repair') { 'Green' }     else { 'Yellow' }
+        }
         Write-Host $outcome -ForegroundColor $outcomeColor
+        if ($hasAce -and $mbx.Action -eq 'Repair') {
+            Write-Detail "    ACE anomaly — pointer may not hold. Re-run with Disable if mailbox reappears." Yellow
+        }
         $results += [PSCustomObject]@{
             Address = $mbx.Address
             Action  = $mbx.Action
@@ -272,13 +287,15 @@ Write-Host "      ================================================" -ForegroundC
 Write-Host "       Results" -ForegroundColor White
 foreach ($r in $results) {
     $color = switch ($r.Outcome) {
-        'Refreshed' { 'Green'  }
-        'Disabled'  { 'Yellow' }
-        'Skipped'   { 'Gray'   }
-        'Failed'    { 'Red'    }
-        default     { 'White'  }
+        'Refreshed'  { 'Green'  }
+        'Refreshed*' { 'Yellow' }
+        'Disabled'   { 'Yellow' }
+        'Skipped'    { 'Gray'   }
+        'Failed'     { 'Red'    }
+        default      { 'White'  }
     }
     $suffix = if ($r.Outcome -eq 'Skipped') { "  ($($r.Reason))" } `
+              elseif ($r.Outcome -eq 'Refreshed*') { "  (ACE anomaly — re-run with Disable if mailbox reappears)" } `
               elseif ($r.Outcome -eq 'Failed') { "  — $($r.Reason)" } `
               else { '' }
     Write-Detail ("  {0,-50} {1}{2}" -f $r.Address, $r.Outcome, $suffix) $color
@@ -286,10 +303,11 @@ foreach ($r in $results) {
 Write-Host "      ================================================" -ForegroundColor DarkCyan
 Write-Host ""
 
-$refreshedCount = ($results | Where-Object { $_.Outcome -eq 'Refreshed' }).Count
-$disabledCount  = ($results | Where-Object { $_.Outcome -eq 'Disabled'  }).Count
-$skippedCount   = ($results | Where-Object { $_.Outcome -eq 'Skipped'   }).Count
-$failedCount    = ($results | Where-Object { $_.Outcome -eq 'Failed'    }).Count
+$refreshedCount = ($results | Where-Object { $_.Outcome -in 'Refreshed', 'Refreshed*' }).Count
+$aceCount       = ($results | Where-Object { $_.Outcome -eq 'Refreshed*' }).Count
+$disabledCount  = ($results | Where-Object { $_.Outcome -eq 'Disabled'   }).Count
+$skippedCount   = ($results | Where-Object { $_.Outcome -eq 'Skipped'    }).Count
+$failedCount    = ($results | Where-Object { $_.Outcome -eq 'Failed'     }).Count
 
 # Failure callout
 if ($failedCount -gt 0) {
@@ -318,6 +336,12 @@ if ($disabledCount -gt 0) {
 if ($refreshedCount -gt 0) {
     Write-Detail "  Step $step — If repaired mailboxes still missing after restart," White
     Write-Detail "           rebuild the Outlook profile: Control Panel > Mail > Show Profiles." Gray
+    $step++
+}
+if ($aceCount -gt 0) {
+    Write-Detail "  Step $step — If a repaired mailbox reappears but then vanishes again," White
+    Write-Detail "           re-run this tool and choose Disable for that mailbox." Gray
+    Write-Detail "           (ACE anomaly detected — AutoMapping pointer may not hold.)" DarkGray
 }
 Write-Host "      ================================================" -ForegroundColor DarkCyan
 Write-Host ""
@@ -354,10 +378,11 @@ if ($export -match '^[Yy]') {
 
     foreach ($r in $results) {
         $suffix = switch ($r.Outcome) {
-            'Skipped'  { " ($($r.Reason))" }
-            'Disabled' { ' (AutoMapping disabled — manually add in Outlook)' }
-            'Failed'   { " — $($r.Reason)" }
-            default    { '' }
+            'Skipped'    { " ($($r.Reason))" }
+            'Refreshed*' { ' (ACE anomaly — re-run with Disable if mailbox reappears)' }
+            'Disabled'   { ' (AutoMapping disabled — manually add in Outlook)' }
+            'Failed'     { " — $($r.Reason)" }
+            default      { '' }
         }
         $report += (" {0,-50} {1}{2}" -f $r.Address, $r.Outcome, $suffix)
     }
@@ -390,6 +415,12 @@ if ($export -match '^[Yy]') {
     if ($refreshedCount -gt 0) {
         $report += " Step ${rStep}: If repaired mailboxes still missing after restart, rebuild"
         $report += "         the Outlook profile via Control Panel > Mail > Show Profiles."
+        $rStep++
+    }
+    if ($aceCount -gt 0) {
+        $report += " Step ${rStep}: If a repaired mailbox reappears but then vanishes again on restart,"
+        $report += "         re-run this tool and choose Disable for that mailbox."
+        $report += "         (ACE anomaly detected — AutoMapping pointer may not hold.)"
     }
     $report += $sep
 

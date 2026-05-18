@@ -15,5 +15,21 @@
         { "label": "Download (.zip)", "path": "tools/mailbox-cleanup.zip", "primary": true }
       ]
     }
+  ,
+    {
+      "id": "shared-mailbox-repair",
+      "name": "Shared Mailbox Repair Tool",
+      "description": "Diagnose and fix shared mailboxes that keep disappearing from Outlook. Repairs or disables AutoMapping per mailbox with full ticket export.",
+      "version": "1.0",
+      "type": "PowerShell",
+      "accent": "#0f766e",
+      "iconBg": "#0f2e2c",
+      "roles": ["Exchange Admin"],
+      "requires": "ExchangeOnlineManagement v3.9+",
+      "updated": "2026-05",
+      "files": [
+        { "label": "Download (.zip)", "path": "tools/shared-mailbox-repair.zip", "primary": true }
+      ]
+    }
   ]
 }
