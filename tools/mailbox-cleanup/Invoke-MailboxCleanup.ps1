@@ -19,25 +19,31 @@ try {
 }
 
 # --- Constants ---
-$RETENTION_POLICY_NAME    = "3 Year Email Retention Policy"
-$PROPAGATION_WAIT_SECONDS = 120
-$POLL_INTERVAL_SECONDS    = 30
+$RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
+$PROPAGATION_WAIT_SECONDS      = 120
+$POLL_INTERVAL_SECONDS         = 30
 $DISCOVERY_HOLDS_SIR_THRESHOLD = 1GB
+$ASYNC_HOLD_CHECK_WAIT         = 90   # seconds — Exchange applies DelayHoldApplied asynchronously
 
 # --- State ---
-$searchName       = $null
-$search           = $null
-$aborted          = $false
-$errorOccurred    = $false
-$policyRestored   = $false
+$policy                  = $null
+$searchName              = $null
+$search                  = $null
+$aborted                 = $false
+$errorOccurred           = $false
+$policyRestored          = $false
 $delayHoldCleared        = $false
 $delayReleaseHoldCleared = $false
+$lateDelayHoldCleared    = $false
 $mfaTriggered            = $false
+$mfaRetriggered          = $false
 $disableSIR              = $false
 $sirWasDisabledByScript  = $false
 $sirRestored             = $false
-$reportTime       = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-$reportTimestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
+$mfaOnlyMode             = $false
+$statusOnlyMode          = $false
+$reportTime              = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+$reportTimestamp         = Get-Date -Format 'yyyyMMdd-HHmmss'
 
 # --- Helpers ---
 function Write-Step {
@@ -75,6 +81,14 @@ function Get-RecoverableStats {
     param([string]$MailboxAddress)
     Get-MailboxFolderStatistics -Identity $MailboxAddress -FolderScope RecoverableItems |
         Where-Object { $_.FolderType -eq 'RecoverableItemsRoot' }
+}
+
+function Get-MfaWaitEstimate {
+    param([bool]$SirDisabled, [long]$DiscHoldsBytes)
+    if (-not $SirDisabled)              { return "typically within 1 hour" }
+    if ($DiscHoldsBytes -gt 50GB)       { return "24-72 hours (very large DiscoveryHolds backlog — >50 GB)" }
+    if ($DiscHoldsBytes -gt 20GB)       { return "12-24 hours (large DiscoveryHolds backlog)" }
+    return "2-4 hours (large DiscoveryHolds backlog)"
 }
 
 function Confirm-Continue {
@@ -116,11 +130,12 @@ try {
     exit 1
 }
 
-$statsBefore = Get-RecoverableStats -MailboxAddress $Mailbox
-$usedBytes   = ConvertTo-Bytes $statsBefore.FolderAndSubfolderSize
-$limitBytes  = ConvertTo-Bytes $mbx.RecoverableItemsQuota
-$pct         = if ($limitBytes -gt 0) { [int](($usedBytes / $limitBytes) * 100) } else { 0 }
+$statsBefore          = Get-RecoverableStats -MailboxAddress $Mailbox
+$usedBytes            = ConvertTo-Bytes $statsBefore.FolderAndSubfolderSize
+$limitBytes           = ConvertTo-Bytes $mbx.RecoverableItemsQuota
+$pct                  = if ($limitBytes -gt 0) { [int](($usedBytes / $limitBytes) * 100) } else { 0 }
 $sirEnabled           = $mbx.SingleItemRecoveryEnabled
+$sirEnabledOriginal   = $sirEnabled   # preserved — $sirEnabled may be updated by re-enable block below
 $retentionHoldEnabled = $mbx.RetentionHoldEnabled
 
 Write-Detail ("Recoverable Items  : {0} / {1} ({2}% full)" -f `
@@ -149,6 +164,11 @@ $holdColor   = if ($mbx.LitigationHoldEnabled) { 'Red' } `
                else { 'Green' }
 Write-Detail ("Holds active       : {0}" -f $holdDisplay) $holdColor
 
+# InPlaceHolds enumeration — list GUIDs so tech can identify what policies are holding items
+if ($mbx.InPlaceHolds -and $mbx.InPlaceHolds.Count -gt 0) {
+    $mbx.InPlaceHolds | ForEach-Object { Write-Detail "                       - $_" Gray }
+}
+
 if ($mbx.LitigationHoldEnabled) {
     Write-Host ""
     Write-Host "      ================================================" -ForegroundColor Red
@@ -164,19 +184,25 @@ if ($mbx.LitigationHoldEnabled) {
 }
 
 # Folder breakdown — only folders that contain items; track DiscoveryHolds size for SIR prompt
-$folderBreakdown = Get-MailboxFolderStatistics -Identity $Mailbox -FolderScope RecoverableItems |
+$folderBreakdown     = Get-MailboxFolderStatistics -Identity $Mailbox -FolderScope RecoverableItems |
     Where-Object { $_.ItemsInFolder -gt 0 }
 $discoveryHoldsBytes = 0
 if ($folderBreakdown) {
     Write-Detail "Folder breakdown   :" Gray
+    $pathColWidth = [Math]::Max(($folderBreakdown | ForEach-Object { $_.FolderPath.Length } | Measure-Object -Maximum).Maximum + 2, 30)
     $folderBreakdown | ForEach-Object {
-        $note = if ($_.FolderType -eq 'RecoverableItemsPurges') { '  <- queued for deletion, pending MFA' } else { '' }
+        $note = ''
+        if ($_.FolderType -eq 'RecoverableItemsPurges') {
+            $note = '  <- queued for deletion, pending MFA'
+        } elseif ($_.FolderPath -eq '/SubstrateHolds') {
+            $note = '  (Teams/Skype hold area — handled by -AggMailboxCleanup)'
+        }
         if ($_.FolderPath -eq '/DiscoveryHolds') { $discoveryHoldsBytes = ConvertTo-Bytes $_.FolderAndSubfolderSize }
-        Write-Detail ("    {0,-46} {1,8} items   {2}{3}" -f $_.FolderPath, $_.ItemsInFolder, (Format-Size (ConvertTo-Bytes $_.FolderAndSubfolderSize)), $note) Gray
+        Write-Detail ("    {0} {1,8} items   {2}{3}" -f $_.FolderPath.PadRight($pathColWidth), $_.ItemsInFolder, (Format-Size (ConvertTo-Bytes $_.FolderAndSubfolderSize)), $note) Gray
     }
 }
 
-# --- SIR already disabled: prompt to re-enable before proceeding ---
+# --- SIR already disabled: prompt to re-enable before mode selection ---
 if (-not $sirEnabled) {
     Write-Host ""
     Write-Host "      ================================================" -ForegroundColor Yellow
@@ -192,139 +218,172 @@ if (-not $sirEnabled) {
             Set-Mailbox -Identity $Mailbox -SingleItemRecoveryEnabled $true -ErrorAction Stop
             Write-Detail "SingleItemRecovery re-enabled." Green
             $sirRestored = $true
+            $sirEnabled  = $true
         } catch {
             Write-Detail "WARNING: Could not re-enable SingleItemRecovery. Run manually: Set-Mailbox -Identity '$Mailbox' -SingleItemRecoveryEnabled `$true" Yellow
         }
-        $continueCleanup = Read-Host "      Continue with cleanup? [Y/N]"
-        Write-Host ""
-        if ($continueCleanup -notmatch '^[Yy]') {
-            Write-Host "  Done. SingleItemRecovery re-enabled. No cleanup performed.`n" -ForegroundColor Green
-            Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-            exit 0
-        }
     }
 }
 
-# --- SIR enabled and DiscoveryHolds is large: offer to disable for this cleanup ---
-if ($sirEnabled -and $discoveryHoldsBytes -gt $DISCOVERY_HOLDS_SIR_THRESHOLD) {
-    Write-Host ""
-    Write-Detail ("DiscoveryHolds is {0}. Disabling SingleItemRecovery temporarily" -f (Format-Size $discoveryHoldsBytes)) Gray
-    Write-Detail "allows MFA to fully reclaim this space after cleanup." Gray
-    $disableSIRChoice = Read-Host "      Disable SingleItemRecovery for this cleanup? [Y/N]"
-    Write-Host ""
-    if ($disableSIRChoice -match '^[Yy]') {
-        $disableSIR = $true
-        Write-Detail "SingleItemRecovery will be disabled before MFA is triggered." Yellow
+# --- Mode selection ---
+Write-Host ""
+Write-Host "      What would you like to do?" -ForegroundColor White
+Write-Host "        [C] Full cleanup   — compliance search, purge, and MFA" -ForegroundColor Gray
+Write-Host "        [M] MFA only       — clear delay holds and re-trigger MFA (previous purge still pending)" -ForegroundColor Gray
+Write-Host "        [S] Status only    — exit here, no changes made" -ForegroundColor Gray
+Write-Host "        [Q] Quit" -ForegroundColor Gray
+Write-Host ""
+$modeChoice = Read-Host "      Choice"
+Write-Host ""
+
+switch -Regex ($modeChoice) {
+    '^[Ss]' { $statusOnlyMode = $true }
+    '^[Mm]' { $mfaOnlyMode   = $true }
+    '^[Cc]' { }
+    default {
+        $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Exited." } else { "Exited. No changes were made." }
+        Write-Host "  $exitMsg`n" -ForegroundColor Cyan
+        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+        exit 0
     }
 }
 
-# Status-check decision point — tech reviews the above before committing to cleanup
-Write-Host ""
-$go = Read-Host "      Proceed with cleanup? [Y/N]"
-Write-Host ""
-if ($go -notmatch '^[Yy]') {
-    Write-Host "  Status check complete. No changes were made.`n" -ForegroundColor Cyan
+# --- Status only: exit cleanly ---
+if ($statusOnlyMode) {
+    $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Status check complete." } else { "Status check complete. No changes were made." }
+    Write-Host "  $exitMsg`n" -ForegroundColor Cyan
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
     exit 0
 }
 
-# --- Phase 3: Connect to Security & Compliance ---
-Write-Step 3 "Connecting to Security & Compliance..."
-try {
-    Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
-    Write-Detail "Security & Compliance: connected" Green
-} catch {
-    Write-Host "ERROR: Could not connect to Security & Compliance (IPPSSession). $_" -ForegroundColor Red
-    exit 1
+# --- MFA only: confirm intent, then fall through to Phase 6 via empty try ---
+if ($mfaOnlyMode) {
+    Write-Detail "MFA-only mode: will clear delay holds and re-trigger Managed Folder Assistant." Yellow
+    Write-Detail "No compliance search or purge will run." Gray
 }
 
-# --- Phase 4: Purview policy exclusion ---
-Write-Step 4 "Adding Purview policy exclusion..."
-$policy = $null
-try {
-    $policy = Get-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME -ErrorAction Stop
-} catch {
-    Write-Host "ERROR: Retention policy '$RETENTION_POLICY_NAME' not found. Update `$RETENTION_POLICY_NAME in the script constants." -ForegroundColor Red
-    exit 1
-}
-
-try {
-    Set-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME `
-        -AddExchangeLocationException $Mailbox -ErrorAction Stop
-    Write-Detail "Policy exception added for $Mailbox" Green
-
-    $barWidth = 28
-    $elapsed  = 0
-    while ($elapsed -lt $PROPAGATION_WAIT_SECONDS) {
-        $remaining = $PROPAGATION_WAIT_SECONDS - $elapsed
-        $filled    = [int]([Math]::Round(($PROPAGATION_WAIT_SECONDS - $remaining) / $PROPAGATION_WAIT_SECONDS * $barWidth))
-        $bar       = ('#' * $filled).PadRight($barWidth, '-')
-        Write-Host "`r      [$bar] ${remaining}s remaining " -NoNewline -ForegroundColor Yellow
-        $sleep = [Math]::Min($POLL_INTERVAL_SECONDS, $remaining)
-        Start-Sleep -Seconds $sleep
-        $elapsed += $sleep
-    }
-    Write-Host "`r      [$('#' * $barWidth)] propagation complete      " -ForegroundColor Green
-
-    Confirm-Continue "Propagation complete. Proceed with compliance search?"
-
-    # --- Phase 5: Compliance search + purge ---
-    $alias      = ($Mailbox -split '@')[0]
-    $timestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $searchName = "RecovItems-$alias-$timestamp"
-
-    Write-Step 5 "Compliance search: $searchName"
-
-    New-ComplianceSearch -Name $searchName `
-        -ExchangeLocation $Mailbox `
-        -ContentMatchQuery 'folderpath:"recoverable items"' `
-        -ErrorAction Stop | Out-Null
-
-    Start-ComplianceSearch -Identity $searchName -ErrorAction Stop
-
-    $elapsed = 0
-    do {
-        Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
-        $elapsed += $POLL_INTERVAL_SECONDS
-        $search = Get-ComplianceSearch -Identity $searchName
-        Write-Detail "Searching... (${elapsed}s) - $($search.Status)"
-    } while ($search.Status -notin @('Completed', 'Failed'))
-
-    if ($search.Status -eq 'Failed') {
-        throw "Compliance search '$searchName' failed. Check the Security & Compliance portal for details."
-    }
-
-    Write-Detail ("Search complete - {0:N0} items found ({1} compliance-hold storage)" -f `
-        $search.Items, (Format-Size ($search.Size))) Green
-
-    if ($search.Items -eq 0 -and $usedBytes -gt 5GB) {
+# --- Full cleanup only: SIR disable offer + final confirmation ---
+if (-not $mfaOnlyMode) {
+    if ($sirEnabled -and $discoveryHoldsBytes -gt $DISCOVERY_HOLDS_SIR_THRESHOLD) {
         Write-Host ""
-        Write-Detail "NOTE: 0 items found, but Recoverable Items is $(Format-Size $usedBytes)." Yellow
-        Write-Detail "Items in DiscoveryHolds may have been released by a previous cleanup run but" Gray
-        Write-Detail "not yet reclaimed by Exchange. MFA (triggered at end) is the cleanup path." Gray
-        Write-Detail "Allow 2-4 hours for large backlogs. Ensure SingleItemRecovery is disabled." Gray
+        Write-Detail ("DiscoveryHolds is {0}. Disabling SingleItemRecovery temporarily" -f (Format-Size $discoveryHoldsBytes)) Gray
+        Write-Detail "allows MFA to fully reclaim this space after cleanup." Gray
+        $disableSIRChoice = Read-Host "      Disable SingleItemRecovery for this cleanup? [Y/N]"
+        Write-Host ""
+        if ($disableSIRChoice -match '^[Yy]') {
+            $disableSIR = $true
+            Write-Detail "SingleItemRecovery will be disabled before MFA is triggered." Yellow
+        }
     }
 
-    Confirm-Continue ("Proceed with HardDelete purge of {0:N0} items ({1})?" -f $search.Items, (Format-Size $search.Size))
-
-    Write-Detail "Running purge (HardDelete)..." Yellow
-
-    New-ComplianceSearchAction -SearchName $searchName `
-        -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
-
-    $actionName = "$searchName`_Purge"
-    $elapsed    = 0
-    do {
-        Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
-        $elapsed += $POLL_INTERVAL_SECONDS
-        $action = Get-ComplianceSearchAction -Identity $actionName
-        Write-Detail "Purging... (${elapsed}s) - $($action.Status)"
-    } while ($action.Status -notin @('Completed', 'Failed'))
-
-    if ($action.Status -eq 'Failed') {
-        throw "Compliance purge action '$actionName' failed. Check the Security & Compliance portal for details."
+    Write-Host ""
+    $go = Read-Host "      Proceed with cleanup? [Y/N]"
+    Write-Host ""
+    if ($go -notmatch '^[Yy]') {
+        Write-Host "  Status check complete. No changes were made.`n" -ForegroundColor Cyan
+        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+        exit 0
     }
+}
 
-    Write-Detail "Purge complete." Green
+# --- Phases 3-5 (full cleanup path) or empty try (MFA-only — falls straight to finally) ---
+try {
+    if (-not $mfaOnlyMode) {
+        # --- Phase 3: Connect to Security & Compliance ---
+        Write-Step 3 "Connecting to Security & Compliance..."
+        try {
+            Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+            Write-Detail "Security & Compliance: connected" Green
+        } catch {
+            throw "Could not connect to Security & Compliance (IPPSSession). $_"
+        }
+
+        # --- Phase 4: Purview policy exclusion ---
+        Write-Step 4 "Adding Purview policy exclusion..."
+        try {
+            $policy = Get-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME -ErrorAction Stop
+        } catch {
+            throw "Retention policy '$RETENTION_POLICY_NAME' not found. Update `$RETENTION_POLICY_NAME in the script constants."
+        }
+
+        Set-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME `
+            -AddExchangeLocationException $Mailbox -ErrorAction Stop
+        Write-Detail "Policy exception added for $Mailbox" Green
+
+        $barWidth = 28
+        $elapsed  = 0
+        while ($elapsed -lt $PROPAGATION_WAIT_SECONDS) {
+            $remaining = $PROPAGATION_WAIT_SECONDS - $elapsed
+            $filled    = [int]([Math]::Round(($PROPAGATION_WAIT_SECONDS - $remaining) / $PROPAGATION_WAIT_SECONDS * $barWidth))
+            $bar       = ('#' * $filled).PadRight($barWidth, '-')
+            Write-Host "`r      [$bar] ${remaining}s remaining " -NoNewline -ForegroundColor Yellow
+            $sleep = [Math]::Min($POLL_INTERVAL_SECONDS, $remaining)
+            Start-Sleep -Seconds $sleep
+            $elapsed += $sleep
+        }
+        Write-Host "`r      [$('#' * $barWidth)] propagation complete      " -ForegroundColor Green
+
+        Confirm-Continue "Propagation complete. Proceed with compliance search?"
+
+        # --- Phase 5: Compliance search + purge ---
+        $alias      = ($Mailbox -split '@')[0]
+        $timestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
+        $searchName = "RecovItems-$alias-$timestamp"
+
+        Write-Step 5 "Compliance search: $searchName"
+
+        New-ComplianceSearch -Name $searchName `
+            -ExchangeLocation $Mailbox `
+            -ContentMatchQuery 'folderpath:"recoverable items"' `
+            -ErrorAction Stop | Out-Null
+
+        Start-ComplianceSearch -Identity $searchName -ErrorAction Stop
+
+        $elapsed = 0
+        do {
+            Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+            $elapsed += $POLL_INTERVAL_SECONDS
+            $search = Get-ComplianceSearch -Identity $searchName
+            Write-Detail "Searching... (${elapsed}s) - $($search.Status)"
+        } while ($search.Status -notin @('Completed', 'Failed'))
+
+        if ($search.Status -eq 'Failed') {
+            throw "Compliance search '$searchName' failed. Check the Security & Compliance portal for details."
+        }
+
+        Write-Detail ("Search complete - {0:N0} items found ({1} compliance-hold storage)" -f `
+            $search.Items, (Format-Size ($search.Size))) Green
+
+        if ($search.Items -eq 0 -and $usedBytes -gt 5GB) {
+            Write-Host ""
+            Write-Detail "NOTE: 0 items found, but Recoverable Items is $(Format-Size $usedBytes)." Yellow
+            Write-Detail "Items in DiscoveryHolds may have been released by a previous cleanup run but" Gray
+            Write-Detail "not yet reclaimed by Exchange. MFA (triggered at end) is the cleanup path." Gray
+            Write-Detail "Use [M] MFA only on re-runs while waiting for space reclamation." Gray
+        }
+
+        Confirm-Continue ("Proceed with HardDelete purge of {0:N0} items ({1})?" -f $search.Items, (Format-Size $search.Size))
+
+        Write-Detail "Running purge (HardDelete)..." Yellow
+
+        New-ComplianceSearchAction -SearchName $searchName `
+            -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
+
+        $actionName = "$searchName`_Purge"
+        $elapsed    = 0
+        do {
+            Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+            $elapsed += $POLL_INTERVAL_SECONDS
+            $action = Get-ComplianceSearchAction -Identity $actionName
+            Write-Detail "Purging... (${elapsed}s) - $($action.Status)"
+        } while ($action.Status -notin @('Completed', 'Failed'))
+
+        if ($action.Status -eq 'Failed') {
+            throw "Compliance purge action '$actionName' failed. Check the Security & Compliance portal for details."
+        }
+
+        Write-Detail "Purge complete." Green
+    }
 
 } catch {
     if ($_.Exception.Message -eq 'Aborted by user.') {
@@ -409,6 +468,45 @@ try {
         Write-Detail "WARNING: Could not trigger Managed Folder Assistant. Quota reclamation may take longer." Yellow
     }
 
+    # Async delay hold re-check — Exchange applies DelayHoldApplied asynchronously after a hold
+    # change (e.g., removing the policy exception). The initial check above can miss it.
+    # Wait, re-check, clear any late-applied hold, and re-trigger MFA so it runs clean.
+    # Only relevant on full cleanup path — MFA-only makes no policy changes.
+    if ($mfaTriggered -and -not $mfaOnlyMode) {
+        Write-Detail "Waiting ${ASYNC_HOLD_CHECK_WAIT}s for async delay hold check..." Gray
+        Start-Sleep -Seconds $ASYNC_HOLD_CHECK_WAIT
+        $asyncMbx      = Get-Mailbox -Identity $Mailbox -ErrorAction SilentlyContinue
+        $lateHoldFound = $false
+        if ($asyncMbx -and $asyncMbx.DelayHoldApplied) {
+            try {
+                Set-Mailbox -Identity $Mailbox -RemoveDelayHoldApplied -ErrorAction Stop
+                Write-Detail "Late-applied delay hold cleared (Exchange applied this after policy exception was removed)." Yellow
+                $lateDelayHoldCleared = $true
+                $lateHoldFound        = $true
+            } catch {
+                Write-Detail "WARNING: Could not clear late delay hold. Run manually: Set-Mailbox -Identity '$Mailbox' -RemoveDelayHoldApplied" Yellow
+            }
+        }
+        if ($asyncMbx -and $asyncMbx.DelayReleaseHoldApplied) {
+            try {
+                Set-Mailbox -Identity $Mailbox -RemoveDelayReleaseHoldApplied -ErrorAction Stop
+                Write-Detail "Late-applied delay release hold cleared." Yellow
+                $lateHoldFound = $true
+            } catch {
+                Write-Detail "WARNING: Could not clear late delay release hold. Run manually: Set-Mailbox -Identity '$Mailbox' -RemoveDelayReleaseHoldApplied" Yellow
+            }
+        }
+        if ($lateHoldFound) {
+            try {
+                Start-ManagedFolderAssistant -Identity $Mailbox -FullCrawl -AggMailboxCleanup -ErrorAction Stop
+                Write-Detail "Managed Folder Assistant re-triggered (late hold cleared — MFA now runs clean)." Green
+                $mfaRetriggered = $true
+            } catch {
+                Write-Detail "WARNING: Could not re-trigger Managed Folder Assistant." Yellow
+            }
+        }
+    }
+
     if ($searchName) {
         try {
             Remove-ComplianceSearch -Identity $searchName -Confirm:$false -ErrorAction Stop
@@ -419,10 +517,14 @@ try {
     }
 }
 
+# SIR is effectively disabled for MFA if this run disabled it, or it was already disabled and not re-enabled
+$sirDisabledForMfa = $sirWasDisabledByScript -or (-not $sirEnabledOriginal -and -not $sirRestored)
+$mfaWait           = Get-MfaWaitEstimate -SirDisabled $sirDisabledForMfa -DiscHoldsBytes $discoveryHoldsBytes
+
 if (-not $aborted -and -not $errorOccurred) {
-    Write-Host "`nDone. Purge complete for $Mailbox." -ForegroundColor Green
-    $mfaWaitMsg = if ($sirWasDisabledByScript) { "2-4 hours for large DiscoveryHolds backlogs" } else { "typically within 1 hour" }
-    Write-Host "      Managed Folder Assistant has been triggered. The user can send and receive once Exchange reclaims the purged space ($mfaWaitMsg).`n" -ForegroundColor Gray
+    $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered" } else { "Purge complete" }
+    Write-Host "`nDone. $actionLabel for $Mailbox." -ForegroundColor Green
+    Write-Host "      Managed Folder Assistant has been triggered. The user can send and receive once Exchange reclaims the purged space ($mfaWait).`n" -ForegroundColor Gray
 } elseif ($aborted) {
     Write-Host "`nAborted. No items were purged. Policy exception and compliance search have been cleaned up.`n" -ForegroundColor Yellow
 }
@@ -430,7 +532,7 @@ if (-not $aborted -and -not $errorOccurred) {
 if ($sirWasDisabledByScript) {
     Write-Host "      ================================================" -ForegroundColor Yellow
     Write-Host "       SingleItemRecovery is now DISABLED" -ForegroundColor Yellow
-    Write-Host "       MFA triggered. Allow 2-4 hours for large backlogs." -ForegroundColor White
+    Write-Host "       MFA triggered. Allow $mfaWait." -ForegroundColor White
     Write-Host "       Re-run this script on $Mailbox once" -ForegroundColor White
     Write-Host "       quota recovers to re-enable SingleItemRecovery." -ForegroundColor White
     Write-Host "      ================================================`n" -ForegroundColor Yellow
@@ -451,19 +553,24 @@ if ($export -match '^[Yy]') {
         $sep
         " Date   : $reportTime"
         " Target : $Mailbox"
+        " Mode   : $(if ($mfaOnlyMode) { 'MFA Only' } else { 'Full Cleanup' })"
         ""
         $dash
         " PRE-FLIGHT"
         $dash
         (" Recoverable Items  : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
-        (" SingleItemRecovery : {0}" -f $(if ($sirEnabled) { 'Enabled' } else { 'DISABLED (pre-existing)' }))
+        (" SingleItemRecovery : {0}" -f $(if ($sirEnabledOriginal) { 'Enabled' } else { 'DISABLED' }))
         (" RetentionHold      : {0}" -f $(if ($retentionHoldEnabled) { 'ENABLED (MFA will not reclaim space while active)' } else { 'False' }))
         (" Holds active       : {0}" -f $holdDisplay)
-        " Folder breakdown   :"
     )
+    if ($mbx.InPlaceHolds -and $mbx.InPlaceHolds.Count -gt 0) {
+        $mbx.InPlaceHolds | ForEach-Object { $report += "     - $_" }
+    }
+    $report += " Folder breakdown   :"
     if ($folderBreakdown) {
+        $rptColWidth = [Math]::Max(($folderBreakdown | ForEach-Object { $_.FolderPath.Length } | Measure-Object -Maximum).Maximum + 2, 30)
         $folderBreakdown | ForEach-Object {
-            $report += ("   {0,-50} {1,8} items   {2}" -f $_.FolderPath, $_.ItemsInFolder, $_.FolderAndSubfolderSize)
+            $report += ("   {0} {1,8} items   {2}" -f $_.FolderPath.PadRight($rptColWidth), $_.ItemsInFolder, $_.FolderAndSubfolderSize)
         }
     }
     $report += @(
@@ -488,17 +595,19 @@ if ($export -match '^[Yy]') {
         (" Purview policy exception removed : {0}" -f $(if ($policyRestored)          { 'Yes' } else { 'No' }))
         (" Delay hold cleared               : {0}" -f $(if ($delayHoldCleared)        { 'Yes' } else { 'No (not present)' }))
         (" Delay release hold cleared       : {0}" -f $(if ($delayReleaseHoldCleared) { 'Yes' } else { 'No (not present)' }))
+        (" Late delay hold cleared          : {0}" -f $(if ($lateDelayHoldCleared)    { 'Yes — Exchange applied async after policy exception removed' } else { 'No' }))
         (" SIR disabled this run            : {0}" -f $(if ($sirWasDisabledByScript)  { 'Yes — re-enable after quota recovers' } else { 'No' }))
         (" SIR re-enabled this run          : {0}" -f $(if ($sirRestored)             { 'Yes' } else { 'No' }))
         (" Managed Folder Assistant triggered: {0}" -f $(if ($mfaTriggered)           { 'Yes' } else { 'No' }))
+        (" MFA re-triggered (late hold)     : {0}" -f $(if ($mfaRetriggered)          { 'Yes' } else { 'No' }))
         ""
         $dash
         " OUTCOME"
         $dash
     )
     if (-not $aborted -and -not $errorOccurred) {
-        $mfaReportWait = if ($sirWasDisabledByScript) { "2-4 hours (SIR disabled — large DiscoveryHolds backlog)" } else { "~1 hour" }
-        $report += " Purge complete. MFA triggered. Space reclaims within $mfaReportWait."
+        $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered." } else { "Purge complete. MFA triggered." }
+        $report += " $actionLabel Space reclaims within $mfaWait."
         if ($sirWasDisabledByScript) {
             $report += " Re-run script on $Mailbox to re-enable SingleItemRecovery once quota recovers."
         }

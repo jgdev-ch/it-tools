@@ -1,6 +1,6 @@
 ================================================================================
  MAILBOX CLEANUP TOOL — TECHNICAL REFERENCE
- Invoke-MailboxCleanup.ps1
+ Invoke-MailboxCleanup.ps1  v1.3
 ================================================================================
 
 PURPOSE
@@ -13,7 +13,8 @@ held items to the point of quota exhaustion.
 Replaces a legacy script that used dangerous permanent mailbox-level changes
 (RetainDeletedItemsFor 0, SingleItemRecoveryEnabled $False) and relied on
 Start-ManagedFolderAssistant background crawls that took days. This script
-completes a full cleanup in ~6 minutes with no permanent mailbox changes.
+completes the interactive portion in minutes and handles the full cleanup
+lifecycle across multiple runs.
 
 
 HOW TO RUN
@@ -26,7 +27,7 @@ Direct:
   pwsh.exe -File Invoke-MailboxCleanup.ps1 -Mailbox john.doe@corrohealth.com
 
 The running account must have:
-  - Exchange Administrator     (mailbox stats, quota inspection, delay hold clearing)
+  - Exchange Administrator     (mailbox stats, quota inspection, hold clearing)
   - Compliance Administrator   (Purview policy management, compliance search + purge)
 
 PowerShell requirement: PowerShell 7 (pwsh.exe)
@@ -42,23 +43,37 @@ Phase 1 — Connect Exchange Online
   Connects to Exchange Online via Connect-ExchangeOnline (MFA prompt).
 
 Phase 2 — Mailbox Status Check
-  Reads Recoverable Items quota, hold flags, and folder-level breakdown.
-  Color-coded output: green (healthy), yellow (caution), red (at/near limit).
+  Reads Recoverable Items quota, hold flags, SIR state, RetentionHold state,
+  and folder-level breakdown. Color-coded output: green (healthy), yellow
+  (caution), red (at/near limit or error condition).
+
   Hard stops immediately if LitigationHoldEnabled is detected — purging a
   mailbox under litigation hold may violate legal preservation requirements.
-  Operator reviews the status and confirms Y/N to proceed. Hitting N exits
-  cleanly with no changes made — useful for documenting before-state in a ticket.
+
+  If SingleItemRecovery is already disabled (from a previous cleanup run),
+  the script prompts to re-enable it before continuing.
+
+  Mode selection — operator chooses how to proceed:
+    [C] Full cleanup   — compliance search + purge + MFA (Phases 3-5 then 6)
+    [M] MFA only       — clears delay holds and re-triggers MFA only;
+                         use when a previous purge is still pending MFA
+    [S] Status only    — exits cleanly, no changes made
+    [Q] Quit
+
+  On the full cleanup path, if DiscoveryHolds is large (>1 GB), the script
+  offers to disable SingleItemRecovery temporarily so MFA can fully reclaim
+  the space after purge. The script reminds you to re-enable it on the next run.
 
 Phase 3 — Connect Security & Compliance
   Connects to IPPSSession (Purview/compliance center). Deferred until the
-  operator has confirmed they want to proceed past the status check.
+  operator has confirmed they want to run full cleanup.
 
 Phase 4 — Purview Policy Exclusion
   Adds the mailbox as an exception to the "3 Year Email Retention Policy" via
   Set-RetentionCompliancePolicy -AddExchangeLocationException. This lifts the
   compliance hold so the purge action can remove items.
   Progress bar waits 120 seconds for policy propagation before proceeding.
-  Operator confirms again before the compliance search runs.
+  Operator confirms before the compliance search runs.
 
 Phase 5 — Compliance Search + Purge
   Creates a compliance search scoped to the Recoverable Items folder
@@ -66,15 +81,28 @@ Phase 5 — Compliance Search + Purge
   count and size. Operator confirms the final time before purge runs.
   Purge uses HardDelete — items are permanently removed and unrecoverable.
 
-Phase 6 — Restore (always runs via finally block)
+  If the search returns 0 items but Recoverable Items is still large, the
+  script warns that items were likely already purged by a previous run but
+  not yet reclaimed by Exchange — MFA (Phase 6) is the correct path.
+
+Phase 6 — Verify and Restore (always runs via finally block)
   Runs unconditionally — even on error or operator abort.
     - Shows before/after quota comparison
     - Removes the Purview policy exception (restores compliance coverage)
     - Clears DelayHoldApplied if present (covers primary Recoverable Items)
-    - Clears DelayReleaseHoldApplied if present (covers Teams/cloud storage areas)
-    - Triggers Start-ManagedFolderAssistant for immediate quota reclamation
+    - Clears DelayReleaseHoldApplied if present (covers Teams/Skype areas)
+    - Disables SingleItemRecovery if operator opted in (enables full MFA reclaim)
+    - Triggers Start-ManagedFolderAssistant -FullCrawl -AggMailboxCleanup
+    - Waits 90 seconds, then re-checks for async delay holds that Exchange
+      may have applied after the policy exception was removed. If found,
+      clears them and re-triggers MFA so it runs clean.
     - Deletes the compliance search from the Purview portal
-  Exchange reclaims the freed quota within ~1 hour after MFA runs.
+
+  Exchange reclaims the freed quota after MFA runs. Wait time varies:
+    SIR enabled     — typically within 1 hour
+    SIR disabled, DiscoveryHolds <20 GB  — 2-4 hours
+    SIR disabled, DiscoveryHolds 20-50 GB — 12-24 hours
+    SIR disabled, DiscoveryHolds >50 GB   — 24-72 hours
 
 Session Cleanup
   Disconnect-ExchangeOnline runs at the end regardless of outcome.
@@ -93,36 +121,73 @@ SAFETY FEATURES
 - Litigation hold      Hard stop at Phase 2 — script exits without making any
   hard stop            changes if LitigationHoldEnabled is true.
 
+- RetentionHold        Displayed with a warning and the clear command if
+  warning              RetentionHoldEnabled is true. MFA will skip the mailbox
+                       entirely while this flag is active — it must be cleared
+                       before quota reclamation will work.
+
 - Delay hold           Both DelayHoldApplied and DelayReleaseHoldApplied are
   auto-clear           checked and cleared automatically. Exchange re-applies
-                       these any time a hold changes; without clearing them,
+  (sync + async)       these any time a hold changes; without clearing them,
                        MFA will not reclaim quota for up to 30 days.
+                       A second check runs 90 seconds after the first MFA
+                       trigger to catch holds Exchange applies asynchronously
+                       after the policy exception is removed.
 
-- MFA auto-trigger     Start-ManagedFolderAssistant is called automatically
-                       after purge to accelerate quota reclamation.
+- SIR handling         If SingleItemRecovery is already disabled (prior run),
+                       the script prompts to re-enable it at the start. On
+                       large DiscoveryHolds backlogs, it offers to disable SIR
+                       so MFA can fully reclaim space — and reminds the operator
+                       to re-enable it on the next run once quota recovers.
 
-- 3 confirmation       Operator confirms at: (1) status check, (2) post-
-  gates                propagation, (3) pre-purge. Each gate shows relevant
-                       data so the operator can make an informed call.
+- InPlaceHolds         Each hold GUID is listed in Phase 2 so the operator can
+  enumeration          identify active policies before proceeding.
 
-- Status-check mode    Hitting N at Phase 2 exits cleanly — no connections to
-                       Compliance are made, no policy is touched.
+- ComplianceTagHold    Detected and displayed in the holds summary.
+  detection
+
+- Mode menu            [C/M/S/Q] — the operator chooses the appropriate action
+                       based on where in the cleanup lifecycle the mailbox is.
+                       Hitting [S] or [Q] exits cleanly with no changes.
+
+- MFA wait estimate    Scaled by SIR state and DiscoveryHolds size — shown in
+                       the done message and ticket report so the operator knows
+                       how long to wait before closing the ticket.
 
 
 TICKET WORKFLOW
 ---------------
 The script is useful at every stage of a ticket without needing different tools:
 
-  Run 1 (before):  Run → answer N at Phase 2
+  Run 1 (before):  Run → choose [S] Status only
                    Documents before-state quota and hold flags.
 
-  Run 2 (cleanup): Run → answer Y through all gates
+  Run 2 (cleanup): Run → choose [C] Full cleanup, confirm through gates
                    Performs cleanup, export TXT report, paste into ticket.
+                   Note the MFA wait estimate from the done message.
 
-  Wait 30–60 min for Exchange to reclaim space after MFA runs.
+  Wait for MFA to reclaim space (1 hour to 72 hours depending on backlog size).
 
-  Run 3 (after):   Run → answer N at Phase 2
-                   Confirms quota has dropped, documents after-state.
+  Run 3 (check):   If MFA stalls, run → choose [M] MFA only
+                   Clears any late delay holds and re-triggers MFA.
+
+  Run 4 (after):   Run → choose [S] Status only
+                   Confirms quota has dropped. If SIR was disabled, script
+                   prompts to re-enable it here.
+
+
+MULTI-RUN LIFECYCLE
+-------------------
+Large DiscoveryHolds backlogs (>20 GB) often require more than one session:
+
+  Session 1: Full cleanup — runs compliance search, purges items, triggers MFA.
+             If SIR was disabled, the script reminds you to re-enable later.
+
+  Wait: MFA runs in the background (hours to days for large backlogs).
+
+  Session 2: Re-run → choose [S] to check quota OR [M] if MFA stalled.
+             If quota has recovered and SIR is disabled, script prompts
+             to re-enable SingleItemRecovery at the start of Phase 2.
 
 
 ARCHITECTURE NOTES
@@ -132,22 +197,38 @@ Items folder. The 3-Year Retention Policy captures every deleted item and holds
 it there. This is not the In-Place Archive (a completely separate mailbox object
 with its own quota and folder structure — the script does not touch it).
 
-The old script fought the symptom by disabling mailbox recovery settings. This
-script addresses the root cause: uses the compliance layer to remove what the
-retention policy is holding, then restores the policy immediately.
+Two cleanup paths exist depending on SIR state:
+  Normal (SIR enabled)  — compliance search finds and purges items into /Purges;
+                          MFA reclaims /Purges within ~1 hour.
+  Backlog (SIR disabled) — compliance search may return 0 items; MFA must reach
+                           into /DiscoveryHolds directly to reclaim space. This
+                           takes 2-72 hours and requires SIR to be disabled.
+
+The /Purges folder items shown in Phase 2 are already purged — they are queued
+for MFA to reclaim, not items that still need to be deleted.
+
+The async delay hold (DelayHoldApplied) is applied by Exchange ~30-90 seconds
+after any hold change. Without the dual-check in Phase 6, MFA would run with
+an active delay hold and fail to reclaim quota — triggering a wasted extra run.
 
 
 VALIDATED RESULTS
 -----------------
-Date         User                    Before              After          Reduction
-2026-05-07   priyanka.rengaraj       Over quota          30.4 GB/100GB  Cleared
+Date         User                    Before              After           Reduction
+2026-05-07   priyanka.rengaraj       Over quota          30.4 GB/100GB   Cleared
 2026-05-08   varunkumar.luthra       147.3 GB/100 GB     652.5 MB/100GB  99.6%
 2026-05-11   varunkumar.luthra       [post-cleanup]      75.62 GB/100GB  User confirmed
              (screenshot confirmed)  user functional     (75.62%)        sending/receiving
+2026-05-13   raviteja.kowtarapu      100.7 GB/100 GB     Pending MFA     2,713,009 items
+                                     (101%)                              purged; SIR disabled
+2026-05-21   divyalakshmi.palanivel  79.5 GB/100 GB      Pending MFA     Async delay hold
+                                     (79%)                               found and cleared
+                                                                         on session 2;
+                                                                         MFA re-triggered
 
-Note: "Before" compliance-hold storage figures (238–338 GB) represent all
-versioned copies under retention hold — larger than user-visible mailbox quota.
-The after quota reflects what Exchange reports once MFA reclaims freed space.
+Note: Compliance-hold storage figures (238-338 GB) represent all versioned copies
+under retention hold and are larger than the user-visible mailbox quota. The after
+quota reflects what Exchange reports once MFA reclaims freed space.
 
 
 KNOWN LIMITATIONS
@@ -157,7 +238,7 @@ KNOWN LIMITATIONS
    ($RETENTION_POLICY_NAME = "3 Year Email Retention Policy"). If a mailbox has
    additional holds (a second retention policy, eDiscovery holds), those still
    preserve items and the purge may be partial. The Phase 2 status check
-   displays InPlaceHolds count — review this before proceeding if count > 1.
+   enumerates InPlaceHolds GUIDs — review these before proceeding if count > 1.
 
 2. Unindexed items
    The compliance search keyword query (folderpath:"recoverable items") only
@@ -178,15 +259,19 @@ FUTURE / PLANNED IMPROVEMENTS
   as a belt-and-suspenders measure if MFA does not handle edge cases.
 - Multi-hold wizard: Enumerate InPlaceHolds and offer per-hold exception options
   for mailboxes with multiple active holds.
+- Primary folder targeting: Compliance search purge scoped to specific primary
+  mailbox folders (e.g. large third-party sync folders) for cases where the user
+  cannot self-delete due to quota restrictions.
 - Web app integration: Designed as the backend for a future IT Tools Hub web
-  tool once Azure Automation or Azure Functions are provisioned. The 6 phases
-  map cleanly to API endpoints. Multi-user batch mode deferred to that phase.
+  tool once Azure Automation or Azure Functions are provisioned.
 
 
 FILES
 -----
 Invoke-MailboxCleanup.ps1   Main script
 Run-MailboxCleanup.bat      Launcher (double-click to run, prompts for UPN)
+Install-Prerequisites.ps1   Optional — pre-installs ExchangeOnlineManagement
+Install-Prerequisites.bat   Launcher for Install-Prerequisites.ps1
 README.txt                  This file
 
 ================================================================================
