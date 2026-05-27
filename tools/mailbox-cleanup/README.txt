@@ -1,6 +1,6 @@
 ================================================================================
  MAILBOX CLEANUP TOOL — TECHNICAL REFERENCE
- Invoke-MailboxCleanup.ps1  v1.3
+ Invoke-MailboxCleanup.ps1  v1.4
 ================================================================================
 
 PURPOSE
@@ -57,12 +57,26 @@ Phase 2 — Mailbox Status Check
     [C] Full cleanup   — compliance search + purge + MFA (Phases 3-5 then 6)
     [M] MFA only       — clears delay holds and re-triggers MFA only;
                          use when a previous purge is still pending MFA
+    [F] Folder cleanup — standalone primary mailbox folder purge wizard
     [S] Status only    — exits cleanly, no changes made
     [Q] Quit
 
   On the full cleanup path, if DiscoveryHolds is large (>1 GB), the script
   offers to disable SingleItemRecovery temporarily so MFA can fully reclaim
   the space after purge. The script reminds you to re-enable it on the next run.
+
+Folder Cleanup Mode [F]
+  Independent of the 6-phase Recoverable Items cleanup. After the Phase 2
+  status display, choosing [F] enters a standalone folder cleanup wizard:
+    - Warning banner: hard gate requiring tech to confirm user sign-off
+    - Primary quota display (separate from Recoverable Items quota)
+    - Numbered list of primary mailbox folders over 1 GB, color-scaled
+      by severity (gray/yellow/orange/red against primary quota)
+    - Compliance search scoped to the selected folder via folderid: query
+    - HardDelete purge — permanently removes items, bypasses Recoverable Items
+    - Post-purge loop: [A] target another folder, [M] back to main menu, [Q] quit
+  Use for: third-party sync folders (MimeCast etc.), Deleted Items bloat,
+  user-created folders the user cannot self-delete due to quota restrictions.
 
 Phase 3 — Connect Security & Compliance
   Connects to IPPSSession (Purview/compliance center). Deferred until the
