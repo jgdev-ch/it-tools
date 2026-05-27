@@ -24,6 +24,7 @@ $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
 $DISCOVERY_HOLDS_SIR_THRESHOLD = 1GB
+$PRIMARY_FOLDER_SIZE_THRESHOLD = 1GB
 $ASYNC_HOLD_CHECK_WAIT         = 90   # seconds — Exchange applies DelayHoldApplied asynchronously
 
 # --- State ---
@@ -324,7 +325,62 @@ if ($folderCleanupMode) {
         continue
     }
 
-    # (folder loop — Tasks 4-7)
+    $folderLoopActive = $true
+    while ($folderLoopActive) {
+        $folderLoopActive = $false
+
+        # Primary mailbox quota display
+        $primaryStats      = $null
+        $primaryUsedBytes  = [long]0
+        $primaryLimitBytes = ConvertTo-Bytes $mbx.ProhibitSendReceiveQuota
+        try {
+            $primaryStats     = Get-MailboxStatistics -Identity $Mailbox -ErrorAction Stop
+            $primaryUsedBytes = ConvertTo-Bytes $primaryStats.TotalItemSize
+        } catch {
+            Write-Detail "WARNING: Could not fetch primary mailbox size. $_" Yellow
+        }
+        $primaryPct = if ($primaryLimitBytes -gt 0) { [int](($primaryUsedBytes / $primaryLimitBytes) * 100) } else { 0 }
+
+        Write-Host ""
+        Write-Detail ("Primary Mailbox    : {0} / {1} ({2}% full)" -f `
+            (Format-Size $primaryUsedBytes), (Format-Size $primaryLimitBytes), $primaryPct) `
+            $(if ($primaryPct -ge 90) { 'Red' } elseif ($primaryPct -ge 70) { 'Yellow' } else { 'Green' })
+        Write-Host ""
+
+        # Primary folder list — exclude Recoverable Items and root; filter > 1 GB; sort largest first
+        $primaryFolders = Get-MailboxFolderStatistics -Identity $Mailbox |
+            Where-Object {
+                $_.FolderType -notlike 'RecoverableItems*' -and
+                $_.FolderType -ne 'Root' -and
+                (ConvertTo-Bytes $_.FolderAndSubfolderSize) -gt $PRIMARY_FOLDER_SIZE_THRESHOLD
+            } |
+            Sort-Object { ConvertTo-Bytes $_.FolderAndSubfolderSize } -Descending
+
+        if (-not $primaryFolders -or $primaryFolders.Count -eq 0) {
+            Write-Detail "No primary folders exceed 1 GB. Nothing to target." Yellow
+            Write-Host ""
+            continue
+        }
+
+        Write-Detail "Select a folder to purge:" White
+        Write-Host ""
+        $nameColWidth = [Math]::Max(($primaryFolders | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum + 2, 20)
+        $idx = 1
+        foreach ($f in $primaryFolders) {
+            $fBytes = ConvertTo-Bytes $f.FolderAndSubfolderSize
+            $fPct   = if ($primaryLimitBytes -gt 0) { ($fBytes / $primaryLimitBytes) * 100 } else { 0 }
+            $fColor = if     ($fPct -ge 60) { 'Red' }
+                      elseif ($fPct -ge 20) { 'DarkYellow' }
+                      elseif ($fPct -ge 5)  { 'Yellow' }
+                      else                   { 'Gray' }
+            Write-Host ("      [{0}]  {1} {2,8} items   {3}" -f $idx, $f.Name.PadRight($nameColWidth), $f.ItemsInFolder, (Format-Size $fBytes)) -ForegroundColor $fColor
+            $idx++
+        }
+        Write-Host ""
+
+        # (folder selection — Task 5)
+
+    } # end folder loop
 
     continue
 } # end folderCleanupMode
