@@ -19,6 +19,7 @@ try {
 }
 
 # --- Constants ---
+$SCRIPT_VERSION                = "1.4"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
@@ -42,6 +43,8 @@ $sirWasDisabledByScript  = $false
 $sirRestored             = $false
 $mfaOnlyMode             = $false
 $statusOnlyMode          = $false
+$folderCleanupMode       = $false
+$folderCleanupResults    = @()
 $reportTime              = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $reportTimestamp         = Get-Date -Format 'yyyyMMdd-HHmmss'
 
@@ -102,10 +105,26 @@ function Confirm-Continue {
     }
 }
 
+function ConvertTo-FolderQueryString {
+    param([string]$FolderId)
+    $encoding   = [System.Text.Encoding]::GetEncoding("us-ascii")
+    $nibbler    = $encoding.GetBytes("0123456789ABCDEF")
+    $idBytes    = [Convert]::FromBase64String($FolderId)
+    $indexBytes = New-Object byte[] 48
+    $indexBytes[0] = 1
+    [System.Buffer]::BlockCopy($idBytes, 0, $indexBytes, 1, 24)
+    $query = "folderid:"
+    for ($i = 0; $i -lt 25; $i++) {
+        $query += [char]$nibbler[$indexBytes[$i] -shr 4]
+        $query += [char]$nibbler[$indexBytes[$i] -band 0x0F]
+    }
+    return $query
+}
+
 # --- Main ---
 Write-Host ""
 Write-Host "  ================================================" -ForegroundColor DarkCyan
-Write-Host "   Mailbox Cleanup Tool" -ForegroundColor White
+Write-Host "   Mailbox Cleanup Tool  v$SCRIPT_VERSION" -ForegroundColor White
 Write-Host "  ================================================" -ForegroundColor DarkCyan
 Write-Host "   Target: $Mailbox" -ForegroundColor Gray
 Write-Host ""
