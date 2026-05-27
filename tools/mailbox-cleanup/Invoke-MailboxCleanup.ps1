@@ -254,28 +254,38 @@ if (-not $sirEnabled) {
     }
 }
 
-# --- Mode selection ---
-Write-Host ""
-Write-Host "      What would you like to do?" -ForegroundColor White
-Write-Host "        [C] Full cleanup   — compliance search, purge, and MFA" -ForegroundColor Gray
-Write-Host "        [M] MFA only       — re-check SIR, clear delay holds, and re-trigger MFA" -ForegroundColor Gray
-Write-Host "        [S] Status only    — exit here, no changes made" -ForegroundColor Gray
-Write-Host "        [Q] Quit" -ForegroundColor Gray
-Write-Host ""
-$modeChoice = Read-Host "      Choice"
-Write-Host ""
+# --- Mode loop — allows [F] post-purge [M] to return here ---
+$modeLoopActive = $true
+while ($modeLoopActive) {
+    $modeLoopActive    = $false
+    $mfaOnlyMode       = $false
+    $statusOnlyMode    = $false
+    $folderCleanupMode = $false
 
-switch -Regex ($modeChoice) {
-    '^[Ss]' { $statusOnlyMode = $true }
-    '^[Mm]' { $mfaOnlyMode   = $true }
-    '^[Cc]' { }
-    default {
-        $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Exited." } else { "Exited. No changes were made." }
-        Write-Host "  $exitMsg`n" -ForegroundColor Cyan
-        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-        exit 0
+    # --- Mode selection ---
+    Write-Host ""
+    Write-Host "      What would you like to do?" -ForegroundColor White
+    Write-Host "        [C] Full cleanup   — compliance search, purge, and MFA" -ForegroundColor Gray
+    Write-Host "        [M] MFA only       — re-check SIR, clear delay holds, and re-trigger MFA" -ForegroundColor Gray
+    Write-Host "        [F] Folder cleanup — permanently purge contents of a primary mailbox folder" -ForegroundColor Gray
+    Write-Host "        [S] Status only    — exit here, no changes made" -ForegroundColor Gray
+    Write-Host "        [Q] Quit" -ForegroundColor Gray
+    Write-Host ""
+    $modeChoice = Read-Host "      Choice"
+    Write-Host ""
+
+    switch -Regex ($modeChoice) {
+        '^[Ss]' { $statusOnlyMode    = $true }
+        '^[Mm]' { $mfaOnlyMode       = $true }
+        '^[Cc]' { }
+        '^[Ff]' { $folderCleanupMode = $true }
+        default {
+            $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Exited." } else { "Exited. No changes were made." }
+            Write-Host "  $exitMsg`n" -ForegroundColor Cyan
+            Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+            exit 0
+        }
     }
-}
 
 # --- Status only: exit cleanly ---
 if ($statusOnlyMode) {
@@ -581,6 +591,8 @@ if ($sirWasDisabledByScript) {
     Write-Host "       quota recovers to re-enable SingleItemRecovery." -ForegroundColor White
     Write-Host "      ================================================`n" -ForegroundColor Yellow
 }
+
+} # end mode loop
 
 # --- Ticket export ---
 Write-Host ""
