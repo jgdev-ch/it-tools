@@ -191,14 +191,24 @@ if ($folderBreakdown) {
     Write-Detail "Folder breakdown   :" Gray
     $pathColWidth = [Math]::Max(($folderBreakdown | ForEach-Object { $_.FolderPath.Length } | Measure-Object -Maximum).Maximum + 2, 30)
     $folderBreakdown | ForEach-Object {
+        $folderBytes = ConvertTo-Bytes $_.FolderAndSubfolderSize
+        $folderPct   = if ($limitBytes -gt 0) { ($folderBytes / $limitBytes) * 100 } else { 0 }
+        $folderColor = if     ($folderPct -ge 60) { 'Red' }
+                       elseif ($folderPct -ge 20) { 'DarkYellow' }
+                       elseif ($folderPct -ge 5)  { 'Yellow' }
+                       else                        { 'Gray' }
+
         $note = ''
         if ($_.FolderType -eq 'RecoverableItemsPurges') {
             $note = '  <- queued for deletion, pending MFA'
         } elseif ($_.FolderPath -eq '/SubstrateHolds') {
             $note = '  (Teams/Skype hold area — handled by -AggMailboxCleanup)'
+        } elseif ($_.FolderPath -eq '/Deletions' -and $folderPct -ge 20) {
+            $note = '  <- large soft-delete backlog'
         }
-        if ($_.FolderPath -eq '/DiscoveryHolds') { $discoveryHoldsBytes = ConvertTo-Bytes $_.FolderAndSubfolderSize }
-        Write-Detail ("    {0} {1,8} items   {2}{3}" -f $_.FolderPath.PadRight($pathColWidth), $_.ItemsInFolder, (Format-Size (ConvertTo-Bytes $_.FolderAndSubfolderSize)), $note) Gray
+
+        if ($_.FolderPath -eq '/DiscoveryHolds') { $discoveryHoldsBytes = $folderBytes }
+        Write-Detail ("    {0} {1,8} items   {2}{3}" -f $_.FolderPath.PadRight($pathColWidth), $_.ItemsInFolder, (Format-Size $folderBytes), $note) $folderColor
     }
 }
 
