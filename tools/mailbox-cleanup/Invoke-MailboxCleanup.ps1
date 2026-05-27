@@ -295,6 +295,40 @@ if ($statusOnlyMode) {
     exit 0
 }
 
+# --- Folder cleanup mode ---
+if ($folderCleanupMode) {
+    Write-Host ""
+    Write-Host "      ================================================" -ForegroundColor Red
+    Write-Host "       PERMANENT DELETE — Folder Cleanup" -ForegroundColor Red
+    Write-Host "       This action will hard-delete ALL items in the" -ForegroundColor White
+    Write-Host "       selected folder. They cannot be recovered." -ForegroundColor White
+    Write-Host ""
+    Write-Host "       Confirm with the user that the folder contents" -ForegroundColor White
+    Write-Host "       are safe to permanently delete before proceeding." -ForegroundColor White
+    Write-Host "      ================================================" -ForegroundColor Red
+    Write-Host ""
+    $warnResponse = Read-Host "      Understood — proceed to folder selection? [Y/N]"
+    Write-Host ""
+    if ($warnResponse -notmatch '^[Yy]') {
+        Write-Host "  Folder cleanup cancelled. No changes made.`n" -ForegroundColor Cyan
+        continue
+    }
+
+    Write-Host ""
+    Write-Detail "Connecting to Security & Compliance..." Cyan
+    try {
+        Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+        Write-Detail "Security & Compliance: connected" Green
+    } catch {
+        Write-Detail "ERROR: Could not connect to Security & Compliance. $_" Red
+        continue
+    }
+
+    # (folder loop — Tasks 4-7)
+
+    continue
+} # end folderCleanupMode
+
 # --- MFA only: confirm intent, then fall through to Phase 6 via empty try ---
 if ($mfaOnlyMode) {
     Write-Detail "MFA-only mode: will clear delay holds and re-trigger Managed Folder Assistant." Yellow
