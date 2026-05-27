@@ -262,12 +262,12 @@ if ($mfaOnlyMode) {
     Write-Detail "No compliance search or purge will run." Gray
 
     # SIR re-enable check — Exchange compliance engine can flip SIR back on after a cleanup run.
-    # Offer to re-disable so MFA can continue reclaiming DiscoveryHolds unblocked.
-    if ($sirEnabled -and $discoveryHoldsBytes -gt $DISCOVERY_HOLDS_SIR_THRESHOLD) {
+    # Offer to re-disable so MFA can continue reclaiming space unblocked.
+    if ($sirEnabled -and $usedBytes -gt $DISCOVERY_HOLDS_SIR_THRESHOLD) {
         Write-Host ""
-        Write-Detail ("SingleItemRecovery is Enabled and DiscoveryHolds is {0}." -f (Format-Size $discoveryHoldsBytes)) Yellow
+        Write-Detail ("SingleItemRecovery is Enabled and Recoverable Items is {0}." -f (Format-Size $usedBytes)) Yellow
         Write-Detail "Exchange may have re-enabled SIR since the last cleanup run." Gray
-        Write-Detail "Disabling it again allows MFA to fully reclaim DiscoveryHolds." Gray
+        Write-Detail "Disabling it allows MFA to more aggressively reclaim space." Gray
         $disableSIRChoice = Read-Host "      Disable SingleItemRecovery before triggering MFA? [Y/N]"
         Write-Host ""
         if ($disableSIRChoice -match '^[Yy]') {
@@ -279,10 +279,10 @@ if ($mfaOnlyMode) {
 
 # --- Full cleanup only: SIR disable offer + final confirmation ---
 if (-not $mfaOnlyMode) {
-    if ($sirEnabled -and $discoveryHoldsBytes -gt $DISCOVERY_HOLDS_SIR_THRESHOLD) {
+    if ($sirEnabled -and $usedBytes -gt $DISCOVERY_HOLDS_SIR_THRESHOLD) {
         Write-Host ""
-        Write-Detail ("DiscoveryHolds is {0}. Disabling SingleItemRecovery temporarily" -f (Format-Size $discoveryHoldsBytes)) Gray
-        Write-Detail "allows MFA to fully reclaim this space after cleanup." Gray
+        Write-Detail ("Recoverable Items is {0}. Disabling SingleItemRecovery temporarily" -f (Format-Size $usedBytes)) Gray
+        Write-Detail "allows MFA to more aggressively reclaim space after cleanup." Gray
         $disableSIRChoice = Read-Host "      Disable SingleItemRecovery for this cleanup? [Y/N]"
         Write-Host ""
         if ($disableSIRChoice -match '^[Yy]') {
