@@ -360,7 +360,7 @@ if ($folderCleanupMode) {
             continue
         }
 
-        Write-Detail "Select a folder to purge:" White
+        Write-Detail "Select a folder to purge (or [Q] to return to main menu):" White
         Write-Host ""
         $nameColWidth = [Math]::Max(($primaryFolders | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum + 2, 20)
         $idx = 1
@@ -376,18 +376,24 @@ if ($folderCleanupMode) {
         }
         Write-Host ""
 
-        # Folder selection with validation
+        # Folder selection with validation (Q returns to main menu)
         $selectedFolder = $null
         while ($null -eq $selectedFolder) {
-            $folderChoice = Read-Host "      Enter folder number"
-            $folderIndex  = 0
+            $folderChoice = Read-Host "      Choice"
+            if ($folderChoice -match '^[Qq]') {
+                Write-Host ""
+                $modeLoopActive = $true
+                break
+            }
+            $folderIndex = 0
             if ([int]::TryParse($folderChoice, [ref]$folderIndex) -and
                 $folderIndex -ge 1 -and $folderIndex -le $primaryFolders.Count) {
                 $selectedFolder = $primaryFolders[$folderIndex - 1]
             } else {
-                Write-Detail "Invalid selection. Enter a number between 1 and $($primaryFolders.Count)." Yellow
+                Write-Detail "Invalid selection. Enter a number between 1 and $($primaryFolders.Count), or Q to return." Yellow
             }
         }
+        if ($null -eq $selectedFolder) { continue }  # Q was entered — exit folder loop
 
         $selBytes = ConvertTo-Bytes $selectedFolder.FolderAndSubfolderSize
         Write-Host ""
