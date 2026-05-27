@@ -403,7 +403,97 @@ if ($folderCleanupMode) {
             continue
         }
 
-        # (compliance search + purge — Task 6)
+        # Compliance search + HardDelete purge
+        $folderSearchName = $null
+        $folderSearch     = $null
+        $folderPurgeError = $false
+        try {
+            $folderAlias      = ($Mailbox -split '@')[0]
+            $folderSafeName   = $selectedFolder.Name -replace '[^A-Za-z0-9]', ''
+            $folderTimestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
+            $folderSearchName = "FolderCleanup-$folderAlias-$folderSafeName-$folderTimestamp"
+            $folderQuery      = ConvertTo-FolderQueryString -FolderId $selectedFolder.FolderId
+
+            Write-Detail "Compliance search: $folderSearchName" Gray
+
+            New-ComplianceSearch -Name $folderSearchName `
+                -ExchangeLocation $Mailbox `
+                -ContentMatchQuery $folderQuery `
+                -ErrorAction Stop | Out-Null
+
+            Start-ComplianceSearch -Identity $folderSearchName -ErrorAction Stop
+
+            $elapsed = 0
+            do {
+                Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+                $elapsed += $POLL_INTERVAL_SECONDS
+                $folderSearch = Get-ComplianceSearch -Identity $folderSearchName
+                Write-Detail "Searching... (${elapsed}s) - $($folderSearch.Status)"
+            } while ($folderSearch.Status -notin @('Completed', 'Failed'))
+
+            if ($folderSearch.Status -eq 'Failed') {
+                throw "Compliance search '$folderSearchName' failed. Check the Security & Compliance portal."
+            }
+
+            Write-Detail ("Search complete — {0:N0} items found ({1})" -f `
+                $folderSearch.Items, (Format-Size $folderSearch.Size)) Green
+
+            Write-Detail "Running purge (HardDelete)..." Yellow
+
+            New-ComplianceSearchAction -SearchName $folderSearchName `
+                -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
+
+            $folderActionName = "$folderSearchName`_Purge"
+            $elapsed = 0
+            do {
+                Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+                $elapsed += $POLL_INTERVAL_SECONDS
+                $folderAction = Get-ComplianceSearchAction -Identity $folderActionName
+                Write-Detail "Purging... (${elapsed}s) - $($folderAction.Status)"
+            } while ($folderAction.Status -notin @('Completed', 'Failed'))
+
+            if ($folderAction.Status -eq 'Failed') {
+                throw "Compliance purge '$folderActionName' failed. Check the Security & Compliance portal."
+            }
+
+            Write-Detail "Purge complete." Green
+
+            Write-Host ""
+            Write-Host "      ================================================" -ForegroundColor DarkCyan
+            Write-Host "       Results" -ForegroundColor White
+            Write-Detail ("  Folder : {0}" -f $selectedFolder.Name) White
+            Write-Detail ("  Purged : {0:N0} items  ({1})" -f $folderSearch.Items, (Format-Size $folderSearch.Size)) Green
+            Write-Host "      ================================================" -ForegroundColor DarkCyan
+            Write-Host ""
+
+            $folderCleanupResults += [PSCustomObject]@{
+                FolderName = $selectedFolder.Name
+                Items      = $folderSearch.Items
+                SizeBytes  = $folderSearch.Size
+                Status     = 'Purged'
+            }
+
+        } catch {
+            Write-Host "`n      ERROR: $_" -ForegroundColor Red
+            $folderPurgeError = $true
+            $folderCleanupResults += [PSCustomObject]@{
+                FolderName = if ($selectedFolder) { $selectedFolder.Name } else { 'Unknown' }
+                Items      = 0
+                SizeBytes  = 0
+                Status     = 'Failed'
+            }
+        } finally {
+            if ($folderSearchName) {
+                try {
+                    Remove-ComplianceSearch -Identity $folderSearchName -Confirm:$false -ErrorAction Stop
+                    Write-Detail "Compliance search deleted." Green
+                } catch {
+                    Write-Detail "WARNING: Could not delete compliance search '$folderSearchName'. Delete it from the Security & Compliance portal." Yellow
+                }
+            }
+        }
+
+        # (post-purge loop menu — Task 7)
 
     } # end folder loop
 
