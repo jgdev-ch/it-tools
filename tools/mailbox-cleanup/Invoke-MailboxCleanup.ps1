@@ -493,7 +493,20 @@ if ($folderCleanupMode) {
             }
         }
 
-        # (post-purge loop menu — Task 7)
+        Write-Host ""
+        Write-Host "      What would you like to do next?" -ForegroundColor White
+        Write-Host "        [A] Target another folder" -ForegroundColor Gray
+        Write-Host "        [M] Back to main menu" -ForegroundColor Gray
+        Write-Host "        [Q] Quit" -ForegroundColor Gray
+        Write-Host ""
+        $loopChoice = Read-Host "      Choice"
+        Write-Host ""
+
+        switch -Regex ($loopChoice) {
+            '^[Aa]' { $folderLoopActive = $true }
+            '^[Mm]' { $modeLoopActive   = $true }
+            default { }
+        }
 
     } # end folder loop
 
