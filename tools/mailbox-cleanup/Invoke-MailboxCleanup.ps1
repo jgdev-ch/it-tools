@@ -262,6 +262,7 @@ while ($modeLoopActive) {
     $mfaOnlyMode       = $false
     $statusOnlyMode    = $false
     $folderCleanupMode = $false
+    $quitRequested     = $false
 
     # --- Mode selection ---
     Write-Host ""
@@ -281,12 +282,14 @@ while ($modeLoopActive) {
         '^[Cc]' { }
         '^[Ff]' { $folderCleanupMode = $true }
         default {
-            $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Exited." } else { "Exited. No changes were made." }
+            $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Exited." } `
+                       elseif ($folderCleanupResults.Count -gt 0) { "Session ended." } `
+                       else { "Exited. No changes were made." }
             Write-Host "  $exitMsg`n" -ForegroundColor Cyan
-            Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-            exit 0
+            $quitRequested = $true
         }
     }
+    if ($quitRequested) { continue }  # exits while loop (modeLoopActive is $false); ticket export runs
 
 # --- Status only: exit cleanly ---
 if ($statusOnlyMode) {
@@ -329,17 +332,12 @@ if ($folderCleanupMode) {
     while ($folderLoopActive) {
         $folderLoopActive = $false
 
-        # Primary mailbox quota display
-        $primaryStats      = $null
-        $primaryUsedBytes  = [long]0
+        # Fetch all primary folders once — Root folder gives total size; rest used for the display list
         $primaryLimitBytes = ConvertTo-Bytes $mbx.ProhibitSendReceiveQuota
-        try {
-            $primaryStats     = Get-MailboxStatistics -Identity $Mailbox -ErrorAction Stop
-            $primaryUsedBytes = ConvertTo-Bytes $primaryStats.TotalItemSize
-        } catch {
-            Write-Detail "WARNING: Could not fetch primary mailbox size. $_" Yellow
-        }
-        $primaryPct = if ($primaryLimitBytes -gt 0) { [int](($primaryUsedBytes / $primaryLimitBytes) * 100) } else { 0 }
+        $allPrimaryFolders = Get-MailboxFolderStatistics -Identity $Mailbox
+        $rootFolder        = $allPrimaryFolders | Where-Object { $_.FolderType -eq 'Root' } | Select-Object -First 1
+        $primaryUsedBytes  = if ($rootFolder) { ConvertTo-Bytes $rootFolder.FolderAndSubfolderSize } else { [long]0 }
+        $primaryPct        = if ($primaryLimitBytes -gt 0) { [int](($primaryUsedBytes / $primaryLimitBytes) * 100) } else { 0 }
 
         Write-Host ""
         Write-Detail ("Primary Mailbox    : {0} / {1} ({2}% full)" -f `
@@ -348,7 +346,7 @@ if ($folderCleanupMode) {
         Write-Host ""
 
         # Primary folder list — exclude Recoverable Items and root; filter > 1 GB; sort largest first
-        $primaryFolders = Get-MailboxFolderStatistics -Identity $Mailbox |
+        $primaryFolders = $allPrimaryFolders |
             Where-Object {
                 $_.FolderType -notlike 'RecoverableItems*' -and
                 $_.FolderType -ne 'Root' -and
