@@ -416,7 +416,8 @@ if ($folderCleanupMode) {
             $folderSafeName   = $selectedFolder.Name -replace '[^A-Za-z0-9]', ''
             $folderTimestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
             $folderSearchName = "FolderCleanup-$folderAlias-$folderSafeName-$folderTimestamp"
-            $folderQuery      = ConvertTo-FolderQueryString -FolderId $selectedFolder.FolderId
+            $folderPathClean  = $selectedFolder.FolderPath.TrimStart('/')
+            $folderQuery      = "folderpath:`"$folderPathClean`""
 
             Write-Detail "Compliance search: $folderSearchName" Gray
 
