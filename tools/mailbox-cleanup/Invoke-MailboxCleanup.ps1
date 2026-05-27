@@ -229,7 +229,7 @@ if (-not $sirEnabled) {
 Write-Host ""
 Write-Host "      What would you like to do?" -ForegroundColor White
 Write-Host "        [C] Full cleanup   — compliance search, purge, and MFA" -ForegroundColor Gray
-Write-Host "        [M] MFA only       — clear delay holds and re-trigger MFA (previous purge still pending)" -ForegroundColor Gray
+Write-Host "        [M] MFA only       — re-check SIR, clear delay holds, and re-trigger MFA" -ForegroundColor Gray
 Write-Host "        [S] Status only    — exit here, no changes made" -ForegroundColor Gray
 Write-Host "        [Q] Quit" -ForegroundColor Gray
 Write-Host ""
@@ -260,6 +260,21 @@ if ($statusOnlyMode) {
 if ($mfaOnlyMode) {
     Write-Detail "MFA-only mode: will clear delay holds and re-trigger Managed Folder Assistant." Yellow
     Write-Detail "No compliance search or purge will run." Gray
+
+    # SIR re-enable check — Exchange compliance engine can flip SIR back on after a cleanup run.
+    # Offer to re-disable so MFA can continue reclaiming DiscoveryHolds unblocked.
+    if ($sirEnabled -and $discoveryHoldsBytes -gt $DISCOVERY_HOLDS_SIR_THRESHOLD) {
+        Write-Host ""
+        Write-Detail ("SingleItemRecovery is Enabled and DiscoveryHolds is {0}." -f (Format-Size $discoveryHoldsBytes)) Yellow
+        Write-Detail "Exchange may have re-enabled SIR since the last cleanup run." Gray
+        Write-Detail "Disabling it again allows MFA to fully reclaim DiscoveryHolds." Gray
+        $disableSIRChoice = Read-Host "      Disable SingleItemRecovery before triggering MFA? [Y/N]"
+        Write-Host ""
+        if ($disableSIRChoice -match '^[Yy]') {
+            $disableSIR = $true
+            Write-Detail "SingleItemRecovery will be disabled before MFA is triggered." Yellow
+        }
+    }
 }
 
 # --- Full cleanup only: SIR disable offer + final confirmation ---
