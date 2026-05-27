@@ -378,7 +378,32 @@ if ($folderCleanupMode) {
         }
         Write-Host ""
 
-        # (folder selection — Task 5)
+        # Folder selection with validation
+        $selectedFolder = $null
+        while ($null -eq $selectedFolder) {
+            $folderChoice = Read-Host "      Enter folder number"
+            $folderIndex  = 0
+            if ([int]::TryParse($folderChoice, [ref]$folderIndex) -and
+                $folderIndex -ge 1 -and $folderIndex -le $primaryFolders.Count) {
+                $selectedFolder = $primaryFolders[$folderIndex - 1]
+            } else {
+                Write-Detail "Invalid selection. Enter a number between 1 and $($primaryFolders.Count)." Yellow
+            }
+        }
+
+        $selBytes = ConvertTo-Bytes $selectedFolder.FolderAndSubfolderSize
+        Write-Host ""
+        Write-Detail ("Selected: {0}  ({1:N0} items / {2})" -f `
+            $selectedFolder.Name, $selectedFolder.ItemsInFolder, (Format-Size $selBytes)) White
+        $purgeConfirm = Read-Host "      Proceed with HardDelete purge of all items in this folder? [Y/N]"
+        Write-Host ""
+        if ($purgeConfirm -notmatch '^[Yy]') {
+            Write-Detail "Purge cancelled. Returning to folder list." Yellow
+            $folderLoopActive = $true
+            continue
+        }
+
+        # (compliance search + purge — Task 6)
 
     } # end folder loop
 
