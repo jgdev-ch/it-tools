@@ -827,7 +827,7 @@ if ($export -match '^[Yy]') {
         $sep
         " Date   : $reportTime"
         " Target : $Mailbox"
-        " Mode   : $(if ($mfaOnlyMode) { 'MFA Only' } else { 'Full Cleanup' })"
+        " Mode   : $(if ($mfaOnlyMode) { 'MFA Only' } elseif ($folderCleanupMode) { 'Folder Cleanup' } else { 'Full Cleanup' })"
         ""
         $dash
         " PRE-FLIGHT"
@@ -889,6 +889,22 @@ if ($export -match '^[Yy]') {
         $report += " Aborted by operator. No items were purged."
     } else {
         $report += " Completed with errors. Review console output for details."
+    }
+    if ($folderCleanupResults.Count -gt 0) {
+        $report += @(
+            ""
+            $dash
+            " FOLDER CLEANUP"
+            $dash
+        )
+        foreach ($r in $folderCleanupResults) {
+            if ($r.Status -eq 'Purged') {
+                $report += (" {0,-30} : {1:N0} items purged  ({2}) — HardDelete" -f `
+                    $r.FolderName, $r.Items, (Format-Size $r.SizeBytes))
+            } else {
+                $report += (" {0,-30} : Failed — check console output" -f $r.FolderName)
+            }
+        }
     }
     $report += $sep
 
