@@ -87,11 +87,6 @@
   @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
   .skeleton { background: linear-gradient(90deg, var(--surface3) 25%, var(--surface2) 50%, var(--surface3) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
 
-  /* ── Proxy pending banner ── */
-  .proxy-banner { background: var(--blue-light); border: 1px solid var(--blue-border); border-radius: 10px; padding: 11px 16px; margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--blue); font-weight: 600; }
-  .proxy-banner svg { flex-shrink: 0; margin-top: 1px; }
-  .proxy-banner span { font-weight: 400; color: var(--blue-dark); opacity: .8; }
-
   /* ── Auth screen ── */
   .auth-screen { min-height: 60vh; display: flex; align-items: center; justify-content: center; }
   .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2rem 2.25rem; max-width: 400px; width: 100%; text-align: center; }
@@ -170,13 +165,6 @@
       <span id="dataSourceText">Microsoft Graph (Entra only)</span>
     </div>
 
-    <!-- Proxy pending banner -->
-    <div class="proxy-banner" id="adobeProxyBanner" style="display:none">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Adobe seat utilization pending Azure Function proxy setup —
-      <span>Entra group membership counts below are live and accurate.</span>
-    </div>
-
     <!-- Drift banner -->
     <div class="drift-banner" id="driftBanner" style="display:none">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -194,10 +182,8 @@
 <script src="../../shared/auth.js"></script>
 <script>
 // ─── Config ──────────────────────────────────────────────────────────────────
-// Set ADOBE_PROXY_URL to the Azure Function endpoint once provisioned.
-// When null the tool runs in Entra-only mode — Adobe seat data is unavailable
-// but Entra group member counts are fully functional.
-const ADOBE_PROXY_URL = null;
+const ADOBE_PROXY_URL = "https://p-corp-fa-adobelicmon-azuc-01.azurewebsites.net/api/AdobeProducts";
+const ADOBE_FUNC_SCOPE = "api://7ad27c90-0ddd-4a3f-8e74-1213de4130f8/.default";
 
 const PRODUCTS = [
   {
@@ -220,15 +206,11 @@ const PRODUCTS = [
 const TOOL_SCOPES = ["User.Read", "GroupMember.Read.All"];
 
 // ─── API ─────────────────────────────────────────────────────────────────────
-// Adobe data is fetched via an Azure Function proxy (ADOBE_PROXY_URL) once
-// provisioned. The proxy holds credentials server-side and forwards the
-// UMAPI products response. When ADOBE_PROXY_URL is null this section is skipped.
-async function _getAdobeProducts(graphToken) {
-  const res = await fetch(ADOBE_PROXY_URL, {
-    headers: { Authorization: "Bearer " + graphToken },
-  });
+async function _getAdobeProducts() {
+  const token = await ITTools.auth.getToken([ADOBE_FUNC_SCOPE]);
+  const res = await fetch(ADOBE_PROXY_URL, { headers: { Authorization: "Bearer " + token } });
   if (!res.ok) throw new Error("Adobe proxy error: " + res.status);
-  return (await res.json()).products || [];
+  return await res.json();
 }
 
 async function _getGroupCount(graphToken, groupId) {
@@ -245,18 +227,13 @@ async function loadDashboard() {
   setLoading(true);
   document.getElementById("pageErr").style.display = "none";
   try {
-    const graphToken   = await ITTools.auth.getToken();
-    const adobePending = ADOBE_PROXY_URL === null;
-    let   adobeProducts = [];
-    let   adobeFailed   = adobePending;
+    const [adobeResult, graphToken] = await Promise.all([
+      _getAdobeProducts().catch(() => null),
+      ITTools.auth.getToken(),
+    ]);
 
-    if (!adobePending) {
-      try {
-        adobeProducts = await _getAdobeProducts(graphToken);
-      } catch (_) {
-        adobeFailed = true;
-      }
-    }
+    const adobeProducts = adobeResult || [];
+    const adobeFailed   = adobeResult === null;
 
     const groupCounts = await Promise.all(
       PRODUCTS.map(async p => {
@@ -270,21 +247,19 @@ async function loadDashboard() {
         x.productName.toLowerCase().includes(p.adobeMatch.toLowerCase())
       );
       return {
-        name:         p.name,
-        groupId:      p.groupId,
-        purchased:    adobeFailed ? null : (ap?.quota     ?? null),
-        assigned:     adobeFailed ? null : (ap?.userCount ?? null),
-        entra:        groupCounts[i],
+        name:      p.name,
+        groupId:   p.groupId,
+        purchased: adobeFailed ? null : (ap?.quota     ?? null),
+        assigned:  adobeFailed ? null : (ap?.userCount ?? null),
+        entra:     groupCounts[i],
         adobeFailed,
-        adobePending,
       };
     });
 
     render(results);
     document.getElementById("statusText").textContent =
       "Last refreshed " + new Date().toLocaleTimeString();
-    document.getElementById("dataSourceText").textContent =
-      adobePending ? "Microsoft Graph (Entra only)" : "Adobe UMAPI + Microsoft Graph";
+    document.getElementById("dataSourceText").textContent = "Adobe UMAPI + Microsoft Graph";
   } catch (err) {
     ITTools.ui.banner("pageErr", ITTools.graph.friendlyError(err), "error");
     setLoading(false);
@@ -346,9 +321,7 @@ function renderCards(results) {
     const free   = (r.purchased !== null && r.assigned !== null) ? r.purchased - r.assigned : null;
     const shortGroup = r.groupId ? "..." + r.groupId.slice(-8) : "";
 
-    const utilMiddle = r.adobePending
-      ? `<div class="util-unavail">Pending Azure Function proxy setup</div>`
-      : r.adobeFailed
+    const utilMiddle = r.adobeFailed
       ? `<div class="util-unavail">Adobe data unavailable — proxy error</div>`
       : `
         <div class="util-bar-wrap"><div class="util-bar ${bc}" style="width:${pct ?? 0}%"></div></div>
@@ -444,9 +417,6 @@ async function doSignIn(btn) {
 async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "Adobe License Monitor", hubRelPath: "../../", status: "beta" });
-
-  if (ADOBE_PROXY_URL === null)
-    document.getElementById("adobeProxyBanner").style.display = "flex";
 
   let sessionFound = false;
   await ITTools.auth.init({

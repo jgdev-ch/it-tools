@@ -99,18 +99,15 @@ ITTools.auth = (() => {
     ITTools.auth._onSignOut?.();
   }
 
-  async function getToken() {
+  async function getToken(scopes) {
     if (!_account) throw new Error("Not signed in.");
+    const s = scopes || _scopes;
     try {
-      const r = await _msal.acquireTokenSilent({ scopes: _scopes, account: _account });
+      const r = await _msal.acquireTokenSilent({ scopes: s, account: _account });
       return r.accessToken;
-    } catch (silentErr) {
-      try {
-        const r = await _msal.acquireTokenPopup({ scopes: _scopes, account: _account });
-        return r.accessToken;
-      } catch (popupErr) {
-        throw popupErr;
-      }
+    } catch (_) {
+      const r = await _msal.acquireTokenPopup({ scopes: s, account: _account });
+      return r.accessToken;
     }
   }
 
