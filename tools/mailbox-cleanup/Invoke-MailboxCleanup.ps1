@@ -19,7 +19,7 @@ try {
 }
 
 # --- Constants ---
-$SCRIPT_VERSION                = "1.4"
+$SCRIPT_VERSION                = "1.6"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
@@ -172,6 +172,13 @@ if ($retentionHoldEnabled) {
     Write-Detail "                     Clear with: Set-Mailbox '$Mailbox' -RetentionHoldEnabled `$false" Gray
 }
 
+$elcDisabled = $mbx.ElcProcessingDisabled
+Write-Detail ("MFA Processing     : {0}" -f $(if ($elcDisabled) { 'BLOCKED — ElcProcessingDisabled is set on this mailbox' } else { 'Allowed' })) `
+    $(if ($elcDisabled) { 'Red' } else { 'Green' })
+if ($elcDisabled) {
+    Write-Detail "                     Fix with: Set-Mailbox '$Mailbox' -ElcProcessingDisabled `$false" Gray
+}
+
 # Hold status
 $holdFlags = @()
 if ($mbx.LitigationHoldEnabled)                            { $holdFlags += "Litigation Hold" }
@@ -230,6 +237,35 @@ if ($folderBreakdown) {
         if ($_.FolderPath -eq '/DiscoveryHolds') { $discoveryHoldsBytes = $folderBytes }
         Write-Detail ("    {0} {1,8} items   {2}{3}" -f $_.FolderPath.PadRight($pathColWidth), $_.ItemsInFolder, (Format-Size $folderBytes), $note) $folderColor
     }
+}
+
+# MFA trigger history — read from local state file written each time this script triggers MFA
+$mfaStateFile = "$env:LOCALAPPDATA\MailboxCleanupTool\mfa-state.json"
+if (Test-Path $mfaStateFile) {
+    try {
+        $mfaState = Get-Content $mfaStateFile -Raw | ConvertFrom-Json -AsHashtable
+        if ($mfaState.ContainsKey($Mailbox)) {
+            $mfaEntry    = $mfaState[$Mailbox]
+            $mfaTime     = Get-Date $mfaEntry.LastTriggered
+            $mfaElapsed  = (Get-Date) - $mfaTime
+            $mfaElapsedStr = if     ($mfaElapsed.TotalMinutes -lt 60)  { "{0}m ago"        -f [int]$mfaElapsed.TotalMinutes }
+                             elseif ($mfaElapsed.TotalHours   -lt 24)  { "{0}h {1}m ago"   -f [int]$mfaElapsed.Hours, $mfaElapsed.Minutes }
+                             else                                        { "{0}d {1}h ago"   -f [int]$mfaElapsed.TotalDays, $mfaElapsed.Hours }
+            $mfaSIRStr   = if ($mfaEntry.SIRDisabledAtTrigger) { 'SIR=Disabled' } else { 'SIR=Enabled' }
+            $mfaDHStr    = if ($mfaEntry.DiscoveryHoldsGB -gt 0) { ", DiscoveryHolds={0:N1} GB at trigger" -f $mfaEntry.DiscoveryHoldsGB } else { '' }
+            Write-Detail ""
+            Write-Detail ("MFA last triggered : {0}  ({1})" -f $mfaTime.ToString('yyyy-MM-dd HH:mm'), $mfaElapsedStr) Cyan
+            Write-Detail ("                     $mfaSIRStr$mfaDHStr") Gray
+        } else {
+            Write-Detail ""
+            Write-Detail "MFA last triggered : no history for this mailbox on this machine" Gray
+        }
+    } catch {
+        # State file read is non-critical — silently skip on parse error
+    }
+} else {
+    Write-Detail ""
+    Write-Detail "MFA last triggered : no history on this machine" Gray
 }
 
 # --- SIR already disabled: prompt to re-enable before mode selection ---
@@ -416,8 +452,7 @@ if ($folderCleanupMode) {
             $folderSafeName   = $selectedFolder.Name -replace '[^A-Za-z0-9]', ''
             $folderTimestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
             $folderSearchName = "FolderCleanup-$folderAlias-$folderSafeName-$folderTimestamp"
-            $folderPathClean  = $selectedFolder.FolderPath.TrimStart('/')
-            $folderQuery      = "folderpath:`"$folderPathClean`""
+            $folderQuery      = "folderpath:`"$($selectedFolder.Name)`""
 
             Write-Detail "Compliance search: $folderSearchName" Gray
 
@@ -741,6 +776,18 @@ try {
         Start-ManagedFolderAssistant -Identity $Mailbox -FullCrawl -AggMailboxCleanup -ErrorAction Stop
         Write-Detail "Managed Folder Assistant triggered." Green
         $mfaTriggered = $true
+        try {
+            $mfaStateDir = "$env:LOCALAPPDATA\MailboxCleanupTool"
+            if (-not (Test-Path $mfaStateDir)) { New-Item -ItemType Directory -Path $mfaStateDir -Force | Out-Null }
+            $mfaStateFile = "$mfaStateDir\mfa-state.json"
+            $mfaState = if (Test-Path $mfaStateFile) { Get-Content $mfaStateFile -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
+            $mfaState[$Mailbox] = @{
+                LastTriggered        = (Get-Date -Format 'o')
+                SIRDisabledAtTrigger = $sirWasDisabledByScript -or (-not $sirEnabledOriginal -and -not $sirRestored)
+                DiscoveryHoldsGB     = [Math]::Round($discoveryHoldsBytes / 1GB, 1)
+            }
+            $mfaState | ConvertTo-Json | Set-Content $mfaStateFile -Encoding UTF8
+        } catch { }
     } catch {
         Write-Detail "WARNING: Could not trigger Managed Folder Assistant. Quota reclamation may take longer." Yellow
     }
@@ -778,6 +825,16 @@ try {
                 Start-ManagedFolderAssistant -Identity $Mailbox -FullCrawl -AggMailboxCleanup -ErrorAction Stop
                 Write-Detail "Managed Folder Assistant re-triggered (late hold cleared — MFA now runs clean)." Green
                 $mfaRetriggered = $true
+                try {
+                    $mfaStateFile = "$env:LOCALAPPDATA\MailboxCleanupTool\mfa-state.json"
+                    $mfaState = if (Test-Path $mfaStateFile) { Get-Content $mfaStateFile -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
+                    $mfaState[$Mailbox] = @{
+                        LastTriggered        = (Get-Date -Format 'o')
+                        SIRDisabledAtTrigger = $sirWasDisabledByScript -or (-not $sirEnabledOriginal -and -not $sirRestored)
+                        DiscoveryHoldsGB     = [Math]::Round($discoveryHoldsBytes / 1GB, 1)
+                    }
+                    $mfaState | ConvertTo-Json | Set-Content $mfaStateFile -Encoding UTF8
+                } catch { }
             } catch {
                 Write-Detail "WARNING: Could not re-trigger Managed Folder Assistant." Yellow
             }
