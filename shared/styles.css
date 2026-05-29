@@ -6,7 +6,7 @@
  * Usage: <link rel="stylesheet" href="../../shared/styles.css"/>
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..700;1,300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 /* ─────────────────────────────────────────────────────────────
    RESET
@@ -18,106 +18,120 @@ button, input, select, textarea { font-family: inherit; }
    DESIGN TOKENS — light mode
 ───────────────────────────────────────────────────────────── */
 :root {
-  /* Surfaces */
-  --bg:          #f0f4f9;
-  --surface:     #ffffff;
-  --surface2:    #f8fafc;
-  --surface3:    #f1f5f9;
+  /* Surfaces — warm Nordic palette */
+  --bg:          #f5f2ee;
+  --surface:     #fefdfb;
+  --surface2:    #f0ede8;
+  --surface3:    #e8e3dc;
 
-  /* Borders */
-  --border:      #dde3ec;
-  --border-mid:  #c8d0dc;
+  /* Borders — warm tan */
+  --border:      #ddd8d0;
+  --border-mid:  #c8bfb5;
 
-  /* Text */
-  --text:        #1a1f36;
-  --muted:       #6b7280;
-  --muted2:      #9ca3af;
+  /* Text — warm near-black */
+  --text:        #1c1917;
+  --muted:       #6b6460;
+  --muted2:      #9b9490;
 
-  /* Brand / Blue */
-  --blue:        #1a56db;
-  --blue-light:  #e8f0fe;
-  --blue-dark:   #1239a3;
-  --blue-mid:    #4285f4;
-  --blue-border: #93c5fd;
+  /* Brand / Dusty Slate */
+  --blue:        #3d6b8f;
+  --blue-light:  #e8eff5;
+  --blue-dark:   #2d5270;
+  --blue-mid:    #5585a5;
+  --blue-border: #9abcd4;
 
   /* Semantic */
-  --green:       #047857;
-  --green-light: #d1fae5;
-  --green-border:#6ee7b7;
+  --green:       #3d6b52;
+  --green-light: #e8f2ed;
+  --green-border:#9acbb5;
 
-  --amber:       #92400e;
-  --amber-light: #fef3c7;
-  --amber-border:#fcd34d;
+  --amber:       #8a5c1a;
+  --amber-light: #faf2e4;
+  --amber-border:#d4a870;
 
-  --red:         #991b1b;
-  --red-light:   #fee2e2;
-  --red-border:  #fca5a5;
+  --red:         #8a2424;
+  --red-light:   #fae8e8;
+  --red-border:  #d49898;
 
   --purple:      #5b21b6;
   --purple-light:#ede9fe;
 
   /* Layout */
-  --topbar-h:    56px;
+  --topbar-h:    58px;
   --sidebar-w:   240px;
-  --radius:      10px;
-  --radius-sm:   6px;
-  --radius-xs:   4px;
+  --radius:      14px;
+  --radius-sm:   9px;
+  --radius-xs:   5px;
 
-  /* Shadows */
-  --shadow-sm:   0 1px 3px rgba(0,0,0,.08);
-  --shadow-md:   0 4px 16px rgba(0,0,0,.08);
+  /* Shadows — warm undertone */
+  --shadow-sm:   0 1px 3px rgba(100,80,60,.07);
+  --shadow-md:   0 4px 20px rgba(100,80,60,.10), 0 1px 4px rgba(100,80,60,.06);
 }
 
 /* ─────────────────────────────────────────────────────────────
    DESIGN TOKENS — dark mode
 ───────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --bg:          #0f1117;
-  --surface:     #1a1d27;
-  --surface2:    #21242f;
-  --surface3:    #191c28;
+  /* Warm stone — not cold navy */
+  --bg:          #1a1714;
+  --surface:     #231f1c;
+  --surface2:    #2c2825;
+  --surface3:    #33302c;
 
-  --border:      #2d3148;
-  --border-mid:  #3d4260;
+  --border:      #3d3830;
+  --border-mid:  #4d4640;
 
-  --text:        #e2e8f0;
-  --muted:       #94a3b8;
-  --muted2:      #64748b;
+  --text:        #e8e3dc;
+  --muted:       #9b9490;
+  --muted2:      #6b6460;
 
-  --blue:        #4a90d9;
-  --blue-light:  #1e2d4a;
-  --blue-dark:   #7ab3e8;
-  --blue-mid:    #5a9fd4;
-  --blue-border: #2d4a7a;
+  --blue:        #6a9abf;
+  --blue-light:  #1a2d3d;
+  --blue-dark:   #8ab5d4;
+  --blue-mid:    #7aafc8;
+  --blue-border: #2d4d6a;
 
-  --green:       #34d399;
-  --green-light: #052e1c;
-  --green-border:#065f46;
+  --green:       #5ab584;
+  --green-light: #0d2018;
+  --green-border:#1c5535;
 
-  --amber:       #fbbf24;
-  --amber-light: #2d1e04;
-  --amber-border:#78350f;
+  --amber:       #d4a050;
+  --amber-light: #2a1c04;
+  --amber-border:#6b4010;
 
-  --red:         #f87171;
-  --red-light:   #2d0d0d;
-  --red-border:  #7f1d1d;
+  --red:         #e08080;
+  --red-light:   #2a0d0d;
+  --red-border:  #681f1f;
 
   --purple:      #a78bfa;
   --purple-light:#1e1540;
 
-  --shadow-sm:   0 1px 3px rgba(0,0,0,.3);
-  --shadow-md:   0 4px 16px rgba(0,0,0,.3);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.35);
+  --shadow-md:   0 4px 20px rgba(0,0,0,.45), 0 1px 4px rgba(0,0,0,.3);
 }
 
 /* ─────────────────────────────────────────────────────────────
    BASE
 ───────────────────────────────────────────────────────────── */
 body {
-  font-family: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  transition: background .2s, color .2s;
+  transition: background .25s, color .25s;
+}
+
+/* Warm atmospheric glow — subtle Nordic light from above */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 90% 50% at 50% -5%, rgba(255,248,235,.5) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="dark"] body::before {
+  background: radial-gradient(ellipse 90% 50% at 50% -5%, rgba(90,65,30,.1) 0%, transparent 65%);
 }
 
 a { color: var(--blue-mid); text-decoration: none; }
