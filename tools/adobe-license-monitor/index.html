@@ -440,14 +440,15 @@ async function _fetchMembers(token, groupId) {
 
 async function _enrichSignIn(token, members) {
   const CHUNK = 15;
+  if (members.length === 0) return [];
   const chunks = [];
   for (let i = 0; i < members.length; i += CHUNK) chunks.push(members.slice(i, i + CHUNK));
 
   const results = await Promise.allSettled(chunks.map(async chunk => {
     const ids = chunk.map(m => `'${m.id}'`).join(",");
     const res = await fetch(
-      `https://graph.microsoft.com/v1.0/users?$filter=id in (${ids})&$select=id,signInActivity`,
-      { headers: { Authorization: "Bearer " + token } }
+      `https://graph.microsoft.com/v1.0/users?$filter=id in (${ids})&$select=id,signInActivity&$count=true`,
+      { headers: { Authorization: "Bearer " + token, ConsistencyLevel: "eventual" } }
     );
     if (!res.ok) return [];
     return (await res.json()).value || [];
@@ -464,6 +465,7 @@ async function _enrichSignIn(token, members) {
 }
 
 async function _loadMembers(groupId, idx) {
+  // keyed by PRODUCTS index (idx), not groupId — cache is invalidated on page reload
   if (_memberCache[idx]?.loaded) return _memberCache[idx].members;
   const token   = await ITTools.auth.getToken();
   const raw     = await _fetchMembers(token, groupId);
