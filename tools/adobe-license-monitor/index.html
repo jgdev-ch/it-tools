@@ -7,7 +7,7 @@
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
-  .shell { max-width: 860px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .shell { max-width: 1200px; margin: 0 auto; padding: 1.75rem 1.25rem; }
 
   /* ── Page header ── */
   .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 12px; }
@@ -93,6 +93,174 @@
   .auth-card .adobe-badge { margin: 0 auto 1rem; width: 40px; height: 40px; font-size: 15px; }
   .auth-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
   .auth-card p  { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.5; }
+
+  /* ── Expand strip ── */
+  .expand-strip {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 18px; background: var(--surface2);
+    cursor: pointer; transition: background .15s; user-select: none;
+  }
+  .expand-strip:hover { background: var(--surface3); }
+  .expand-strip.open  { background: var(--blue-light); border-top-color: var(--blue-border); }
+  .expand-strip-left  { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .expand-strip.open .expand-strip-left { color: var(--blue-dark); }
+  .expand-strip-right { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted2); }
+  .expand-chevron { font-size: 12px; color: var(--muted2); transition: transform .2s; display: inline-block; }
+  .expand-chevron.open { transform: rotate(180deg); }
+
+  /* Disabled count badge on strip */
+  .dis-badge {
+    display: none; align-items: center; gap: 4px;
+    background: var(--red-light); color: var(--red); border: 1px solid var(--red-border);
+    border-radius: 20px; padding: 2px 9px; font-size: 11px; font-weight: 700;
+  }
+  .dis-badge.show { display: inline-flex; }
+
+  /* ── Member section ── */
+  .member-section { grid-column: 1 / -1; border-top: 1px solid var(--border); }
+  .member-tbl-wrap { max-height: 360px; overflow-y: auto; }
+
+  /* Member table */
+  .member-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .member-tbl thead th {
+    position: sticky; top: 0; z-index: 2;
+    padding: 9px 14px; text-align: left;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--muted);
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  .member-tbl thead th:hover { background: var(--surface3); }
+  .member-tbl thead th .sort-icon { margin-left: 4px; opacity: .4; font-size: 10px; }
+  .member-tbl thead th.sorted .sort-icon { opacity: 1; }
+  .member-tbl tbody td {
+    padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .member-tbl tbody tr:last-child td { border-bottom: none; }
+  .member-tbl tbody tr:hover td { background: var(--surface2); }
+
+  /* Disabled row */
+  .member-tbl tbody tr.row-disabled td { background: rgba(138,36,36,.04); }
+  .member-tbl tbody tr.row-disabled:hover td { background: rgba(138,36,36,.08); }
+
+  /* User cell */
+  .mem-user-cell { display: flex; align-items: center; gap: 10px; }
+  .mem-avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .mem-avatar.enabled  { background: var(--blue-light);  color: var(--blue-dark); }
+  .mem-avatar.disabled { background: var(--red-light);   color: var(--red); }
+  .mem-name { font-size: 12px; font-weight: 600; }
+
+  /* Status badges */
+  .mem-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 700; white-space: nowrap;
+  }
+  .mem-badge.enabled  { background: var(--green-light); color: var(--green); border: 1px solid var(--green-border); }
+  .mem-badge.disabled { background: var(--red-light);   color: var(--red);   border: 1px solid var(--red-border); }
+
+  /* Last sign-in — red when > 30 days */
+  .signin-stale { color: var(--red); font-weight: 600; }
+
+  /* Remove button */
+  .btn-mem-remove {
+    padding: 4px 11px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--red-border);
+    color: var(--red); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
+  }
+  .btn-mem-remove:hover { background: var(--red-light); }
+  .btn-mem-remove.gated {
+    border-color: var(--border); color: var(--muted2);
+    cursor: not-allowed; opacity: .5;
+  }
+
+  /* Table footer */
+  .member-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; background: var(--surface2);
+    border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--muted2);
+  }
+  .license-admin-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--blue-light); color: var(--blue-dark);
+    border: 1px solid var(--blue-border); border-radius: 20px;
+    padding: 2px 9px; font-size: 10px; font-weight: 700;
+    margin-right: 5px;
+  }
+
+  /* Member shimmer skeleton */
+  .member-skeleton { padding: 12px 14px; }
+  .mem-skel-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .mem-skel-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--surface3); flex-shrink: 0; animation: hub-shimmer 1.5s infinite; }
+  .mem-skel-line { height: 12px; border-radius: 6px; background: var(--surface3); animation: hub-shimmer 1.5s infinite; }
+
+  /* Member load error */
+  .member-error {
+    padding: 1rem 1.25rem; background: var(--red-light);
+    border: 1px solid var(--red-border); color: var(--red);
+    font-size: 13px; display: flex; align-items: center; gap: 10px;
+  }
+  .btn-mem-retry {
+    padding: 4px 12px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--red-border);
+    color: var(--red); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .btn-mem-retry:hover { background: rgba(138,36,36,.1); }
+
+  /* ── Remove confirmation modal ── */
+  .remove-modal-overlay {
+    position: fixed; inset: 0; background: rgba(28,25,23,.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
+    opacity: 0; pointer-events: none; transition: opacity .15s;
+  }
+  .remove-modal-overlay.show { opacity: 1; pointer-events: all; }
+  .remove-modal-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 2rem; max-width: 440px; width: 100%;
+    box-shadow: 0 20px 60px rgba(80,60,40,.22);
+    transform: translateY(10px); transition: transform .15s;
+  }
+  .remove-modal-overlay.show .remove-modal-card { transform: translateY(0); }
+  .remove-modal-icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    background: var(--red-light); display: flex; align-items: center;
+    justify-content: center; margin-bottom: 1rem;
+  }
+  .remove-modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .remove-modal-body  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.25rem; }
+  .remove-modal-user  {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 1.25rem;
+  }
+  .remove-modal-name  { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .remove-modal-upn   { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .remove-modal-group { font-size: 11px; font-weight: 600; color: var(--amber); }
+  .remove-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-modal-cancel {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--border);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; color: var(--muted); transition: all .12s;
+  }
+  .btn-modal-cancel:hover { background: var(--surface2); }
+  .btn-modal-confirm {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: var(--red); border: none; color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: opacity .12s;
+  }
+  .btn-modal-confirm:hover    { opacity: .88; }
+  .btn-modal-confirm:disabled { opacity: .5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -203,7 +371,13 @@ const PRODUCTS = [
   },
 ];
 
-const TOOL_SCOPES = ["User.Read", "GroupMember.Read.All"];
+const TOOL_SCOPES = [
+  "User.Read",
+  "User.Read.All",
+  "AuditLog.Read.All",
+  "GroupMember.Read.All",
+  "GroupMember.ReadWrite.All",
+];
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function _getAdobeProducts() {
