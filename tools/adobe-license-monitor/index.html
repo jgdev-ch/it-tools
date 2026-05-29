@@ -403,7 +403,7 @@ const TOOL_SCOPES = [
 const _memberCache   = {};    // { [idx]: { members: [], loaded: bool } }
 const _sortState     = {};    // { [idx]: { col: string, dir: 1|-1 } }
 let   _isLicenseAdmin = false;
-let   _pendingRemove  = null; // { idx, userId, rowEl }
+let   _pendingRemove  = null; // { groupId, idx, userId }
 
 const LICENSE_MODIFY_GROUP = "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8";
 
@@ -517,7 +517,7 @@ function renderDriftBanner(results) {
 
 function renderCards(results) {
   const stack = document.getElementById("productStack");
-  stack.innerHTML = results.map(r => {
+  stack.innerHTML = results.map((r, idx) => {
     const pct    = (r.purchased && r.assigned !== null) ? Math.round(r.assigned / r.purchased * 100) : null;
     const bc     = barClass(pct);
     const drift  = driftStatus(r.assigned, r.entra);
@@ -565,7 +565,7 @@ function renderCards(results) {
           <div class="entra-sub">P-EID-SG-STD-SSO-Adobe_${r.name.replace(/ /g, "_")}</div>
           ${driftPill}
         </div>
-        <div class="expand-strip" id="strip-${r.groupId}" onclick="toggleExpand('${r.groupId}', ${results.indexOf(r)})">
+        <div class="expand-strip" id="strip-${r.groupId}" onclick="toggleExpand('${r.groupId}', ${idx})">
           <div class="expand-strip-left">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             View <span id="mem-count-${r.groupId}">${r.entra ?? ""}</span> group members
