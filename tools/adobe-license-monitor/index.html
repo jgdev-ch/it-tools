@@ -811,7 +811,7 @@ function renderMemberTable(groupId, idx, members) {
     const si        = _relativeTime(m.lastSignIn);
     const siHtml    = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
     const removeBtn = _isLicenseAdmin
-      ? `<button class="btn-mem-remove" onclick="showRemoveModal('${groupId}',${idx},'${m.id}',${JSON.stringify(m.displayName)},${JSON.stringify(m.userPrincipalName)})">Remove</button>`
+      ? `<button class="btn-mem-remove" onclick="showRemoveModal('${groupId}',${idx},'${m.id}')">Remove</button>`
       : `<button class="btn-mem-remove gated" title="Requires License Admin access" disabled>Remove</button>`;
 
     return `
@@ -855,10 +855,11 @@ function renderMemberTable(groupId, idx, members) {
 }
 
 // ─── Remove modal ────────────────────────────────────────────────────────────
-function showRemoveModal(groupId, idx, userId, displayName, upn) {
+function showRemoveModal(groupId, idx, userId) {
+  const member = (_memberCache[idx]?.members || []).find(m => m.id === userId);
   _pendingRemove = { groupId, idx, userId };
-  document.getElementById("modalName").textContent  = displayName;
-  document.getElementById("modalUpn").textContent   = upn;
+  document.getElementById("modalName").textContent  = member?.displayName || userId;
+  document.getElementById("modalUpn").textContent   = member?.userPrincipalName || "";
   document.getElementById("modalGroup").textContent = `Removing from: P-EID-SG-STD-SSO-Adobe_${PRODUCTS[idx].name.replace(/ /g, "_")}`;
   document.getElementById("modalConfirmBtn").disabled = false;
   document.getElementById("modalConfirmBtn").textContent = "Remove from group";
