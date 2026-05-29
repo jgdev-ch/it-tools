@@ -286,6 +286,27 @@
 
 <!-- App screen — shown after sign-in -->
 <div id="appScreen" style="display:none">
+
+<!-- Remove confirmation modal -->
+<div class="remove-modal-overlay" id="removeModal" onclick="if(event.target===this)closeRemoveModal()">
+  <div class="remove-modal-card">
+    <div class="remove-modal-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+    </div>
+    <div class="remove-modal-title">Remove from group?</div>
+    <div class="remove-modal-body">This will remove the member from the Entra security group. Adobe access will be revoked automatically via SSO provisioning.</div>
+    <div class="remove-modal-user">
+      <div class="remove-modal-name" id="modalName"></div>
+      <div class="remove-modal-upn"  id="modalUpn"></div>
+      <div class="remove-modal-group" id="modalGroup"></div>
+    </div>
+    <div class="remove-modal-actions">
+      <button class="btn-modal-cancel" onclick="closeRemoveModal()">Cancel</button>
+      <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="executeRemove()">Remove from group</button>
+    </div>
+  </div>
+</div>
+
   <div class="shell">
     <div class="page-header">
       <div class="page-header-left">
@@ -378,6 +399,14 @@ const TOOL_SCOPES = [
   "GroupMember.ReadWrite.All",
 ];
 
+// ─── Member expansion state ───────────────────────────────────────────────────
+const _memberCache   = {};    // { [idx]: { members: [], loaded: bool } }
+const _sortState     = {};    // { [idx]: { col: string, dir: 1|-1 } }
+let   _isLicenseAdmin = false;
+let   _pendingRemove  = null; // { idx, userId, rowEl }
+
+const LICENSE_MODIFY_GROUP = "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8";
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function _getAdobeProducts() {
   const token = await ITTools.auth.getToken([ADOBE_FUNC_SCOPE]);
@@ -430,6 +459,7 @@ async function loadDashboard() {
     });
 
     render(results);
+    _checkLicenseAdmin();
     document.getElementById("statusText").textContent =
       "Last refreshed " + new Date().toLocaleTimeString();
     document.getElementById("dataSourceText").textContent = "Adobe UMAPI + Microsoft Graph";
@@ -511,7 +541,7 @@ function renderCards(results) {
       : `<div class="entra-sync na">—</div>`;
 
     return `
-      <div class="product-card">
+      <div class="product-card" id="card-${r.groupId}">
         <div class="card-identity">
           <div class="card-identity-top">
             <div class="adobe-dot"></div>
@@ -531,10 +561,22 @@ function renderCards(results) {
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
             Entra group members
           </div>
-          <div class="entra-big ${r.entra === null ? "na" : ""}">${r.entra ?? "—"}</div>
+          <div class="entra-big ${r.entra === null ? "na" : ""}" id="entra-big-${r.groupId}">${r.entra ?? "—"}</div>
           <div class="entra-sub">P-EID-SG-STD-SSO-Adobe_${r.name.replace(/ /g, "_")}</div>
           ${driftPill}
         </div>
+        <div class="expand-strip" id="strip-${r.groupId}" onclick="toggleExpand('${r.groupId}', ${results.indexOf(r)})">
+          <div class="expand-strip-left">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            View <span id="mem-count-${r.groupId}">${r.entra ?? ""}</span> group members
+            <span class="dis-badge" id="dis-${r.groupId}">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="dis-count-${r.groupId}">0</span> disabled
+            </span>
+          </div>
+          <span class="expand-chevron" id="chev-${r.groupId}">▾</span>
+        </div>
+        <div class="member-section" id="ms-${r.groupId}" style="display:none"></div>
       </div>`;
   }).join("");
 }
@@ -568,6 +610,19 @@ function render(results) {
   renderSummary(results);
   renderDriftBanner(results);
   renderCards(results);
+}
+
+async function _checkLicenseAdmin() {
+  try {
+    const token = await ITTools.auth.getToken();
+    const res   = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+      method:  "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body:    JSON.stringify({ ids: [LICENSE_MODIFY_GROUP] }),
+    });
+    if (!res.ok) return;
+    _isLicenseAdmin = (await res.json()).value?.includes(LICENSE_MODIFY_GROUP) ?? false;
+  } catch (_) { _isLicenseAdmin = false; }
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
