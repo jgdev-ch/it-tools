@@ -772,7 +772,7 @@ function _sortMembers(members, col, dir) {
       return (a.displayName || "").localeCompare(b.displayName || "");
     }
     if (col === "name") {
-      return dir * a.displayName.localeCompare(b.displayName);
+      return dir * (a.displayName || "").localeCompare(b.displayName || "");
     }
     if (col === "upn") {
       return dir * (a.userPrincipalName || "").localeCompare(b.userPrincipalName || "");
