@@ -106,7 +106,6 @@
   .expand-strip.open  { background: var(--blue-light); border-top-color: var(--blue-border); }
   .expand-strip-left  { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
   .expand-strip.open .expand-strip-left { color: var(--blue-dark); }
-  .expand-strip-right { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted2); }
   .expand-chevron { font-size: 12px; color: var(--muted2); transition: transform .2s; display: inline-block; }
   .expand-chevron.open { transform: rotate(180deg); }
 
@@ -199,8 +198,8 @@
   /* Member shimmer skeleton */
   .member-skeleton { padding: 12px 14px; }
   .mem-skel-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .mem-skel-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--surface3); flex-shrink: 0; animation: hub-shimmer 1.5s infinite; }
-  .mem-skel-line { height: 12px; border-radius: 6px; background: var(--surface3); animation: hub-shimmer 1.5s infinite; }
+  .mem-skel-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--surface3); flex-shrink: 0; animation: shimmer 1.5s infinite; }
+  .mem-skel-line { height: 12px; border-radius: 6px; background: var(--surface3); animation: shimmer 1.5s infinite; }
 
   /* Member load error */
   .member-error {
@@ -223,7 +222,7 @@
     z-index: 1000; padding: 1rem;
     opacity: 0; pointer-events: none; transition: opacity .15s;
   }
-  .remove-modal-overlay.show { opacity: 1; pointer-events: all; }
+  .remove-modal-overlay.show { opacity: 1; pointer-events: auto; }
   .remove-modal-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 2rem; max-width: 440px; width: 100%;
