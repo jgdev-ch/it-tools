@@ -768,7 +768,7 @@ function _sortMembers(members, col, dir) {
     if (col === "status") {
       if (a.accountEnabled !== b.accountEnabled)
         return a.accountEnabled ? 1 : -1;
-      return a.displayName.localeCompare(b.displayName);
+      return (a.displayName || "").localeCompare(b.displayName || "");
     }
     if (col === "name") {
       return dir * a.displayName.localeCompare(b.displayName);
@@ -805,7 +805,7 @@ function renderMemberTable(groupId, idx, members) {
   function thCls(c) { return col === c ? "sorted" : ""; }
 
   const rows = sorted.map(m => {
-    const initials  = m.displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+    const initials  = (m.displayName || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "?";
     const statusCls = m.accountEnabled ? "enabled" : "disabled";
     const si        = _relativeTime(m.lastSignIn);
     const siHtml    = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
