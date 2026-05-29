@@ -80,6 +80,8 @@
     white-space: nowrap;
   }
   .copy-toast.show { opacity: 1; }
+  .col-info { cursor: help; color: var(--muted2); font-size: 11px; opacity: .65; margin: 0 2px; vertical-align: middle; }
+  .col-info:hover { opacity: 1; }
 
   /* Middle: utilization */
   .card-util { padding: 22px 28px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
@@ -888,7 +890,7 @@ function renderMemberTable(groupId, idx, members) {
             <th class="${thCls("name")}"    style="width:240px" onclick="sortBy('${groupId}',${idx},'name')">Member ${thIcon("name")}</th>
             <th class="${thCls("upn")}"     style="width:220px" onclick="sortBy('${groupId}',${idx},'upn')">UPN ${thIcon("upn")}</th>
             <th class="${thCls("status")}"  style="width:105px" onclick="sortBy('${groupId}',${idx},'status')">Account ${thIcon("status")}</th>
-            <th class="${thCls("lastSignIn")}" style="width:145px" onclick="sortBy('${groupId}',${idx},'lastSignIn')">Last Sign-In ${thIcon("lastSignIn")}</th>
+            <th class="${thCls("lastSignIn")}" style="width:145px" onclick="sortBy('${groupId}',${idx},'lastSignIn')">Last Sign-In <span class="col-info" title="Entra ID sign-in date — last M365 activity (Windows login, Teams, Outlook, etc.), not Adobe product usage">ⓘ</span> ${thIcon("lastSignIn")}</th>
             <th>Action</th>
           </tr>
         </thead>
