@@ -712,16 +712,24 @@ async function toggleExpand(groupId, idx) {
     renderMemberTable(groupId, idx, members);
     _updateStripCounts(groupId, idx, members);
   } catch (err) {
-    section.innerHTML = `
-      <div class="member-error">
-        <span>${ITTools.graph.friendlyError(err)}</span>
-        <button class="btn-mem-retry" onclick="retryExpand('${groupId}',${idx})">Retry</button>
-      </div>`;
+    const errDiv = document.createElement("div");
+    errDiv.className = "member-error";
+    const errSpan = document.createElement("span");
+    errSpan.textContent = ITTools.graph.friendlyError(err);
+    const retryBtn = document.createElement("button");
+    retryBtn.className = "btn-mem-retry";
+    retryBtn.textContent = "Retry";
+    retryBtn.onclick = () => retryExpand(groupId, idx);
+    errDiv.append(errSpan, retryBtn);
+    section.innerHTML = "";
+    section.appendChild(errDiv);
   }
 }
 
 async function retryExpand(groupId, idx) {
   delete _memberCache[idx];
+  const section = document.getElementById(`ms-${groupId}`);
+  if (section) section.style.display = "none"; // force closed so toggleExpand opens it
   await toggleExpand(groupId, idx);
 }
 
