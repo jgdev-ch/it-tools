@@ -675,6 +675,76 @@ async function _checkLicenseAdmin() {
   } catch (_) { _isLicenseAdmin = false; }
 }
 
+function _shimmerHtml() {
+  const row = `
+    <div class="mem-skel-row">
+      <div class="mem-skel-avatar"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div class="mem-skel-line" style="width:45%"></div>
+        <div class="mem-skel-line" style="width:65%"></div>
+      </div>
+    </div>`;
+  return `<div class="member-skeleton">${row}${row}${row}</div>`;
+}
+
+async function toggleExpand(groupId, idx) {
+  const section = document.getElementById(`ms-${groupId}`);
+  const strip   = document.getElementById(`strip-${groupId}`);
+  const chev    = document.getElementById(`chev-${groupId}`);
+  const isOpen  = section.style.display !== "none";
+
+  if (isOpen) {
+    section.style.display = "none";
+    strip.classList.remove("open");
+    chev.classList.remove("open");
+    return;
+  }
+
+  // Open
+  strip.classList.add("open");
+  chev.classList.add("open");
+  section.style.display = "";
+  section.innerHTML = _shimmerHtml();
+
+  try {
+    const members = await _loadMembers(groupId, idx);
+    _sortState[idx] = _sortState[idx] || { col: "status", dir: -1 };
+    renderMemberTable(groupId, idx, members);
+    _updateStripCounts(groupId, idx, members);
+  } catch (err) {
+    section.innerHTML = `
+      <div class="member-error">
+        <span>${ITTools.graph.friendlyError(err)}</span>
+        <button class="btn-mem-retry" onclick="retryExpand('${groupId}',${idx})">Retry</button>
+      </div>`;
+  }
+}
+
+async function retryExpand(groupId, idx) {
+  delete _memberCache[idx];
+  await toggleExpand(groupId, idx);
+}
+
+function _updateStripCounts(groupId, idx, members) {
+  const disCount = members.filter(m => !m.accountEnabled).length;
+
+  // Member count span inside the strip
+  const memCountEl = document.getElementById(`mem-count-${groupId}`);
+  if (memCountEl) memCountEl.textContent = members.length;
+
+  // Disabled badge
+  const disBadgeEl  = document.getElementById(`dis-${groupId}`);
+  const disCountEl  = document.getElementById(`dis-count-${groupId}`);
+  if (disBadgeEl && disCountEl) {
+    disCountEl.textContent = disCount;
+    disBadgeEl.classList.toggle("show", disCount > 0);
+  }
+
+  // Entra big count on the card header
+  const entraBigEl = document.getElementById(`entra-big-${groupId}`);
+  if (entraBigEl) entraBigEl.textContent = members.length;
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 async function doSignIn(btn) {
   const errEl = document.getElementById("authErr");
