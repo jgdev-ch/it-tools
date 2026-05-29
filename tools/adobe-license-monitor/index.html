@@ -13,7 +13,7 @@
   .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 12px; }
   .page-header-left h1 { font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
   .page-header-left p  { font-size: 13px; color: var(--muted); }
-  .adobe-badge { width: 26px; height: 26px; background: #fa0f00; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #fff; flex-shrink: 0; }
+  .adobe-badge { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
   /* ── Summary bar ── */
   .summary-bar { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 1.25rem; }
@@ -46,7 +46,40 @@
   .card-identity-top { display: flex; align-items: center; gap: 8px; }
   .adobe-dot  { width: 10px; height: 10px; border-radius: 50%; background: #fa0f00; flex-shrink: 0; }
   .product-name  { font-size: 14px; font-weight: 700; line-height: 1.2; }
-  .product-group { font-size: 10px; color: var(--muted2); background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 3px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: fit-content; max-width: 160px; }
+  /* Info pills — object ID + group name under product name */
+  .info-pills { display: flex; flex-direction: column; gap: 5px; }
+  .info-pill {
+    display: inline-flex; align-items: stretch;
+    border: 1px solid var(--border); border-radius: 6px;
+    overflow: hidden; max-width: 160px;
+  }
+  .info-pill-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    background: var(--surface2); color: var(--muted2);
+    padding: 3px 6px; border-right: 1px solid var(--border);
+    white-space: nowrap; flex-shrink: 0; display: flex; align-items: center;
+  }
+  .info-pill-value {
+    font-size: 10px; color: var(--muted); font-family: 'Cascadia Code','Consolas',monospace;
+    padding: 3px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1; min-width: 0; display: flex; align-items: center;
+  }
+  .info-pill-copy {
+    padding: 3px 7px; background: transparent; border: none;
+    border-left: 1px solid var(--border); cursor: pointer; color: var(--muted2);
+    display: flex; align-items: center; flex-shrink: 0; transition: all .12s;
+    font-family: inherit;
+  }
+  .info-pill-copy:hover { background: var(--blue-light); color: var(--blue); }
+  /* Copy confirmation toast */
+  .copy-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: var(--surface);
+    font-size: 12px; font-weight: 600; padding: 8px 16px; border-radius: 8px;
+    opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 9999;
+    white-space: nowrap;
+  }
+  .copy-toast.show { opacity: 1; }
 
   /* Middle: utilization */
   .card-util { padding: 22px 28px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
@@ -90,7 +123,7 @@
   /* ── Auth screen ── */
   .auth-screen { min-height: 60vh; display: flex; align-items: center; justify-content: center; }
   .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2rem 2.25rem; max-width: 400px; width: 100%; text-align: center; }
-  .auth-card .adobe-badge { margin: 0 auto 1rem; width: 40px; height: 40px; font-size: 15px; }
+  .auth-card .adobe-badge { margin: 0 auto 1rem; }
   .auth-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
   .auth-card p  { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.5; }
 
@@ -268,7 +301,7 @@
 <!-- Auth screen — shown when no session -->
 <div id="authScreen" class="auth-screen" style="display:none">
   <div class="auth-card">
-    <div class="adobe-badge">Ai</div>
+    <div class="adobe-badge"><svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#fa0f00"/><path d="M20 8L8 32H14L20 18L26 32H32L20 8Z" fill="white"/><path d="M16 26H24L22 22H18L16 26Z" fill="#fa0f00"/></svg></div>
     <h2>Adobe License Monitor</h2>
     <p>Sign in with your Microsoft account to view live Adobe seat utilization and Entra group sync status.</p>
     <button class="btn-ms" onclick="doSignIn(this)">
@@ -311,7 +344,7 @@
     <div class="page-header">
       <div class="page-header-left">
         <h1>
-          <div class="adobe-badge">Ai</div>
+          <div class="adobe-badge"><svg width="26" height="26" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#fa0f00"/><path d="M20 8L8 32H14L20 18L26 32H32L20 8Z" fill="white"/><path d="M16 26H24L22 22H18L16 26Z" fill="#fa0f00"/></svg></div>
           Adobe License Monitor
         </h1>
         <p>Live seat utilization and Entra group sync status across all Adobe products</p>
@@ -573,7 +606,7 @@ function renderCards(results) {
     const bc     = barClass(pct);
     const drift  = driftStatus(r.assigned, r.entra);
     const free   = (r.purchased !== null && r.assigned !== null) ? r.purchased - r.assigned : null;
-    const shortGroup = r.groupId ? "..." + r.groupId.slice(-8) : "";
+    const groupName  = `P-EID-SG-STD-SSO-Adobe_${r.name.replace(/ /g, "_")}`;
 
     const utilMiddle = r.adobeFailed
       ? `<div class="util-unavail">Adobe data unavailable — proxy error</div>`
@@ -598,7 +631,22 @@ function renderCards(results) {
             <div class="adobe-dot"></div>
             <div class="product-name">${r.name}</div>
           </div>
-          <div class="product-group">${shortGroup}</div>
+          <div class="info-pills">
+            <div class="info-pill">
+              <span class="info-pill-label">ID</span>
+              <span class="info-pill-value" title="${r.groupId}">${r.groupId ? r.groupId.slice(0, 8) + "…" : "—"}</span>
+              <button class="info-pill-copy" onclick="_copyPill('${r.groupId}','Object ID')" title="Copy Object ID">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            <div class="info-pill">
+              <span class="info-pill-label">Group</span>
+              <span class="info-pill-value" title="${groupName}">${groupName.slice(0, 14)}…</span>
+              <button class="info-pill-copy" onclick="_copyPill('${groupName}','Group name')" title="Copy group name">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
         <div class="card-util">
           <div class="util-section-label">
@@ -613,7 +661,6 @@ function renderCards(results) {
             Entra group members
           </div>
           <div class="entra-big ${r.entra === null ? "na" : ""}" id="entra-big-${r.groupId}">${r.entra ?? "—"}</div>
-          <div class="entra-sub">P-EID-SG-STD-SSO-Adobe_${r.name.replace(/ /g, "_")}</div>
           ${driftPill}
         </div>
         <div class="expand-strip" id="strip-${r.groupId}" onclick="toggleExpand('${r.groupId}', ${idx})">
@@ -976,7 +1023,24 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") closeRemoveModal();
 });
 
+function _copyPill(text, label) {
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  });
+  const toast = document.getElementById("copyToast");
+  if (!toast) return;
+  toast.textContent = label + " copied";
+  toast.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove("show"), 1800);
+}
+
 window.addEventListener("DOMContentLoaded", init);
 </script>
+
+<div class="copy-toast" id="copyToast"></div>
 </body>
 </html>
