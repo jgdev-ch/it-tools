@@ -424,6 +424,54 @@ async function _getGroupCount(graphToken, groupId) {
   return parseInt(await res.text(), 10);
 }
 
+async function _fetchMembers(token, groupId) {
+  const members = [];
+  let url = `https://graph.microsoft.com/v1.0/groups/${groupId}/members` +
+            `?$select=id,displayName,userPrincipalName,accountEnabled&$top=999`;
+  while (url) {
+    const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) throw new Error(`Member fetch failed: ${res.status}`);
+    const data = await res.json();
+    members.push(...(data.value || []));
+    url = data["@odata.nextLink"] ?? null;
+  }
+  return members;
+}
+
+async function _enrichSignIn(token, members) {
+  const CHUNK = 15;
+  const chunks = [];
+  for (let i = 0; i < members.length; i += CHUNK) chunks.push(members.slice(i, i + CHUNK));
+
+  const results = await Promise.allSettled(chunks.map(async chunk => {
+    const ids = chunk.map(m => `'${m.id}'`).join(",");
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users?$filter=id in (${ids})&$select=id,signInActivity`,
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    if (!res.ok) return [];
+    return (await res.json()).value || [];
+  }));
+
+  const signInMap = {};
+  results.forEach(r => {
+    if (r.status === "fulfilled") r.value.forEach(u => {
+      signInMap[u.id] = u.signInActivity?.lastSignInDateTime ?? null;
+    });
+  });
+
+  return members.map(m => ({ ...m, lastSignIn: signInMap[m.id] ?? null }));
+}
+
+async function _loadMembers(groupId, idx) {
+  if (_memberCache[idx]?.loaded) return _memberCache[idx].members;
+  const token   = await ITTools.auth.getToken();
+  const raw     = await _fetchMembers(token, groupId);
+  const members = await _enrichSignIn(token, raw);
+  _memberCache[idx] = { loaded: true, members };
+  return members;
+}
+
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 async function loadDashboard() {
   setLoading(true);
