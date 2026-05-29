@@ -266,7 +266,7 @@ a:hover { text-decoration: underline; }
 }
 .auth-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 2.25rem 2rem;
+  border-radius: var(--radius); padding: 2.5rem 2.25rem;
   max-width: 400px; width: 100%; text-align: center;
   box-shadow: var(--shadow-md);
 }
@@ -385,8 +385,8 @@ select { cursor: pointer; }
    STAT CARDS
 ───────────────────────────────────────────────────────────── */
 .stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
-.stat { flex: 1 1 120px; border-radius: var(--radius); padding: 12px 14px; border: 1.5px solid; }
-.stat.blue   { background: var(--blue-light);   border-color: #93c5fd;              color: var(--blue-dark); }
+.stat { flex: 1 1 120px; border-radius: var(--radius); padding: 14px 16px; border: 1.5px solid; }
+.stat.blue   { background: var(--blue-light);   border-color: var(--blue-border);   color: var(--blue-dark); }
 .stat.green  { background: var(--green-light);  border-color: var(--green-border);  color: var(--green);     }
 .stat.amber  { background: var(--amber-light);  border-color: var(--amber-border);  color: var(--amber);     }
 .stat.red    { background: var(--red-light);    border-color: var(--red-border);    color: var(--red);       }

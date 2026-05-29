@@ -17,7 +17,7 @@
 
   /* ── Summary bar ── */
   .summary-bar { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 1.25rem; }
-  .summary-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .summary-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
   .summary-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .summary-icon.blue  { background: var(--blue-light);  color: var(--blue); }
   .summary-icon.green { background: var(--green-light); color: var(--green); }
@@ -37,7 +37,7 @@
   /* ── Product cards ── */
   .product-stack { display: flex; flex-direction: column; gap: 14px; }
   .product-card  {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     display: grid; grid-template-columns: 200px 1fr 220px; overflow: hidden;
   }
 

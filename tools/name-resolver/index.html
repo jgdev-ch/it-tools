@@ -12,8 +12,8 @@
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
   /* ── Layout ── */
-  .app-body    { display:flex; min-height:calc(100vh - 56px); }
-  .sidebar     { width:240px; background:var(--surface); border-right:1px solid var(--border); padding:1.5rem 1rem; flex-shrink:0; position:sticky; top:56px; height:calc(100vh - 56px); overflow-y:auto; }
+  .app-body    { display:flex; min-height:calc(100vh - var(--topbar-h)); }
+  .sidebar     { width:240px; background:var(--surface); border-right:1px solid var(--border); padding:1.5rem 1rem; flex-shrink:0; position:sticky; top:var(--topbar-h); height:calc(100vh - var(--topbar-h)); overflow-y:auto; }
   .sidebar-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted2); margin-bottom:.75rem; padding-left:4px; }
   .step-item   { display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border-radius:6px; margin-bottom:2px; cursor:pointer; transition:background .12s; }
   .step-item:hover { background:var(--surface3); }
@@ -74,23 +74,23 @@
   .res-tbl td   { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
   .res-tbl tbody tr:last-child td { border-bottom:none; }
   .res-tbl tbody tr.row-matched   { background:var(--surface); }
-  .res-tbl tbody tr.row-ambiguous { background:#fffbeb; }
-  .res-tbl tbody tr.row-notfound  { background:#fff5f5; }
+  .res-tbl tbody tr.row-ambiguous { background:var(--amber-light); }
+  .res-tbl tbody tr.row-notfound  { background:var(--red-light); }
   .res-tbl tbody tr.row-skipped   { background:var(--surface2); }
-  .res-tbl tbody tr.row-expand    { background:#fffbeb; }
+  .res-tbl tbody tr.row-expand    { background:var(--amber-light); }
   .res-tbl tbody tr.row-pending   { background:var(--surface); opacity:.6; }
 
   /* ── Status badges ── */
   .badge        { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap; }
   .badge-green  { background:var(--green-light);  color:var(--green);  border:1px solid var(--green-border); }
   .badge-amber  { background:var(--amber-light);  color:var(--amber);  border:1px solid var(--amber-border); }
-  .badge-red    { background:#fee2e2;             color:var(--red);    border:1px solid #fca5a5; }
+  .badge-red    { background:var(--red-light);    color:var(--red);    border:1px solid var(--red-border); }
   .badge-grey   { background:var(--surface3);     color:var(--muted);  border:1px solid var(--border); }
-  .badge-blue   { background:var(--blue-light);   color:var(--blue-dark); border:1px solid #93c5fd; }
+  .badge-blue   { background:var(--blue-light);   color:var(--blue-dark); border:1px solid var(--blue-border); }
 
   /* ── Inline disambiguation expand ── */
   .disambig-cell { padding:0 !important; }
-  .disambig-panel { background:#fffbeb; border-top:1px solid var(--amber-border); padding:10px 12px; }
+  .disambig-panel { background:var(--amber-light); border-top:1px solid var(--amber-border); padding:10px 12px; }
   .disambig-hdr   { font-size:11px; font-weight:700; color:var(--amber); margin-bottom:8px; }
   .cand-row       { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; border:1.5px solid var(--border); background:var(--surface); margin-bottom:6px; cursor:pointer; transition:all .12s; }
   .cand-row:hover { border-color:var(--blue); background:var(--blue-light); }
@@ -134,7 +134,7 @@
   .tally-green .tally-num { color:var(--green); }
   .tally-amber { border-color:var(--amber-border); background:var(--amber-light); }
   .tally-amber .tally-num { color:var(--amber); }
-  .tally-red   { border-color:#fca5a5; background:#fee2e2; }
+  .tally-red   { border-color:var(--red-border); background:var(--red-light); }
   .tally-red   .tally-num { color:var(--red); }
 
   #authScreen { display:none; }
@@ -161,7 +161,7 @@
 <!-- Auth gate -->
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
-    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></div>
+    <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></div>
     <h1>Name Resolver</h1>
     <p>Sign in with your M365 admin account to look up users by name and export an email list for Group Import.</p>
     <button class="btn-ms" onclick="doSignIn(this)">
