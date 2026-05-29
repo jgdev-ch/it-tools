@@ -7,17 +7,17 @@
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
-  .shell { max-width: 860px; margin: 0 auto; padding: 1.75rem 1.25rem; }
+  .shell { max-width: 1200px; margin: 0 auto; padding: 1.75rem 1.25rem; }
 
   /* ── Page header ── */
   .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 12px; }
   .page-header-left h1 { font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
   .page-header-left p  { font-size: 13px; color: var(--muted); }
-  .adobe-badge { width: 26px; height: 26px; background: #fa0f00; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #fff; flex-shrink: 0; }
+  .adobe-badge { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
   /* ── Summary bar ── */
   .summary-bar { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 1.25rem; }
-  .summary-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .summary-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
   .summary-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .summary-icon.blue  { background: var(--blue-light);  color: var(--blue); }
   .summary-icon.green { background: var(--green-light); color: var(--green); }
@@ -37,7 +37,7 @@
   /* ── Product cards ── */
   .product-stack { display: flex; flex-direction: column; gap: 14px; }
   .product-card  {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     display: grid; grid-template-columns: 200px 1fr 220px; overflow: hidden;
   }
 
@@ -46,7 +46,42 @@
   .card-identity-top { display: flex; align-items: center; gap: 8px; }
   .adobe-dot  { width: 10px; height: 10px; border-radius: 50%; background: #fa0f00; flex-shrink: 0; }
   .product-name  { font-size: 14px; font-weight: 700; line-height: 1.2; }
-  .product-group { font-size: 10px; color: var(--muted2); background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 3px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: fit-content; max-width: 160px; }
+  /* Info pills — object ID + group name under product name */
+  .info-pills { display: flex; flex-direction: column; gap: 5px; }
+  .info-pill {
+    display: inline-flex; align-items: stretch;
+    border: 1px solid var(--border); border-radius: 6px;
+    overflow: hidden; max-width: 160px;
+  }
+  .info-pill-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    background: var(--surface2); color: var(--muted2);
+    padding: 3px 6px; border-right: 1px solid var(--border);
+    white-space: nowrap; flex-shrink: 0; display: flex; align-items: center;
+  }
+  .info-pill-value {
+    font-size: 10px; color: var(--muted); font-family: 'Cascadia Code','Consolas',monospace;
+    padding: 3px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1; min-width: 0; display: flex; align-items: center;
+  }
+  .info-pill-copy {
+    padding: 3px 7px; background: transparent; border: none;
+    border-left: 1px solid var(--border); cursor: pointer; color: var(--muted2);
+    display: flex; align-items: center; flex-shrink: 0; transition: all .12s;
+    font-family: inherit;
+  }
+  .info-pill-copy:hover { background: var(--blue-light); color: var(--blue); }
+  /* Copy confirmation toast */
+  .copy-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: var(--surface);
+    font-size: 12px; font-weight: 600; padding: 8px 16px; border-radius: 8px;
+    opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 9999;
+    white-space: nowrap;
+  }
+  .copy-toast.show { opacity: 1; }
+  .col-info { cursor: help; color: var(--muted2); font-size: 11px; opacity: .65; margin: 0 2px; vertical-align: middle; }
+  .col-info:hover { opacity: 1; }
 
   /* Middle: utilization */
   .card-util { padding: 22px 28px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
@@ -90,9 +125,176 @@
   /* ── Auth screen ── */
   .auth-screen { min-height: 60vh; display: flex; align-items: center; justify-content: center; }
   .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2rem 2.25rem; max-width: 400px; width: 100%; text-align: center; }
-  .auth-card .adobe-badge { margin: 0 auto 1rem; width: 40px; height: 40px; font-size: 15px; }
+  .auth-card .adobe-badge { margin: 0 auto 1rem; }
   .auth-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
   .auth-card p  { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.5; }
+
+  /* ── Expand strip ── */
+  .expand-strip {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 18px; background: var(--surface2);
+    cursor: pointer; transition: background .15s; user-select: none;
+  }
+  .expand-strip:hover { background: var(--surface3); }
+  .expand-strip.open  { background: var(--blue-light); border-top-color: var(--blue-border); }
+  .expand-strip-left  { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .expand-strip.open .expand-strip-left { color: var(--blue-dark); }
+  .expand-chevron { font-size: 12px; color: var(--muted2); transition: transform .2s; display: inline-block; }
+  .expand-chevron.open { transform: rotate(180deg); }
+
+  /* Disabled count badge on strip */
+  .dis-badge {
+    display: none; align-items: center; gap: 4px;
+    background: var(--red-light); color: var(--red); border: 1px solid var(--red-border);
+    border-radius: 20px; padding: 2px 9px; font-size: 11px; font-weight: 700;
+  }
+  .dis-badge.show { display: inline-flex; }
+
+  /* ── Member section ── */
+  .member-section { grid-column: 1 / -1; border-top: 1px solid var(--border); }
+  .member-tbl-wrap { max-height: 360px; overflow-y: auto; }
+
+  /* Member table */
+  .member-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .member-tbl thead th {
+    position: sticky; top: 0; z-index: 2;
+    padding: 9px 14px; text-align: left;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--muted);
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  .member-tbl thead th:hover { background: var(--surface3); }
+  .member-tbl thead th .sort-icon { margin-left: 4px; opacity: .4; font-size: 10px; }
+  .member-tbl thead th.sorted .sort-icon { opacity: 1; }
+  .member-tbl tbody td {
+    padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .member-tbl tbody tr:last-child td { border-bottom: none; }
+  .member-tbl tbody tr:hover td { background: var(--surface2); }
+
+  /* Disabled row */
+  .member-tbl tbody tr.row-disabled td { background: rgba(138,36,36,.04); }
+  .member-tbl tbody tr.row-disabled:hover td { background: rgba(138,36,36,.08); }
+
+  /* User cell */
+  .mem-user-cell { display: flex; align-items: center; gap: 10px; }
+  .mem-avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .mem-avatar.enabled  { background: var(--blue-light);  color: var(--blue-dark); }
+  .mem-avatar.disabled { background: var(--red-light);   color: var(--red); }
+  .mem-name { font-size: 12px; font-weight: 600; }
+
+  /* Status badges */
+  .mem-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 700; white-space: nowrap;
+  }
+  .mem-badge.enabled  { background: var(--green-light); color: var(--green); border: 1px solid var(--green-border); }
+  .mem-badge.disabled { background: var(--red-light);   color: var(--red);   border: 1px solid var(--red-border); }
+
+  /* Last sign-in — red when > 30 days */
+  .signin-stale { color: var(--red); font-weight: 600; }
+
+  /* Remove button */
+  .btn-mem-remove {
+    padding: 4px 11px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--red-border);
+    color: var(--red); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
+  }
+  .btn-mem-remove:hover { background: var(--red-light); }
+  .btn-mem-remove.gated {
+    border-color: var(--border); color: var(--muted2);
+    cursor: not-allowed; opacity: .5;
+  }
+
+  /* Table footer */
+  .member-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; background: var(--surface2);
+    border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--muted2);
+  }
+  .license-admin-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--blue-light); color: var(--blue-dark);
+    border: 1px solid var(--blue-border); border-radius: 20px;
+    padding: 2px 9px; font-size: 10px; font-weight: 700;
+    margin-right: 5px;
+  }
+
+  /* Member shimmer skeleton */
+  .member-skeleton { padding: 12px 14px; }
+  .mem-skel-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .mem-skel-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--surface3); flex-shrink: 0; animation: shimmer 1.5s infinite; }
+  .mem-skel-line { height: 12px; border-radius: 6px; background: var(--surface3); animation: shimmer 1.5s infinite; }
+
+  /* Member load error */
+  .member-error {
+    padding: 1rem 1.25rem; background: var(--red-light);
+    border: 1px solid var(--red-border); color: var(--red);
+    font-size: 13px; display: flex; align-items: center; gap: 10px;
+  }
+  .btn-mem-retry {
+    padding: 4px 12px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--red-border);
+    color: var(--red); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .btn-mem-retry:hover { background: rgba(138,36,36,.1); }
+
+  /* ── Remove confirmation modal ── */
+  .remove-modal-overlay {
+    position: fixed; inset: 0; background: rgba(28,25,23,.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
+    opacity: 0; pointer-events: none; transition: opacity .15s;
+  }
+  .remove-modal-overlay.show { opacity: 1; pointer-events: auto; }
+  .remove-modal-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 2rem; max-width: 440px; width: 100%;
+    box-shadow: 0 20px 60px rgba(80,60,40,.22);
+    transform: translateY(10px); transition: transform .15s;
+  }
+  .remove-modal-overlay.show .remove-modal-card { transform: translateY(0); }
+  .remove-modal-icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    background: var(--red-light); display: flex; align-items: center;
+    justify-content: center; margin-bottom: 1rem;
+  }
+  .remove-modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .remove-modal-body  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 1.25rem; }
+  .remove-modal-user  {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 1.25rem;
+  }
+  .remove-modal-name  { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .remove-modal-upn   { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .remove-modal-group { font-size: 11px; font-weight: 600; color: var(--amber); }
+  .remove-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-modal-cancel {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid var(--border);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; color: var(--muted); transition: all .12s;
+  }
+  .btn-modal-cancel:hover { background: var(--surface2); }
+  .btn-modal-confirm {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    background: var(--red); border: none; color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: opacity .12s;
+  }
+  .btn-modal-confirm:hover    { opacity: .88; }
+  .btn-modal-confirm:disabled { opacity: .5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -101,7 +303,7 @@
 <!-- Auth screen — shown when no session -->
 <div id="authScreen" class="auth-screen" style="display:none">
   <div class="auth-card">
-    <div class="adobe-badge">Ai</div>
+    <div class="adobe-badge"><svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#fa0f00"/><path d="M20 8L8 32H14L20 18L26 32H32L20 8Z" fill="white"/><path d="M16 26H24L22 22H18L16 26Z" fill="#fa0f00"/></svg></div>
     <h2>Adobe License Monitor</h2>
     <p>Sign in with your Microsoft account to view live Adobe seat utilization and Entra group sync status.</p>
     <button class="btn-ms" onclick="doSignIn(this)">
@@ -119,11 +321,32 @@
 
 <!-- App screen — shown after sign-in -->
 <div id="appScreen" style="display:none">
+
+<!-- Remove confirmation modal -->
+<div class="remove-modal-overlay" id="removeModal" onclick="if(event.target===this)closeRemoveModal()">
+  <div class="remove-modal-card">
+    <div class="remove-modal-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+    </div>
+    <div class="remove-modal-title">Remove from group?</div>
+    <div class="remove-modal-body">This will remove the member from the Entra security group. Adobe access will be revoked automatically via SSO provisioning.</div>
+    <div class="remove-modal-user">
+      <div class="remove-modal-name" id="modalName"></div>
+      <div class="remove-modal-upn"  id="modalUpn"></div>
+      <div class="remove-modal-group" id="modalGroup"></div>
+    </div>
+    <div class="remove-modal-actions">
+      <button class="btn-modal-cancel" onclick="closeRemoveModal()">Cancel</button>
+      <button class="btn-modal-confirm" id="modalConfirmBtn" onclick="executeRemove()">Remove from group</button>
+    </div>
+  </div>
+</div>
+
   <div class="shell">
     <div class="page-header">
       <div class="page-header-left">
         <h1>
-          <div class="adobe-badge">Ai</div>
+          <div class="adobe-badge"><svg width="26" height="26" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#fa0f00"/><path d="M20 8L8 32H14L20 18L26 32H32L20 8Z" fill="white"/><path d="M16 26H24L22 22H18L16 26Z" fill="#fa0f00"/></svg></div>
           Adobe License Monitor
         </h1>
         <p>Live seat utilization and Entra group sync status across all Adobe products</p>
@@ -203,7 +426,22 @@ const PRODUCTS = [
   },
 ];
 
-const TOOL_SCOPES = ["User.Read", "GroupMember.Read.All"];
+const TOOL_SCOPES = [
+  "User.Read",
+  "User.Read.All",
+  "AuditLog.Read.All",
+  "GroupMember.Read.All",
+  "GroupMember.ReadWrite.All",
+];
+
+// ─── Member expansion state ───────────────────────────────────────────────────
+const _memberCache   = {};    // { [idx]: { members: [], loaded: bool } }
+const _sortState     = {};    // { [idx]: { col: string, dir: 1|-1 } }
+let   _isLicenseAdmin = false;
+let   _pendingRemove  = null; // { groupId, idx, userId }
+let   _removeInFlight = false;
+
+const LICENSE_MODIFY_GROUP = "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8";
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function _getAdobeProducts() {
@@ -220,6 +458,56 @@ async function _getGroupCount(graphToken, groupId) {
   );
   if (!res.ok) throw new Error("Group count fetch failed for " + groupId);
   return parseInt(await res.text(), 10);
+}
+
+async function _fetchMembers(token, groupId) {
+  const members = [];
+  let url = `https://graph.microsoft.com/v1.0/groups/${groupId}/members` +
+            `?$select=id,displayName,userPrincipalName,accountEnabled&$top=999`;
+  while (url) {
+    const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) throw new Error(`Member fetch failed: ${res.status}`);
+    const data = await res.json();
+    members.push(...(data.value || []));
+    url = data["@odata.nextLink"] ?? null;
+  }
+  return members;
+}
+
+async function _enrichSignIn(token, members) {
+  const CHUNK = 15;
+  if (members.length === 0) return [];
+  const chunks = [];
+  for (let i = 0; i < members.length; i += CHUNK) chunks.push(members.slice(i, i + CHUNK));
+
+  const results = await Promise.allSettled(chunks.map(async chunk => {
+    const ids = chunk.map(m => `'${m.id}'`).join(",");
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users?$filter=id in (${ids})&$select=id,signInActivity&$count=true`,
+      { headers: { Authorization: "Bearer " + token, ConsistencyLevel: "eventual" } }
+    );
+    if (!res.ok) return [];
+    return (await res.json()).value || [];
+  }));
+
+  const signInMap = {};
+  results.forEach(r => {
+    if (r.status === "fulfilled") r.value.forEach(u => {
+      signInMap[u.id] = u.signInActivity?.lastSignInDateTime ?? null;
+    });
+  });
+
+  return members.map(m => ({ ...m, lastSignIn: signInMap[m.id] ?? null }));
+}
+
+async function _loadMembers(groupId, idx) {
+  // keyed by PRODUCTS index (idx), not groupId — cache is invalidated on page reload
+  if (_memberCache[idx]?.loaded) return _memberCache[idx].members;
+  const token   = await ITTools.auth.getToken();
+  const raw     = await _fetchMembers(token, groupId);
+  const members = await _enrichSignIn(token, raw);
+  _memberCache[idx] = { loaded: true, members };
+  return members;
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -257,6 +545,7 @@ async function loadDashboard() {
     });
 
     render(results);
+    _checkLicenseAdmin();
     document.getElementById("statusText").textContent =
       "Last refreshed " + new Date().toLocaleTimeString();
     document.getElementById("dataSourceText").textContent = "Adobe UMAPI + Microsoft Graph";
@@ -314,12 +603,12 @@ function renderDriftBanner(results) {
 
 function renderCards(results) {
   const stack = document.getElementById("productStack");
-  stack.innerHTML = results.map(r => {
+  stack.innerHTML = results.map((r, idx) => {
     const pct    = (r.purchased && r.assigned !== null) ? Math.round(r.assigned / r.purchased * 100) : null;
     const bc     = barClass(pct);
     const drift  = driftStatus(r.assigned, r.entra);
     const free   = (r.purchased !== null && r.assigned !== null) ? r.purchased - r.assigned : null;
-    const shortGroup = r.groupId ? "..." + r.groupId.slice(-8) : "";
+    const groupName  = `P-EID-SG-STD-SSO-Adobe_${r.name.replace(/ /g, "_")}`;
 
     const utilMiddle = r.adobeFailed
       ? `<div class="util-unavail">Adobe data unavailable — proxy error</div>`
@@ -338,13 +627,28 @@ function renderCards(results) {
       : `<div class="entra-sync na">—</div>`;
 
     return `
-      <div class="product-card">
+      <div class="product-card" id="card-${r.groupId}">
         <div class="card-identity">
           <div class="card-identity-top">
             <div class="adobe-dot"></div>
             <div class="product-name">${r.name}</div>
           </div>
-          <div class="product-group">${shortGroup}</div>
+          <div class="info-pills">
+            <div class="info-pill">
+              <span class="info-pill-label">ID</span>
+              <span class="info-pill-value" title="${r.groupId}">${r.groupId ? r.groupId.slice(0, 8) + "…" : "—"}</span>
+              <button class="info-pill-copy" onclick="_copyPill('${r.groupId}','Object ID')" title="Copy Object ID">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            <div class="info-pill">
+              <span class="info-pill-label">Group</span>
+              <span class="info-pill-value" title="${groupName}">${groupName.slice(0, 14)}…</span>
+              <button class="info-pill-copy" onclick="_copyPill('${groupName}','Group name')" title="Copy group name">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
         <div class="card-util">
           <div class="util-section-label">
@@ -358,10 +662,21 @@ function renderCards(results) {
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
             Entra group members
           </div>
-          <div class="entra-big ${r.entra === null ? "na" : ""}">${r.entra ?? "—"}</div>
-          <div class="entra-sub">P-EID-SG-STD-SSO-Adobe_${r.name.replace(/ /g, "_")}</div>
+          <div class="entra-big ${r.entra === null ? "na" : ""}" id="entra-big-${r.groupId}">${r.entra ?? "—"}</div>
           ${driftPill}
         </div>
+        <div class="expand-strip" id="strip-${r.groupId}" onclick="toggleExpand('${r.groupId}', ${idx})">
+          <div class="expand-strip-left">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            View <span id="mem-count-${r.groupId}">${r.entra ?? ""}</span> group members
+            <span class="dis-badge" id="dis-${r.groupId}">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="dis-count-${r.groupId}">0</span> disabled
+            </span>
+          </div>
+          <span class="expand-chevron" id="chev-${r.groupId}">▾</span>
+        </div>
+        <div class="member-section" id="ms-${r.groupId}" style="display:none"></div>
       </div>`;
   }).join("");
 }
@@ -395,6 +710,273 @@ function render(results) {
   renderSummary(results);
   renderDriftBanner(results);
   renderCards(results);
+}
+
+async function _checkLicenseAdmin() {
+  try {
+    const token = await ITTools.auth.getToken();
+    const res   = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+      method:  "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body:    JSON.stringify({ ids: [LICENSE_MODIFY_GROUP] }),
+    });
+    if (!res.ok) return;
+    _isLicenseAdmin = (await res.json()).value?.includes(LICENSE_MODIFY_GROUP) ?? false;
+  } catch (_) { _isLicenseAdmin = false; }
+}
+
+function _shimmerHtml() {
+  const row = `
+    <div class="mem-skel-row">
+      <div class="mem-skel-avatar"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div class="mem-skel-line" style="width:45%"></div>
+        <div class="mem-skel-line" style="width:65%"></div>
+      </div>
+    </div>`;
+  return `<div class="member-skeleton">${row}${row}${row}</div>`;
+}
+
+async function toggleExpand(groupId, idx) {
+  const section = document.getElementById(`ms-${groupId}`);
+  const strip   = document.getElementById(`strip-${groupId}`);
+  const chev    = document.getElementById(`chev-${groupId}`);
+  const isOpen  = section.style.display !== "none";
+
+  if (isOpen) {
+    section.style.display = "none";
+    strip.classList.remove("open");
+    chev.classList.remove("open");
+    return;
+  }
+
+  // Open
+  strip.classList.add("open");
+  chev.classList.add("open");
+  section.style.display = "";
+  section.innerHTML = _shimmerHtml();
+
+  try {
+    const members = await _loadMembers(groupId, idx);
+    _sortState[idx] = _sortState[idx] || { col: "status", dir: -1 };
+    renderMemberTable(groupId, idx, members);
+    _updateStripCounts(groupId, idx, members);
+  } catch (err) {
+    const errDiv = document.createElement("div");
+    errDiv.className = "member-error";
+    const errSpan = document.createElement("span");
+    errSpan.textContent = ITTools.graph.friendlyError(err);
+    const retryBtn = document.createElement("button");
+    retryBtn.className = "btn-mem-retry";
+    retryBtn.textContent = "Retry";
+    retryBtn.onclick = () => retryExpand(groupId, idx);
+    errDiv.append(errSpan, retryBtn);
+    section.innerHTML = "";
+    section.appendChild(errDiv);
+  }
+}
+
+async function retryExpand(groupId, idx) {
+  delete _memberCache[idx];
+  const section = document.getElementById(`ms-${groupId}`);
+  if (section) section.style.display = "none"; // force closed so toggleExpand opens it
+  await toggleExpand(groupId, idx);
+}
+
+function _updateStripCounts(groupId, idx, members) {
+  const disCount = members.filter(m => !m.accountEnabled).length;
+
+  // Member count span inside the strip
+  const memCountEl = document.getElementById(`mem-count-${groupId}`);
+  if (memCountEl) memCountEl.textContent = members.length;
+
+  // Disabled badge
+  const disBadgeEl  = document.getElementById(`dis-${groupId}`);
+  const disCountEl  = document.getElementById(`dis-count-${groupId}`);
+  if (disBadgeEl && disCountEl) {
+    disCountEl.textContent = disCount;
+    disBadgeEl.classList.toggle("show", disCount > 0);
+  }
+
+  // Entra big count on the card header
+  const entraBigEl = document.getElementById(`entra-big-${groupId}`);
+  if (entraBigEl) entraBigEl.textContent = members.length;
+}
+
+function _relativeTime(dateStr) {
+  if (!dateStr) return { text: "Never", stale: true };
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days === 0) return { text: "Today",       stale: false };
+  if (days === 1) return { text: "Yesterday",   stale: false };
+  if (days < 30)  return { text: `${days} days ago`,                       stale: false };
+  if (days < 365) return { text: `${Math.floor(days / 30)} months ago`,    stale: true  };
+  return               { text: `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? "s" : ""} ago`, stale: true };
+}
+
+function _sortMembers(members, col, dir) {
+  return [...members].sort((a, b) => {
+    if (col === "status") {
+      if (a.accountEnabled !== b.accountEnabled)
+        return a.accountEnabled ? 1 : -1;
+      return (a.displayName || "").localeCompare(b.displayName || "");
+    }
+    if (col === "name") {
+      return dir * (a.displayName || "").localeCompare(b.displayName || "");
+    }
+    if (col === "upn") {
+      return dir * (a.userPrincipalName || "").localeCompare(b.userPrincipalName || "");
+    }
+    if (col === "lastSignIn") {
+      const ta = a.lastSignIn ? new Date(a.lastSignIn).getTime() : 0;
+      const tb = b.lastSignIn ? new Date(b.lastSignIn).getTime() : 0;
+      return dir * (ta - tb);
+    }
+    return 0;
+  });
+}
+
+function sortBy(groupId, idx, col) {
+  const current = _sortState[idx] || { col: "status", dir: -1 };
+  const dir = (current.col === col) ? current.dir * -1 : (col === "lastSignIn" ? 1 : -1);
+  _sortState[idx] = { col, dir };
+  const members = _memberCache[idx]?.members || [];
+  renderMemberTable(groupId, idx, members);
+}
+
+function renderMemberTable(groupId, idx, members) {
+  const section = document.getElementById(`ms-${groupId}`);
+  const { col, dir } = _sortState[idx] || { col: "status", dir: -1 };
+  const sorted  = _sortMembers(members, col, dir);
+
+  function thIcon(c) {
+    if (col !== c) return `<span class="sort-icon">↕</span>`;
+    return `<span class="sort-icon">${dir === 1 ? "↑" : "↓"}</span>`;
+  }
+  function thCls(c) { return col === c ? "sorted" : ""; }
+
+  const rows = sorted.map(m => {
+    const initials  = (m.displayName || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "?";
+    const statusCls = m.accountEnabled ? "enabled" : "disabled";
+    const si        = _relativeTime(m.lastSignIn);
+    const siHtml    = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
+    const removeBtn = _isLicenseAdmin
+      ? `<button class="btn-mem-remove" onclick="showRemoveModal('${groupId}',${idx},'${m.id}')">Remove</button>`
+      : `<button class="btn-mem-remove gated" title="Requires License Admin access" disabled>Remove</button>`;
+
+    return `
+      <tr class="${m.accountEnabled ? "" : "row-disabled"}" id="mrow-${m.id}">
+        <td>
+          <div class="mem-user-cell">
+            <div class="mem-avatar ${statusCls}">${initials}</div>
+            <div class="mem-name">${m.displayName}</div>
+          </div>
+        </td>
+        <td style="font-size:11px;color:var(--muted)">${m.userPrincipalName}</td>
+        <td><span class="mem-badge ${statusCls}">${m.accountEnabled ? "Enabled" : "Disabled"}</span></td>
+        <td>${siHtml}</td>
+        <td>${removeBtn}</td>
+      </tr>`;
+  }).join("");
+
+  const adminPill = _isLicenseAdmin
+    ? `<span class="license-admin-pill">License Admin</span> Remove enabled`
+    : "Read-only — License Admin required to remove";
+
+  section.innerHTML = `
+    <div class="member-tbl-wrap">
+      <table class="member-tbl">
+        <thead>
+          <tr>
+            <th class="${thCls("name")}"    style="width:240px" onclick="sortBy('${groupId}',${idx},'name')">Member ${thIcon("name")}</th>
+            <th class="${thCls("upn")}"     style="width:220px" onclick="sortBy('${groupId}',${idx},'upn')">UPN ${thIcon("upn")}</th>
+            <th class="${thCls("status")}"  style="width:105px" onclick="sortBy('${groupId}',${idx},'status')">Account ${thIcon("status")}</th>
+            <th class="${thCls("lastSignIn")}" style="width:145px" onclick="sortBy('${groupId}',${idx},'lastSignIn')">Last Sign-In <span class="col-info" title="Entra ID sign-in date — last M365 activity (Windows login, Teams, Outlook, etc.), not Adobe product usage">ⓘ</span> ${thIcon("lastSignIn")}</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="member-footer">
+      <span id="footer-count-${groupId}">${members.length} members · ${members.filter(m => !m.accountEnabled).length} disabled</span>
+      <span>${adminPill}</span>
+    </div>`;
+}
+
+// ─── Remove modal ────────────────────────────────────────────────────────────
+function showRemoveModal(groupId, idx, userId) {
+  const member = (_memberCache[idx]?.members || []).find(m => m.id === userId);
+  _pendingRemove = { groupId, idx, userId };
+  document.getElementById("modalName").textContent  = member?.displayName || userId;
+  document.getElementById("modalUpn").textContent   = member?.userPrincipalName || "";
+  document.getElementById("modalGroup").textContent = `Removing from: P-EID-SG-STD-SSO-Adobe_${PRODUCTS[idx].name.replace(/ /g, "_")}`;
+  document.getElementById("modalConfirmBtn").disabled = false;
+  document.getElementById("modalConfirmBtn").textContent = "Remove from group";
+  const errEl = document.getElementById("modalErr");
+  if (errEl) errEl.remove();
+  document.getElementById("removeModal").classList.add("show");
+}
+
+function closeRemoveModal() {
+  if (_removeInFlight) return;
+  document.getElementById("removeModal").classList.remove("show");
+  _pendingRemove = null;
+}
+
+async function executeRemove() {
+  if (!_pendingRemove) return;
+  const { groupId, idx, userId } = _pendingRemove;
+  const confirmBtn = document.getElementById("modalConfirmBtn");
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Removing…";
+  _removeInFlight = true;
+
+  try {
+    const token = await ITTools.auth.getToken();
+    const res   = await fetch(
+      `https://graph.microsoft.com/v1.0/groups/${groupId}/members/${userId}/$ref`,
+      { method: "DELETE", headers: { Authorization: "Bearer " + token } }
+    );
+    if (!res.ok) throw new Error(`Remove failed: ${res.status}`);
+
+    _removeInFlight = false;
+    closeRemoveModal();
+    _removeRowFromTable(groupId, idx, userId);
+  } catch (err) {
+    _removeInFlight = false;
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "Remove from group";
+    let errEl = document.getElementById("modalErr");
+    if (!errEl) {
+      errEl = document.createElement("div");
+      errEl.id = "modalErr";
+      errEl.style.cssText = "font-size:12px;color:var(--red);margin-bottom:1rem;";
+      document.querySelector(".remove-modal-user").after(errEl);
+    }
+    errEl.textContent = ITTools.graph.friendlyError(err);
+  }
+}
+
+function _removeRowFromTable(groupId, idx, userId) {
+  if (_memberCache[idx]?.members) {
+    _memberCache[idx].members = _memberCache[idx].members.filter(m => m.id !== userId);
+  }
+  const members = _memberCache[idx]?.members || [];
+
+  const row = document.getElementById(`mrow-${userId}`);
+  if (row) {
+    row.style.transition = "opacity .3s";
+    row.style.opacity = "0";
+    setTimeout(() => row.remove(), 310);
+  }
+
+  const footerEl = document.getElementById(`footer-count-${groupId}`);
+  if (footerEl) {
+    const disCount = members.filter(m => !m.accountEnabled).length;
+    footerEl.textContent = `${members.length} members · ${disCount} disabled`;
+  }
+
+  _updateStripCounts(groupId, idx, members);
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -439,7 +1021,28 @@ async function init() {
   }
 }
 
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeRemoveModal();
+});
+
+function _copyPill(text, label) {
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  });
+  const toast = document.getElementById("copyToast");
+  if (!toast) return;
+  toast.textContent = label + " copied";
+  toast.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove("show"), 1800);
+}
+
 window.addEventListener("DOMContentLoaded", init);
 </script>
+
+<div class="copy-toast" id="copyToast"></div>
 </body>
 </html>
