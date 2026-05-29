@@ -753,6 +753,106 @@ function _updateStripCounts(groupId, idx, members) {
   if (entraBigEl) entraBigEl.textContent = members.length;
 }
 
+function _relativeTime(dateStr) {
+  if (!dateStr) return { text: "Never", stale: true };
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days === 0) return { text: "Today",       stale: false };
+  if (days === 1) return { text: "Yesterday",   stale: false };
+  if (days < 30)  return { text: `${days} days ago`,                       stale: false };
+  if (days < 365) return { text: `${Math.floor(days / 30)} months ago`,    stale: true  };
+  return               { text: `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? "s" : ""} ago`, stale: true };
+}
+
+function _sortMembers(members, col, dir) {
+  return [...members].sort((a, b) => {
+    if (col === "status") {
+      if (a.accountEnabled !== b.accountEnabled)
+        return a.accountEnabled ? 1 : -1;
+      return a.displayName.localeCompare(b.displayName);
+    }
+    if (col === "name") {
+      return dir * a.displayName.localeCompare(b.displayName);
+    }
+    if (col === "upn") {
+      return dir * (a.userPrincipalName || "").localeCompare(b.userPrincipalName || "");
+    }
+    if (col === "lastSignIn") {
+      const ta = a.lastSignIn ? new Date(a.lastSignIn).getTime() : 0;
+      const tb = b.lastSignIn ? new Date(b.lastSignIn).getTime() : 0;
+      return dir * (ta - tb);
+    }
+    return 0;
+  });
+}
+
+function sortBy(groupId, idx, col) {
+  const current = _sortState[idx] || { col: "status", dir: -1 };
+  const dir = (current.col === col) ? current.dir * -1 : (col === "lastSignIn" ? 1 : -1);
+  _sortState[idx] = { col, dir };
+  const members = _memberCache[idx]?.members || [];
+  renderMemberTable(groupId, idx, members);
+}
+
+function renderMemberTable(groupId, idx, members) {
+  const section = document.getElementById(`ms-${groupId}`);
+  const { col, dir } = _sortState[idx] || { col: "status", dir: -1 };
+  const sorted  = _sortMembers(members, col, dir);
+
+  function thIcon(c) {
+    if (col !== c) return `<span class="sort-icon">↕</span>`;
+    return `<span class="sort-icon">${dir === 1 ? "↑" : "↓"}</span>`;
+  }
+  function thCls(c) { return col === c ? "sorted" : ""; }
+
+  const rows = sorted.map(m => {
+    const initials  = m.displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+    const statusCls = m.accountEnabled ? "enabled" : "disabled";
+    const si        = _relativeTime(m.lastSignIn);
+    const siHtml    = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
+    const removeBtn = _isLicenseAdmin
+      ? `<button class="btn-mem-remove" onclick="showRemoveModal('${groupId}',${idx},'${m.id}',${JSON.stringify(m.displayName)},${JSON.stringify(m.userPrincipalName)})">Remove</button>`
+      : `<button class="btn-mem-remove gated" title="Requires License Admin access" disabled>Remove</button>`;
+
+    return `
+      <tr class="${m.accountEnabled ? "" : "row-disabled"}" id="mrow-${m.id}">
+        <td>
+          <div class="mem-user-cell">
+            <div class="mem-avatar ${statusCls}">${initials}</div>
+            <div class="mem-name">${m.displayName}</div>
+          </div>
+        </td>
+        <td style="font-size:11px;color:var(--muted)">${m.userPrincipalName}</td>
+        <td><span class="mem-badge ${statusCls}">${m.accountEnabled ? "Enabled" : "Disabled"}</span></td>
+        <td>${siHtml}</td>
+        <td>${removeBtn}</td>
+      </tr>`;
+  }).join("");
+
+  const adminPill = _isLicenseAdmin
+    ? `<span class="license-admin-pill">License Admin</span> Remove enabled`
+    : "Read-only — License Admin required to remove";
+
+  section.innerHTML = `
+    <div class="member-tbl-wrap">
+      <table class="member-tbl">
+        <thead>
+          <tr>
+            <th class="${thCls("name")}"    style="width:240px" onclick="sortBy('${groupId}',${idx},'name')">Member ${thIcon("name")}</th>
+            <th class="${thCls("upn")}"     style="width:220px" onclick="sortBy('${groupId}',${idx},'upn')">UPN ${thIcon("upn")}</th>
+            <th class="${thCls("status")}"  style="width:105px" onclick="sortBy('${groupId}',${idx},'status')">Account ${thIcon("status")}</th>
+            <th class="${thCls("lastSignIn")}" style="width:145px" onclick="sortBy('${groupId}',${idx},'lastSignIn')">Last Sign-In ${thIcon("lastSignIn")}</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="member-footer">
+      <span id="footer-count-${groupId}">${members.length} members · ${members.filter(m => !m.accountEnabled).length} disabled</span>
+      <span>${adminPill}</span>
+    </div>`;
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 async function doSignIn(btn) {
   const errEl = document.getElementById("authErr");
