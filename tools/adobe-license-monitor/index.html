@@ -865,9 +865,14 @@ function _sortMembers(members, col, dir) {
     if (col === "upn") {
       return dir * (a.userPrincipalName || "").localeCompare(b.userPrincipalName || "");
     }
-    if (col === "lastSignIn") {
+    if (col === "entraSignIn") {
       const ta = a.lastSignIn ? new Date(a.lastSignIn).getTime() : 0;
       const tb = b.lastSignIn ? new Date(b.lastSignIn).getTime() : 0;
+      return dir * (ta - tb);
+    }
+    if (col === "adobeLastUsed") {
+      const ta = a.adobeLastUsed ? new Date(a.adobeLastUsed).getTime() : 0;
+      const tb = b.adobeLastUsed ? new Date(b.adobeLastUsed).getTime() : 0;
       return dir * (ta - tb);
     }
     return 0;
@@ -876,7 +881,7 @@ function _sortMembers(members, col, dir) {
 
 function sortBy(groupId, idx, col) {
   const current = _sortState[idx] || { col: "status", dir: -1 };
-  const dir = (current.col === col) ? current.dir * -1 : (col === "lastSignIn" ? 1 : -1);
+  const dir = (current.col === col) ? current.dir * -1 : (col === "entraSignIn" || col === "adobeLastUsed" ? 1 : -1);
   _sortState[idx] = { col, dir };
   const members = _memberCache[idx]?.members || [];
   renderMemberTable(groupId, idx, members);
@@ -894,11 +899,13 @@ function renderMemberTable(groupId, idx, members) {
   function thCls(c) { return col === c ? "sorted" : ""; }
 
   const rows = sorted.map(m => {
-    const initials  = (m.displayName || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "?";
-    const statusCls = m.accountEnabled ? "enabled" : "disabled";
-    const si        = _relativeTime(m.lastSignIn);
-    const siHtml    = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
-    const removeBtn = _isLicenseAdmin
+    const initials    = (m.displayName || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "?";
+    const statusCls   = m.accountEnabled ? "enabled" : "disabled";
+    const si          = _relativeTime(m.lastSignIn);
+    const siHtml      = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
+    const adobe       = _adobeRelativeTime(m.adobeLastUsed);
+    const adobeHtml   = `<span${adobe.stale ? ' class="signin-stale"' : ""}>${adobe.text}</span>`;
+    const removeBtn   = _isLicenseAdmin
       ? `<button class="btn-mem-remove" onclick="showRemoveModal('${groupId}',${idx},'${m.id}')">Remove</button>`
       : `<button class="btn-mem-remove gated" title="Requires License Admin access" disabled>Remove</button>`;
 
@@ -913,6 +920,7 @@ function renderMemberTable(groupId, idx, members) {
         <td style="font-size:11px;color:var(--muted)">${m.userPrincipalName}</td>
         <td><span class="mem-badge ${statusCls}">${m.accountEnabled ? "Enabled" : "Disabled"}</span></td>
         <td>${siHtml}</td>
+        <td>${adobeHtml}</td>
         <td>${removeBtn}</td>
       </tr>`;
   }).join("");
@@ -929,7 +937,8 @@ function renderMemberTable(groupId, idx, members) {
             <th class="${thCls("name")}"    style="width:240px" onclick="sortBy('${groupId}',${idx},'name')">Member ${thIcon("name")}</th>
             <th class="${thCls("upn")}"     style="width:220px" onclick="sortBy('${groupId}',${idx},'upn')">UPN ${thIcon("upn")}</th>
             <th class="${thCls("status")}"  style="width:105px" onclick="sortBy('${groupId}',${idx},'status')">Account ${thIcon("status")}</th>
-            <th class="${thCls("lastSignIn")}" style="width:145px" onclick="sortBy('${groupId}',${idx},'lastSignIn')">Last Sign-In <span class="col-info" title="Entra ID sign-in date — last M365 activity (Windows login, Teams, Outlook, etc.), not Adobe product usage">ⓘ</span> ${thIcon("lastSignIn")}</th>
+            <th class="${thCls("entraSignIn")}"  style="width:130px" onclick="sortBy('${groupId}',${idx},'entraSignIn')">Entra Sign-In ${thIcon("entraSignIn")}</th>
+            <th class="${thCls("adobeLastUsed")}" style="width:130px" onclick="sortBy('${groupId}',${idx},'adobeLastUsed')">Adobe Last Used ${thIcon("adobeLastUsed")}</th>
             <th>Action</th>
           </tr>
         </thead>
