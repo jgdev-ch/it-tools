@@ -501,12 +501,18 @@ async function _enrichSignIn(token, members) {
   return members.map(m => ({ ...m, lastSignIn: signInMap[m.id] ?? null }));
 }
 
-async function _loadMembers(groupId, idx) {
+async function _loadMembers(groupId, adobeGroupName, idx) {
   // keyed by PRODUCTS index (idx), not groupId — cache is invalidated on page reload
   if (_memberCache[idx]?.loaded) return _memberCache[idx].members;
-  const token   = await ITTools.auth.getToken();
-  const raw     = await _fetchMembers(token, groupId);
-  const members = await _enrichSignIn(token, raw);
+  const token = await ITTools.auth.getToken();
+  const [enriched, adobeMap] = await Promise.all([
+    _fetchMembers(token, groupId).then(raw => _enrichSignIn(token, raw)),
+    _fetchAdobeLastUsed(adobeGroupName),
+  ]);
+  const members = enriched.map(m => ({
+    ...m,
+    adobeLastUsed: adobeMap.get((m.userPrincipalName || "").toLowerCase()) ?? null,
+  }));
   _memberCache[idx] = { loaded: true, members };
   return members;
 }
@@ -539,6 +545,12 @@ async function loadDashboard() {
 
     const adobeProducts = adobeResult || [];
     const adobeFailed   = adobeResult === null;
+
+    // Write UMAPI groupName back onto PRODUCTS config so toggleExpand can pass it to AdobeMembers
+    PRODUCTS.forEach(p => {
+      const ap = adobeProducts.find(x => x.productName.toLowerCase().includes(p.adobeMatch.toLowerCase()));
+      if (ap?.groupName) p.adobeGroupName = ap.groupName;
+    });
 
     const groupCounts = await Promise.all(
       PRODUCTS.map(async p => {
@@ -774,7 +786,7 @@ async function toggleExpand(groupId, idx) {
   section.innerHTML = _shimmerHtml();
 
   try {
-    const members = await _loadMembers(groupId, idx);
+    const members = await _loadMembers(groupId, PRODUCTS[idx].adobeGroupName ?? null, idx);
     _sortState[idx] = _sortState[idx] || { col: "status", dir: -1 };
     renderMemberTable(groupId, idx, members);
     _updateStripCounts(groupId, idx, members);
