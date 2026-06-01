@@ -527,7 +527,10 @@ async function _fetchAdobeLastUsed(adobeGroupName) {
     );
     if (!res.ok) return new Map();
     const data = await res.json();
-    return new Map(data.map(u => [u.email.toLowerCase(), u.lastAccessedDate ?? null]));
+    // handle both plain array and { members, _debug } diagnostic shape
+    const arr = Array.isArray(data) ? data : (data.members || []);
+    if (data._debug) console.log('[AdobeMembers] raw user fields:', Object.keys(data._debug), data._debug);
+    return new Map(arr.map(u => [u.email.toLowerCase(), u.lastAccessedDate ?? null]));
   } catch (_) {
     return new Map();
   }
