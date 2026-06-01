@@ -405,7 +405,8 @@
 <script src="../../shared/auth.js"></script>
 <script>
 // ─── Config ──────────────────────────────────────────────────────────────────
-const ADOBE_PROXY_URL = "https://p-corp-fa-adobelicmon-azuc-01.azurewebsites.net/api/AdobeProducts";
+const ADOBE_PROXY_URL    = "https://p-corp-fa-adobelicmon-azuc-01.azurewebsites.net/api/AdobeProducts";
+const ADOBE_MEMBERS_URL  = "https://p-corp-fa-adobelicmon-azuc-01.azurewebsites.net/api/AdobeMembers";
 const ADOBE_FUNC_SCOPE = "api://7ad27c90-0ddd-4a3f-8e74-1213de4130f8/.default";
 
 const PRODUCTS = [
@@ -508,6 +509,22 @@ async function _loadMembers(groupId, idx) {
   const members = await _enrichSignIn(token, raw);
   _memberCache[idx] = { loaded: true, members };
   return members;
+}
+
+async function _fetchAdobeLastUsed(adobeGroupName) {
+  if (!adobeGroupName) return new Map();
+  try {
+    const token = await ITTools.auth.getToken([ADOBE_FUNC_SCOPE]);
+    const res   = await fetch(
+      `${ADOBE_MEMBERS_URL}?groupName=${encodeURIComponent(adobeGroupName)}`,
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    if (!res.ok) return new Map();
+    const data = await res.json();
+    return new Map(data.map(u => [u.email.toLowerCase(), u.lastAccessedDate ?? null]));
+  } catch (_) {
+    return new Map();
+  }
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -810,6 +827,16 @@ function _relativeTime(dateStr) {
   if (days === 1) return { text: "Yesterday",   stale: false };
   if (days < 30)  return { text: `${days} days ago`,                       stale: false };
   if (days < 365) return { text: `${Math.floor(days / 30)} months ago`,    stale: true  };
+  return               { text: `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? "s" : ""} ago`, stale: true };
+}
+
+function _adobeRelativeTime(dateStr) {
+  if (!dateStr) return { text: "Never", stale: true };
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days === 0) return { text: "Today",       stale: false };
+  if (days === 1) return { text: "Yesterday",   stale: false };
+  if (days < 30)  return { text: `${days} days ago`,                       stale: false };
+  if (days < 365) return { text: `${Math.floor(days / 30)} months ago`,    stale: days >= 90 };
   return               { text: `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? "s" : ""} ago`, stale: true };
 }
 
