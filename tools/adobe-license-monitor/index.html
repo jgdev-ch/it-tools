@@ -406,7 +406,6 @@
 <script>
 // ─── Config ──────────────────────────────────────────────────────────────────
 const ADOBE_PROXY_URL    = "https://p-corp-fa-adobelicmon-azuc-01.azurewebsites.net/api/AdobeProducts";
-const ADOBE_MEMBERS_URL  = "https://p-corp-fa-adobelicmon-azuc-01.azurewebsites.net/api/AdobeMembers";
 const ADOBE_FUNC_SCOPE = "api://7ad27c90-0ddd-4a3f-8e74-1213de4130f8/.default";
 
 const PRODUCTS = [
@@ -501,39 +500,14 @@ async function _enrichSignIn(token, members) {
   return members.map(m => ({ ...m, lastSignIn: signInMap[m.id] ?? null }));
 }
 
-async function _loadMembers(groupId, adobeGroupName, idx) {
+async function _loadMembers(groupId, idx) {
   // keyed by PRODUCTS index (idx), not groupId — cache is invalidated on page reload
   if (_memberCache[idx]?.loaded) return _memberCache[idx].members;
-  const token = await ITTools.auth.getToken();
-  const [enriched, adobeMap] = await Promise.all([
-    _fetchMembers(token, groupId).then(raw => _enrichSignIn(token, raw)),
-    _fetchAdobeLastUsed(adobeGroupName),
-  ]);
-  const members = enriched.map(m => ({
-    ...m,
-    adobeLastUsed: adobeMap.get((m.userPrincipalName || "").toLowerCase()) ?? null,
-  }));
+  const token   = await ITTools.auth.getToken();
+  const raw     = await _fetchMembers(token, groupId);
+  const members = await _enrichSignIn(token, raw);
   _memberCache[idx] = { loaded: true, members };
   return members;
-}
-
-async function _fetchAdobeLastUsed(adobeGroupName) {
-  if (!adobeGroupName) return new Map();
-  try {
-    const token = await ITTools.auth.getToken([ADOBE_FUNC_SCOPE]);
-    const res   = await fetch(
-      `${ADOBE_MEMBERS_URL}?groupName=${encodeURIComponent(adobeGroupName)}`,
-      { headers: { Authorization: "Bearer " + token } }
-    );
-    if (!res.ok) return new Map();
-    const data = await res.json();
-    // handle both plain array and { members, _debug } diagnostic shape
-    const arr = Array.isArray(data) ? data : (data.members || []);
-    if (data._debug) console.warn('[AdobeMembers] raw user fields:', Object.keys(data._debug), data._debug);
-    return new Map(arr.map(u => [u.email.toLowerCase(), u.lastAccessedDate ?? null]));
-  } catch (_) {
-    return new Map();
-  }
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -548,12 +522,6 @@ async function loadDashboard() {
 
     const adobeProducts = adobeResult || [];
     const adobeFailed   = adobeResult === null;
-
-    // Write UMAPI groupName back onto PRODUCTS config so toggleExpand can pass it to AdobeMembers
-    PRODUCTS.forEach(p => {
-      const ap = adobeProducts.find(x => x.productName.toLowerCase().includes(p.adobeMatch.toLowerCase()));
-      if (ap?.groupName) p.adobeGroupName = ap.groupName;
-    });
 
     const groupCounts = await Promise.all(
       PRODUCTS.map(async p => {
@@ -789,7 +757,7 @@ async function toggleExpand(groupId, idx) {
   section.innerHTML = _shimmerHtml();
 
   try {
-    const members = await _loadMembers(groupId, PRODUCTS[idx].adobeGroupName ?? null, idx);
+    const members = await _loadMembers(groupId, idx);
     _sortState[idx] = _sortState[idx] || { col: "status", dir: -1 };
     renderMemberTable(groupId, idx, members);
     _updateStripCounts(groupId, idx, members);
@@ -845,16 +813,6 @@ function _relativeTime(dateStr) {
   return               { text: `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? "s" : ""} ago`, stale: true };
 }
 
-function _adobeRelativeTime(dateStr) {
-  if (!dateStr) return { text: "Never", stale: true };
-  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-  if (days === 0) return { text: "Today",       stale: false };
-  if (days === 1) return { text: "Yesterday",   stale: false };
-  if (days < 30)  return { text: `${days} days ago`,                       stale: false };
-  if (days < 365) return { text: `${Math.floor(days / 30)} months ago`,    stale: days >= 90 };
-  return               { text: `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? "s" : ""} ago`, stale: true };
-}
-
 function _sortMembers(members, col, dir) {
   return [...members].sort((a, b) => {
     if (col === "status") {
@@ -873,18 +831,13 @@ function _sortMembers(members, col, dir) {
       const tb = b.lastSignIn ? new Date(b.lastSignIn).getTime() : 0;
       return dir * (ta - tb);
     }
-    if (col === "adobeLastUsed") {
-      const ta = a.adobeLastUsed ? new Date(a.adobeLastUsed).getTime() : 0;
-      const tb = b.adobeLastUsed ? new Date(b.adobeLastUsed).getTime() : 0;
-      return dir * (ta - tb);
-    }
     return 0;
   });
 }
 
 function sortBy(groupId, idx, col) {
   const current = _sortState[idx] || { col: "status", dir: -1 };
-  const dir = (current.col === col) ? current.dir * -1 : (col === "entraSignIn" || col === "adobeLastUsed" ? 1 : -1);
+  const dir = (current.col === col) ? current.dir * -1 : (col === "entraSignIn" ? 1 : -1);
   _sortState[idx] = { col, dir };
   const members = _memberCache[idx]?.members || [];
   renderMemberTable(groupId, idx, members);
@@ -902,13 +855,11 @@ function renderMemberTable(groupId, idx, members) {
   function thCls(c) { return col === c ? "sorted" : ""; }
 
   const rows = sorted.map(m => {
-    const initials    = (m.displayName || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "?";
-    const statusCls   = m.accountEnabled ? "enabled" : "disabled";
-    const si          = _relativeTime(m.lastSignIn);
-    const siHtml      = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
-    const adobe       = _adobeRelativeTime(m.adobeLastUsed);
-    const adobeHtml   = `<span${adobe.stale ? ' class="signin-stale"' : ""}>${adobe.text}</span>`;
-    const removeBtn   = _isLicenseAdmin
+    const initials  = (m.displayName || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "?";
+    const statusCls = m.accountEnabled ? "enabled" : "disabled";
+    const si        = _relativeTime(m.lastSignIn);
+    const siHtml    = `<span${si.stale ? ' class="signin-stale"' : ""}>${si.text}</span>`;
+    const removeBtn = _isLicenseAdmin
       ? `<button class="btn-mem-remove" onclick="showRemoveModal('${groupId}',${idx},'${m.id}')">Remove</button>`
       : `<button class="btn-mem-remove gated" title="Requires License Admin access" disabled>Remove</button>`;
 
@@ -923,7 +874,6 @@ function renderMemberTable(groupId, idx, members) {
         <td style="font-size:11px;color:var(--muted)">${m.userPrincipalName}</td>
         <td><span class="mem-badge ${statusCls}">${m.accountEnabled ? "Enabled" : "Disabled"}</span></td>
         <td>${siHtml}</td>
-        <td>${adobeHtml}</td>
         <td>${removeBtn}</td>
       </tr>`;
   }).join("");
@@ -940,8 +890,7 @@ function renderMemberTable(groupId, idx, members) {
             <th class="${thCls("name")}"    style="width:240px" onclick="sortBy('${groupId}',${idx},'name')">Member ${thIcon("name")}</th>
             <th class="${thCls("upn")}"     style="width:220px" onclick="sortBy('${groupId}',${idx},'upn')">UPN ${thIcon("upn")}</th>
             <th class="${thCls("status")}"  style="width:105px" onclick="sortBy('${groupId}',${idx},'status')">Account ${thIcon("status")}</th>
-            <th class="${thCls("entraSignIn")}"  style="width:130px" onclick="sortBy('${groupId}',${idx},'entraSignIn')">Entra Sign-In ${thIcon("entraSignIn")}</th>
-            <th class="${thCls("adobeLastUsed")}" style="width:130px" onclick="sortBy('${groupId}',${idx},'adobeLastUsed')">Adobe Last Used ${thIcon("adobeLastUsed")}</th>
+            <th class="${thCls("entraSignIn")}" style="width:145px" onclick="sortBy('${groupId}',${idx},'entraSignIn')">Entra Sign-In ${thIcon("entraSignIn")}</th>
             <th>Action</th>
           </tr>
         </thead>
