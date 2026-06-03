@@ -239,7 +239,7 @@ if ($Script:FullScan) {
     $idx = 0
     foreach ($r in $results) {
         $idx++
-        Write-Host "`r      Collecting RI stats... [$idx / $total]   " -NoNewline -ForegroundColor Gray
+        Write-Host "`r      Collecting RI stats... [$idx / $($results.Count)]   " -NoNewline -ForegroundColor Gray
         $r.RecoverableItems_GB = Get-RecoverableItemsStats -UPN $r.UPN
     }
     Write-Host ""
