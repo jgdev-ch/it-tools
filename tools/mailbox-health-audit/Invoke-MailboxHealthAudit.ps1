@@ -257,3 +257,59 @@ $flagged = @($results | Where-Object {
 
 $scanTime      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $scanTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+
+# --- Phase 4: Overview Results Display ---
+Write-Step 4 5 "Results overview..."
+
+$elcCount = @($results | Where-Object { $_.ElcProcessingDisabled }).Count
+$legCount = @($results | Where-Object { $_.LegacyHoldCount -gt 0 }).Count
+$litCount = @($results | Where-Object {
+    $_.LitigationHold -and
+    ($_.LitigationHoldDuration -eq 'Unlimited' -or $null -eq $_.LitigationHoldDuration)
+}).Count
+$priCount = @($results | Where-Object { $_.PrimarySize_GB -ge $Script:PrimaryThresholdGB }).Count
+$sirCount = if ($Script:FullScan) { @(Get-SIRRiskMailboxes -Results $results -ThresholdGB $Script:RiThresholdGB).Count } else { 0 }
+$riCount  = if ($Script:FullScan) { @($results | Where-Object { $null -ne $_.RecoverableItems_GB -and $_.RecoverableItems_GB -ge $Script:RiThresholdGB }).Count } else { 0 }
+
+Write-Host ""
+Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+Write-Host ("   MAILBOX HEALTH OVERVIEW — {0}" -f ($scanTime -split ' ')[0]) -ForegroundColor White
+Write-Host ("   Scanned: {0:N0} mailboxes   Flagged: {1}" -f $total, $flagged.Count) -ForegroundColor Gray
+Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+Write-Host ""
+Write-Host ("   {0,-34} : {1,4}" -f "ElcProcessingDisabled", $elcCount) -ForegroundColor $(if ($elcCount -gt 0) { 'Red' } else { 'Green' })
+Write-Host ("   {0,-34} : {1,4}" -f "Legacy holds (non-UniH)", $legCount) -ForegroundColor $(if ($legCount -gt 0) { 'Yellow' } else { 'Green' })
+Write-Host ("   {0,-34} : {1,4}" -f "Litigation hold (no TTL)", $litCount) -ForegroundColor $(if ($litCount -gt 0) { 'Yellow' } else { 'Green' })
+Write-Host ("   {0,-34} : {1,4}" -f ("Primary size >= {0} GB" -f $Script:PrimaryThresholdGB), $priCount) -ForegroundColor $(if ($priCount -gt 0) { 'Yellow' } else { 'Green' })
+if ($Script:FullScan) {
+    Write-Host ("   {0,-34} : {1,4}" -f "SIR + high RI risk", $sirCount) -ForegroundColor $(if ($sirCount -gt 0) { 'Yellow' } else { 'Green' })
+    Write-Host ("   {0,-34} : {1,4}  [Full scan]" -f ("Recoverable Items >= {0} GB" -f $Script:RiThresholdGB), $riCount) -ForegroundColor $(if ($riCount -gt 0) { 'Yellow' } else { 'Green' })
+}
+Write-Host ""
+
+if ($flagged.Count -eq 0) {
+    Write-Host "   No mailboxes flagged. All within thresholds." -ForegroundColor Green
+    Write-Host ""
+} else {
+    Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+    $nameWidth = [Math]::Min(([int]($flagged | ForEach-Object { $_.DisplayName.Length } | Measure-Object -Maximum).Maximum), 30)
+    Write-Host ("   {0,-4}  {1,-4}  {2}  {3,-10}  {4,-10}" -f '#', 'Risk', 'DisplayName'.PadRight($nameWidth), 'Primary', 'Rec.Items') -ForegroundColor DarkGray
+    Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+
+    $rank = 1
+    foreach ($r in $flagged) {
+        $bar      = [string]('█' * $r.RiskScore) + [string]('░' * (4 - $r.RiskScore))
+        $barColor = if     ($r.RiskScore -ge 3) { 'Red' }
+                    elseif ($r.RiskScore -ge 2) { 'Yellow' }
+                    elseif ($r.RiskScore -ge 1) { 'White' }
+                    else                         { 'DarkGray' }
+        $riStr    = if ($null -ne $r.RecoverableItems_GB) { "{0:N1} GB" -f $r.RecoverableItems_GB } else { '—' }
+        $nameStr  = if ($r.DisplayName.Length -gt $nameWidth) { $r.DisplayName.Substring(0, $nameWidth - 1) + '…' } else { $r.DisplayName.PadRight($nameWidth) }
+
+        Write-Host ("   {0,-4}  " -f $rank) -NoNewline -ForegroundColor DarkGray
+        Write-Host ("{0}  " -f $bar) -NoNewline -ForegroundColor $barColor
+        Write-Host ("{0}  {1,-10}  {2}" -f $nameStr, ("{0:N1} GB" -f $r.PrimarySize_GB), $riStr) -ForegroundColor White
+        $rank++
+    }
+    Write-Host ""
+}
