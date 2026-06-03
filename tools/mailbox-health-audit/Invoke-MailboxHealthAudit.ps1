@@ -183,3 +183,77 @@ Write-Host ""
 Write-Detail ("Scan type          : {0}" -f $scanLabel) Cyan
 Write-Detail ("Primary threshold  : {0} GB" -f $Script:PrimaryThresholdGB) Gray
 Write-Detail ("RI threshold       : {0} GB" -f $Script:RiThresholdGB) Gray
+
+# --- Phase 3: Scan Execution ---
+Write-Step 3 5 "Scanning mailboxes..."
+
+$allMailboxes = Get-Mailbox -ResultSize Unlimited
+$total        = $allMailboxes.Count
+Write-Host ""
+Write-Detail ("Retrieved {0:N0} mailboxes." -f $total) Cyan
+Write-Host ""
+
+$results = [System.Collections.Generic.List[PSCustomObject]]::new()
+$idx     = 0
+
+foreach ($mbx in $allMailboxes) {
+    $idx++
+    Write-Host "`r      Scanning mailboxes... [$idx / $total]   " -NoNewline -ForegroundColor Gray
+
+    $stats     = Get-MailboxStatistics -Identity $mbx.UserPrincipalName -ErrorAction SilentlyContinue
+    $primaryGB = if ($stats) {
+        [Math]::Round((ConvertTo-Bytes $stats.TotalItemSize) / 1GB, 2)
+    } else { [decimal]0 }
+
+    $legacyGuids = if ($mbx.InPlaceHolds) {
+        @($mbx.InPlaceHolds | Where-Object { $_ -notmatch '^UniH' })
+    } else { @() }
+
+    $allHoldGuids = if ($mbx.InPlaceHolds) { @($mbx.InPlaceHolds) } else { @() }
+
+    $litDuration = $null
+    if ($mbx.LitigationHoldEnabled) {
+        $litDuration = if ($mbx.LitigationHoldDuration) { $mbx.LitigationHoldDuration.ToString() } else { 'Unlimited' }
+    }
+
+    $results.Add([PSCustomObject]@{
+        DisplayName            = $mbx.DisplayName
+        UPN                    = $mbx.UserPrincipalName
+        PrimarySize_GB         = $primaryGB
+        RecoverableItems_GB    = $null
+        ElcProcessingDisabled  = [bool]$mbx.ElcProcessingDisabled
+        LitigationHold         = [bool]$mbx.LitigationHoldEnabled
+        LitigationHoldDuration = $litDuration
+        LegacyHoldCount        = $legacyGuids.Count
+        LegacyHoldGUIDs        = $legacyGuids
+        AllHoldGUIDs           = $allHoldGuids
+        SIREnabled             = [bool]$mbx.SingleItemRecoveryEnabled
+        RiskScore              = 0
+    })
+}
+Write-Host ""
+
+if ($Script:FullScan) {
+    Write-Detail "Full scan: collecting Recoverable Items folder stats..." Cyan
+    Write-Host ""
+    $idx = 0
+    foreach ($r in $results) {
+        $idx++
+        Write-Host "`r      Collecting RI stats... [$idx / $total]   " -NoNewline -ForegroundColor Gray
+        $r.RecoverableItems_GB = Get-RecoverableItemsStats -UPN $r.UPN
+    }
+    Write-Host ""
+}
+
+foreach ($r in $results) {
+    $r.RiskScore = Get-MailboxRiskScore -Result $r
+}
+
+$flagged = @($results | Where-Object {
+    $_.RiskScore -gt 0 -or
+    $_.PrimarySize_GB -ge $Script:PrimaryThresholdGB -or
+    ($null -ne $_.RecoverableItems_GB -and $_.RecoverableItems_GB -ge $Script:RiThresholdGB)
+} | Sort-Object RiskScore -Descending)
+
+$scanTime      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+$scanTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
