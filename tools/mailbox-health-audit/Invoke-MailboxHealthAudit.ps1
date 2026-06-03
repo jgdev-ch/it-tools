@@ -119,7 +119,7 @@ function Get-RecoverableItemsStats {
     # Returns the Recoverable Items root folder size in GB for one mailbox.
     # Called per mailbox in Phase 3 full scan path only.
     param([string]$UPN)
-    $folder = Get-MailboxFolderStatistics -Identity $UPN -FolderScope RecoverableItems |
+    $folder = Get-MailboxFolderStatistics -Identity $UPN -FolderScope RecoverableItems -ErrorAction SilentlyContinue |
         Where-Object { $_.FolderType -eq 'RecoverableItemsRoot' } |
         Select-Object -First 1
     if ($null -eq $folder) { return [decimal]0 }
