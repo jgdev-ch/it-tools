@@ -313,3 +313,100 @@ if ($flagged.Count -eq 0) {
     }
     Write-Host ""
 }
+
+# --- Phase 5: Mode Menu ---
+Write-Step 5 5 "Analysis menu..."
+
+$doExport   = $false
+$menuActive = $true
+while ($menuActive) {
+    Write-Host ""
+    Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+    Write-Host "   [U] Individual user deep-dive" -ForegroundColor Gray
+    Write-Host "   [B] Batch check across flagged set" -ForegroundColor Gray
+    Write-Host "   [X] Export results and exit" -ForegroundColor Gray
+    Write-Host "   [Q] Exit without export" -ForegroundColor Gray
+    Write-Host ""
+    $menuChoice = Read-Host "      Choice"
+    Write-Host ""
+
+    switch -Regex ($menuChoice) {
+        '^[Uu]' {
+            $input = Read-Host "      Enter UPN or result # "
+            Write-Host ""
+
+            $target  = $null
+            $rankNum = 0
+            if ([int]::TryParse($input, [ref]$rankNum) -and $rankNum -ge 1 -and $rankNum -le $flagged.Count) {
+                $target = $flagged[$rankNum - 1]
+            } else {
+                $target = $results | Where-Object { $_.UPN -ieq $input } | Select-Object -First 1
+                if ($null -eq $target) {
+                    Write-Detail "UPN not found in scan results. Enter an exact UPN or a result number." Yellow
+                    break
+                }
+            }
+
+            Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+            Write-Host ("   USER DIAGNOSTIC — {0}" -f $target.UPN) -ForegroundColor White
+            Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+            Write-Host ""
+            Write-Detail ("Display Name          : {0}" -f $target.DisplayName) White
+            Write-Detail ("Primary Size          : {0:N1} GB" -f $target.PrimarySize_GB) $(if ($target.PrimarySize_GB -ge $Script:PrimaryThresholdGB) { 'Yellow' } else { 'White' })
+
+            if ($null -ne $target.RecoverableItems_GB) {
+                $riPct = if ($RI_QUOTA_GB -gt 0) { [int](($target.RecoverableItems_GB / $RI_QUOTA_GB) * 100) } else { 0 }
+                Write-Detail ("Recoverable Items     : {0:N1} GB / {1} GB  ({2}%)" -f $target.RecoverableItems_GB, $RI_QUOTA_GB, $riPct) $(
+                    if ($riPct -ge 90) { 'Red' } elseif ($riPct -ge 70) { 'Yellow' } else { 'White' }
+                )
+            } else {
+                Write-Detail "Recoverable Items     : (run Full scan for RI data)" DarkGray
+            }
+
+            Write-Detail ("ElcProcessingDisabled : {0}" -f $(
+                if ($target.ElcProcessingDisabled) { 'TRUE  <- MFA is skipped entirely for this mailbox' } else { 'False' }
+            )) $(if ($target.ElcProcessingDisabled) { 'Red' } else { 'Green' })
+            if ($target.ElcProcessingDisabled) {
+                Write-Detail ("                        Fix: Set-Mailbox '{0}' -ElcProcessingDisabled `$false" -f $target.UPN) Gray
+            }
+
+            Write-Detail ("SingleItemRecovery    : {0}" -f $(if ($target.SIREnabled) { 'Enabled' } else { 'DISABLED' })) $(if ($target.SIREnabled) { 'Green' } else { 'Yellow' })
+
+            Write-Detail ("LitigationHold        : {0}" -f $(
+                if ($target.LitigationHold) { "Enabled  (Duration: {0})" -f $target.LitigationHoldDuration } else { 'Disabled' }
+            )) $(if ($target.LitigationHold) { 'Yellow' } else { 'Green' })
+
+            if ($target.AllHoldGUIDs.Count -gt 0) {
+                Write-Detail "InPlaceHolds          :" Gray
+                foreach ($guid in $target.AllHoldGUIDs) {
+                    $holdLabel = Get-HoldType $guid
+                    Write-Detail ("  {0}  <- {1}" -f $guid, $holdLabel) $(if ($guid -notmatch '^UniH') { 'Yellow' } else { 'Gray' })
+                }
+            } else {
+                Write-Detail "InPlaceHolds          : None" Green
+            }
+
+            $riskLabel = if     ($target.RiskScore -ge 3) { 'HIGH' }
+                         elseif ($target.RiskScore -ge 2) { 'MEDIUM' }
+                         elseif ($target.RiskScore -ge 1) { 'LOW' }
+                         else                              { 'OK' }
+            Write-Detail ("Risk Score            : {0} / 4  ({1})" -f $target.RiskScore, $riskLabel) $(
+                if ($target.RiskScore -ge 3) { 'Red' } elseif ($target.RiskScore -ge 2) { 'Yellow' } else { 'White' }
+            )
+            Write-Host ""
+            Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+        }
+        '^[Xx]' {
+            $doExport   = $true
+            $menuActive = $false
+        }
+        '^[Qq]' {
+            $menuActive = $false
+        }
+        default {
+            if ($menuChoice -notmatch '^[Bb]') {
+                Write-Detail "Invalid choice. Enter U, B, X, or Q." Yellow
+            }
+        }
+    }
+}
