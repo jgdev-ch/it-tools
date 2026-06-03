@@ -141,3 +141,45 @@ function Get-MailboxRiskScore {
         $Result.RecoverableItems_GB -ge $Script:RiThresholdGB)               { $score++ }
     return $score
 }
+
+# --- Phase 1: Connect to Exchange Online ---
+Write-Step 1 5 "Connecting to Exchange Online..."
+
+if (-not $TenantDomain) {
+    $TenantDomain = Read-Host "      Tenant domain (e.g. corrohealth.com)"
+    Write-Host ""
+}
+
+try {
+    Connect-ExchangeOnline -Organization $TenantDomain -ShowBanner:$false -ErrorAction Stop
+    Write-Detail "Exchange Online: connected ($TenantDomain)" Green
+} catch {
+    Write-Host "ERROR: Could not connect to Exchange Online. $_" -ForegroundColor Red
+    exit 1
+}
+
+# --- Phase 2: Scan Configuration ---
+Write-Step 2 5 "Scan configuration..."
+
+Write-Host ""
+Write-Host "      Scan depth:" -ForegroundColor White
+Write-Host "        [F] Fast  — mailbox properties only (1-3 min)" -ForegroundColor Gray
+Write-Host "        [R] Full  — + Recoverable Items folder size per mailbox" -ForegroundColor Gray
+Write-Host "              ⚠  May take 20-40 min on large tenants." -ForegroundColor DarkYellow
+Write-Host ""
+$depthChoice     = Read-Host "      Scan depth [F]"
+$Script:FullScan = $depthChoice -match '^[Rr]'
+Write-Host ""
+
+Write-Host "      Size thresholds (press Enter to keep default):" -ForegroundColor White
+$primaryInput = Read-Host ("      Primary mailbox threshold GB [{0}]" -f $DEFAULT_PRIMARY_THRESHOLD_GB)
+$Script:PrimaryThresholdGB = if ($primaryInput -match '^\d+(\.\d+)?$') { [decimal]$primaryInput } else { [decimal]$DEFAULT_PRIMARY_THRESHOLD_GB }
+
+$riInput = Read-Host ("      Recoverable Items threshold GB [{0}]" -f $DEFAULT_RI_THRESHOLD_GB)
+$Script:RiThresholdGB = if ($riInput -match '^\d+(\.\d+)?$') { [decimal]$riInput } else { [decimal]$DEFAULT_RI_THRESHOLD_GB }
+
+$scanLabel = if ($Script:FullScan) { 'Full' } else { 'Fast' }
+Write-Host ""
+Write-Detail ("Scan type          : {0}" -f $scanLabel) Cyan
+Write-Detail ("Primary threshold  : {0} GB" -f $Script:PrimaryThresholdGB) Gray
+Write-Detail ("RI threshold       : {0} GB" -f $Script:RiThresholdGB) Gray
