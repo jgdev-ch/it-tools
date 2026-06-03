@@ -189,7 +189,7 @@ Write-Detail ("RI threshold       : {0} GB" -f $Script:RiThresholdGB) Gray
 # --- Phase 3: Scan Execution ---
 Write-Step 3 5 "Scanning mailboxes..."
 
-$allMailboxes = Get-Mailbox -ResultSize Unlimited
+$allMailboxes = Get-Mailbox -ResultSize Unlimited -RecipientTypeDetails UserMailbox, SharedMailbox
 $total        = $allMailboxes.Count
 Write-Host ""
 Write-Detail ("Retrieved {0:N0} mailboxes." -f $total) Cyan
@@ -202,7 +202,7 @@ foreach ($mbx in $allMailboxes) {
     $idx++
     Write-Host "`r      Scanning mailboxes... [$idx / $total]   " -NoNewline -ForegroundColor Gray
 
-    $stats     = Get-MailboxStatistics -Identity $mbx.UserPrincipalName -ErrorAction SilentlyContinue
+    $stats     = Get-MailboxStatistics -Identity $mbx.ExchangeGuid.ToString() -ErrorAction SilentlyContinue
     $primaryGB = if ($stats) {
         [Math]::Round((ConvertTo-Bytes $stats.TotalItemSize) / 1GB, 2)
     } else { [decimal]0 }
@@ -343,60 +343,60 @@ while ($menuActive) {
                 $target = $flagged[$rankNum - 1]
             } else {
                 $target = $results | Where-Object { $_.UPN -ieq $userInput } | Select-Object -First 1
-                if ($null -eq $target) {
-                    Write-Detail "UPN not found in scan results. Enter an exact UPN or a result number." Yellow
-                    break
-                }
             }
 
-            Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
-            Write-Host ("   USER DIAGNOSTIC — {0}" -f $target.UPN) -ForegroundColor White
-            Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
-            Write-Host ""
-            Write-Detail ("Display Name          : {0}" -f $target.DisplayName) White
-            Write-Detail ("Primary Size          : {0:N1} GB" -f $target.PrimarySize_GB) $(if ($target.PrimarySize_GB -ge $Script:PrimaryThresholdGB) { 'Yellow' } else { 'White' })
+            if ($null -eq $target) {
+                Write-Detail "UPN not found in scan results. Enter an exact UPN or a result number." Yellow
+            } else {
+                Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                Write-Host ("   USER DIAGNOSTIC — {0}" -f $target.UPN) -ForegroundColor White
+                Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                Write-Host ""
+                Write-Detail ("Display Name          : {0}" -f $target.DisplayName) White
+                Write-Detail ("Primary Size          : {0:N1} GB" -f $target.PrimarySize_GB) $(if ($target.PrimarySize_GB -ge $Script:PrimaryThresholdGB) { 'Yellow' } else { 'White' })
 
-            if ($null -ne $target.RecoverableItems_GB) {
-                $riPct = if ($RI_QUOTA_GB -gt 0) { [int](($target.RecoverableItems_GB / $RI_QUOTA_GB) * 100) } else { 0 }
-                Write-Detail ("Recoverable Items     : {0:N1} GB / {1} GB  ({2}%)" -f $target.RecoverableItems_GB, $RI_QUOTA_GB, $riPct) $(
-                    if ($riPct -ge 90) { 'Red' } elseif ($riPct -ge 70) { 'Yellow' } else { 'White' }
+                if ($null -ne $target.RecoverableItems_GB) {
+                    $riPct = if ($RI_QUOTA_GB -gt 0) { [int](($target.RecoverableItems_GB / $RI_QUOTA_GB) * 100) } else { 0 }
+                    Write-Detail ("Recoverable Items     : {0:N1} GB / {1} GB  ({2}%)" -f $target.RecoverableItems_GB, $RI_QUOTA_GB, $riPct) $(
+                        if ($riPct -ge 90) { 'Red' } elseif ($riPct -ge 70) { 'Yellow' } else { 'White' }
+                    )
+                } else {
+                    Write-Detail "Recoverable Items     : (run Full scan for RI data)" DarkGray
+                }
+
+                Write-Detail ("ElcProcessingDisabled : {0}" -f $(
+                    if ($target.ElcProcessingDisabled) { 'TRUE  <- MFA is skipped entirely for this mailbox' } else { 'False' }
+                )) $(if ($target.ElcProcessingDisabled) { 'Red' } else { 'Green' })
+                if ($target.ElcProcessingDisabled) {
+                    Write-Detail ("                        Fix: Set-Mailbox '{0}' -ElcProcessingDisabled `$false" -f $target.UPN) Gray
+                }
+
+                Write-Detail ("SingleItemRecovery    : {0}" -f $(if ($target.SIREnabled) { 'Enabled' } else { 'DISABLED' })) $(if ($target.SIREnabled) { 'Green' } else { 'Yellow' })
+
+                Write-Detail ("LitigationHold        : {0}" -f $(
+                    if ($target.LitigationHold) { "Enabled  (Duration: {0})" -f $target.LitigationHoldDuration } else { 'Disabled' }
+                )) $(if ($target.LitigationHold) { 'Yellow' } else { 'Green' })
+
+                if ($target.AllHoldGUIDs.Count -gt 0) {
+                    Write-Detail "InPlaceHolds          :" Gray
+                    foreach ($guid in $target.AllHoldGUIDs) {
+                        $holdLabel = Get-HoldType $guid
+                        Write-Detail ("  {0}  <- {1}" -f $guid, $holdLabel) $(if ($guid -notmatch '^UniH') { 'Yellow' } else { 'Gray' })
+                    }
+                } else {
+                    Write-Detail "InPlaceHolds          : None" Green
+                }
+
+                $riskLabel = if     ($target.RiskScore -ge 3) { 'HIGH' }
+                             elseif ($target.RiskScore -ge 2) { 'MEDIUM' }
+                             elseif ($target.RiskScore -ge 1) { 'LOW' }
+                             else                              { 'OK' }
+                Write-Detail ("Risk Score            : {0} / 4  ({1})" -f $target.RiskScore, $riskLabel) $(
+                    if ($target.RiskScore -ge 3) { 'Red' } elseif ($target.RiskScore -ge 2) { 'Yellow' } else { 'White' }
                 )
-            } else {
-                Write-Detail "Recoverable Items     : (run Full scan for RI data)" DarkGray
+                Write-Host ""
+                Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
             }
-
-            Write-Detail ("ElcProcessingDisabled : {0}" -f $(
-                if ($target.ElcProcessingDisabled) { 'TRUE  <- MFA is skipped entirely for this mailbox' } else { 'False' }
-            )) $(if ($target.ElcProcessingDisabled) { 'Red' } else { 'Green' })
-            if ($target.ElcProcessingDisabled) {
-                Write-Detail ("                        Fix: Set-Mailbox '{0}' -ElcProcessingDisabled `$false" -f $target.UPN) Gray
-            }
-
-            Write-Detail ("SingleItemRecovery    : {0}" -f $(if ($target.SIREnabled) { 'Enabled' } else { 'DISABLED' })) $(if ($target.SIREnabled) { 'Green' } else { 'Yellow' })
-
-            Write-Detail ("LitigationHold        : {0}" -f $(
-                if ($target.LitigationHold) { "Enabled  (Duration: {0})" -f $target.LitigationHoldDuration } else { 'Disabled' }
-            )) $(if ($target.LitigationHold) { 'Yellow' } else { 'Green' })
-
-            if ($target.AllHoldGUIDs.Count -gt 0) {
-                Write-Detail "InPlaceHolds          :" Gray
-                foreach ($guid in $target.AllHoldGUIDs) {
-                    $holdLabel = Get-HoldType $guid
-                    Write-Detail ("  {0}  <- {1}" -f $guid, $holdLabel) $(if ($guid -notmatch '^UniH') { 'Yellow' } else { 'Gray' })
-                }
-            } else {
-                Write-Detail "InPlaceHolds          : None" Green
-            }
-
-            $riskLabel = if     ($target.RiskScore -ge 3) { 'HIGH' }
-                         elseif ($target.RiskScore -ge 2) { 'MEDIUM' }
-                         elseif ($target.RiskScore -ge 1) { 'LOW' }
-                         else                              { 'OK' }
-            Write-Detail ("Risk Score            : {0} / 4  ({1})" -f $target.RiskScore, $riskLabel) $(
-                if ($target.RiskScore -ge 3) { 'Red' } elseif ($target.RiskScore -ge 2) { 'Yellow' } else { 'White' }
-            )
-            Write-Host ""
-            Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
         }
         '^[Bb]' {
             $batchActive = $true
@@ -424,7 +424,7 @@ while ($menuActive) {
                         Write-Detail "Safe to clear in bulk — no compliance review required." Gray
                         Write-Host ""
 
-                        $elcMailboxes = @(Get-ElcDisabledMailboxes -Mailboxes $allMailboxes)
+                        $elcMailboxes = @($results | Where-Object { $_.ElcProcessingDisabled })
                         if ($elcMailboxes.Count -eq 0) {
                             Write-Detail "No mailboxes with ElcProcessingDisabled = `$true found." Green
                         } else {
@@ -433,13 +433,13 @@ while ($menuActive) {
                             Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
                             foreach ($m in $elcMailboxes) {
                                 $nameStr = if ($m.DisplayName.Length -gt $nameW) { $m.DisplayName.Substring(0, $nameW - 3) + '...' } else { $m.DisplayName.PadRight($nameW) }
-                                Write-Host ("   {0}  {1}" -f $nameStr, $m.UserPrincipalName) -ForegroundColor White
+                                Write-Host ("   {0}  {1}" -f $nameStr, $m.UPN) -ForegroundColor White
                             }
                             Write-Host ""
                             Write-Detail "Bulk fix — run for each mailbox after verifying no active migration:" Gray
                             Write-Host ""
                             foreach ($m in $elcMailboxes) {
-                                Write-Host ("   Set-Mailbox -Identity '{0}' -ElcProcessingDisabled `$false" -f $m.UserPrincipalName) -ForegroundColor Cyan
+                                Write-Host ("   Set-Mailbox -Identity '{0}' -ElcProcessingDisabled `$false" -f $m.UPN) -ForegroundColor Cyan
                             }
                         }
                         Write-Host ""
