@@ -489,7 +489,7 @@ while ($menuActive) {
                                 Sort-Object RecoverableItems_GB -Descending)
 
                             if ($sirMailboxes.Count -eq 0) {
-                                Write-Detail "No Recoverable Items data available." Gray
+                                Write-Detail "No Recoverable Items data available." Green
                             } else {
                                 $upnW = [Math]::Min(([int]($sirMailboxes | ForEach-Object { $_.UPN.Length } | Measure-Object -Maximum).Maximum), 45)
                                 Write-Host ("   {0}  {1,-12}  {2,-14}  {3}" -f 'UPN'.PadRight($upnW), 'SIR State', 'Rec.Items GB', 'Risk') -ForegroundColor DarkGray
