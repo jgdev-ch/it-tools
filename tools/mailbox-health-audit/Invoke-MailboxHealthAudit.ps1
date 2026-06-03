@@ -332,15 +332,15 @@ while ($menuActive) {
 
     switch -Regex ($menuChoice) {
         '^[Uu]' {
-            $input = Read-Host "      Enter UPN or result # "
+            $userInput = Read-Host "      Enter UPN or result # "
             Write-Host ""
 
             $target  = $null
             $rankNum = 0
-            if ([int]::TryParse($input, [ref]$rankNum) -and $rankNum -ge 1 -and $rankNum -le $flagged.Count) {
+            if ([int]::TryParse($userInput, [ref]$rankNum) -and $rankNum -ge 1 -and $rankNum -le $flagged.Count) {
                 $target = $flagged[$rankNum - 1]
             } else {
-                $target = $results | Where-Object { $_.UPN -ieq $input } | Select-Object -First 1
+                $target = $results | Where-Object { $_.UPN -ieq $userInput } | Select-Object -First 1
                 if ($null -eq $target) {
                     Write-Detail "UPN not found in scan results. Enter an exact UPN or a result number." Yellow
                     break
