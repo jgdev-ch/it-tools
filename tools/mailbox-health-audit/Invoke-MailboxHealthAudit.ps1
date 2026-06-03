@@ -304,7 +304,7 @@ if ($flagged.Count -eq 0) {
                     elseif ($r.RiskScore -ge 1) { 'White' }
                     else                         { 'DarkGray' }
         $riStr    = if ($null -ne $r.RecoverableItems_GB) { "{0:N1} GB" -f $r.RecoverableItems_GB } else { '—' }
-        $nameStr  = if ($r.DisplayName.Length -gt $nameWidth) { $r.DisplayName.Substring(0, $nameWidth - 1) + '…' } else { $r.DisplayName.PadRight($nameWidth) }
+        $nameStr  = if ($r.DisplayName.Length -gt $nameWidth) { $r.DisplayName.Substring(0, $nameWidth - 3) + '...' } else { $r.DisplayName.PadRight($nameWidth) }
 
         Write-Host ("   {0,-4}  " -f $rank) -NoNewline -ForegroundColor DarkGray
         Write-Host ("{0}  " -f $bar) -NoNewline -ForegroundColor $barColor
