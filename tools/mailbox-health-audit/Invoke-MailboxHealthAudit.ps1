@@ -396,6 +396,123 @@ while ($menuActive) {
             Write-Host ""
             Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
         }
+        '^[Bb]' {
+            $batchActive = $true
+            while ($batchActive) {
+                Write-Host ""
+                Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+                Write-Host "   [E] ElcProcessingDisabled — list affected mailboxes + fix guidance" -ForegroundColor Gray
+                Write-Host "   [H] Hold analysis         — hold type breakdown across flagged mailboxes" -ForegroundColor Gray
+                Write-Host "   [S] SIR risk matrix        — SIR state + Recoverable Items side by side" -ForegroundColor Gray
+                Write-Host "   [Q] Back to main menu" -ForegroundColor Gray
+                Write-Host ""
+                $batchChoice = Read-Host "      Choice"
+                Write-Host ""
+
+                switch -Regex ($batchChoice) {
+                    '^[Ee]' {
+                        Write-Host ""
+                        Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                        Write-Host "   ElcProcessingDisabled — MFA Skip Audit" -ForegroundColor White
+                        Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                        Write-Host ""
+                        Write-Detail "When ElcProcessingDisabled = `$true, the Managed Folder Assistant" Gray
+                        Write-Detail "completely skips the mailbox. Retention policies never fire and" Gray
+                        Write-Detail "Recoverable Items never gets processed, regardless of SIR or hold state." Gray
+                        Write-Detail "Safe to clear in bulk — no compliance review required." Gray
+                        Write-Host ""
+
+                        $elcMailboxes = @(Get-ElcDisabledMailboxes -Mailboxes $allMailboxes)
+                        if ($elcMailboxes.Count -eq 0) {
+                            Write-Detail "No mailboxes with ElcProcessingDisabled = `$true found." Green
+                        } else {
+                            $nameW = [Math]::Min(([int]($elcMailboxes | ForEach-Object { $_.DisplayName.Length } | Measure-Object -Maximum).Maximum), 30)
+                            Write-Host ("   {0}  {1}" -f 'DisplayName'.PadRight($nameW), 'UPN') -ForegroundColor DarkGray
+                            Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+                            foreach ($m in $elcMailboxes) {
+                                $nameStr = if ($m.DisplayName.Length -gt $nameW) { $m.DisplayName.Substring(0, $nameW - 3) + '...' } else { $m.DisplayName.PadRight($nameW) }
+                                Write-Host ("   {0}  {1}" -f $nameStr, $m.UserPrincipalName) -ForegroundColor White
+                            }
+                            Write-Host ""
+                            Write-Detail "Bulk fix — run for each mailbox after verifying no active migration:" Gray
+                            Write-Host ""
+                            foreach ($m in $elcMailboxes) {
+                                Write-Host ("   Set-Mailbox -Identity '{0}' -ElcProcessingDisabled `$false" -f $m.UserPrincipalName) -ForegroundColor Cyan
+                            }
+                        }
+                        Write-Host ""
+                    }
+                    '^[Hh]' {
+                        Write-Host ""
+                        Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                        Write-Host "   Hold Analysis" -ForegroundColor White
+                        Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                        Write-Host ""
+                        Write-Detail "UniH-prefixed GUIDs are Unified Compliance Policy holds (expected)." Gray
+                        Write-Detail "Non-UniH GUIDs are legacy in-place holds from on-prem migration —" Gray
+                        Write-Detail "no expiration, no visible owner, pin items in /DiscoveryHolds indefinitely." Gray
+                        Write-Detail "Requires compliance team review before removal." Gray
+                        Write-Host ""
+
+                        $holdMailboxes = @($flagged | Where-Object { $_.LegacyHoldCount -gt 0 -or $_.LitigationHold })
+                        if ($holdMailboxes.Count -eq 0) {
+                            Write-Detail "No flagged mailboxes with notable holds." Green
+                        } else {
+                            foreach ($r in $holdMailboxes) {
+                                Write-Host ("   {0}  ({1})" -f $r.UPN, $r.DisplayName) -ForegroundColor White
+                                if ($r.LitigationHold) {
+                                    Write-Host ("     LitigationHold  : Enabled  (Duration: {0})" -f $r.LitigationHoldDuration) -ForegroundColor Yellow
+                                }
+                                foreach ($guid in $r.AllHoldGUIDs) {
+                                    $holdLabel = Get-HoldType $guid
+                                    Write-Host ("     {0}  <- {1}" -f $guid, $holdLabel) -ForegroundColor $(if ($guid -notmatch '^UniH') { 'Yellow' } else { 'Gray' })
+                                }
+                                Write-Host ""
+                            }
+                        }
+                    }
+                    '^[Ss]' {
+                        Write-Host ""
+                        Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                        Write-Host "   SIR Risk Matrix" -ForegroundColor White
+                        Write-Host "  ════════════════════════════════════════════════════════════" -ForegroundColor DarkCyan
+                        Write-Host ""
+                        if (-not $Script:FullScan) {
+                            Write-Detail "SIR risk matrix requires Full scan (Recoverable Items GB)." Yellow
+                            Write-Detail "Re-run the script and choose [R] Full scan to enable this view." Gray
+                        } else {
+                            Write-Detail "SIR + large Recoverable Items = stalled cleanup." Gray
+                            Write-Detail "MFA cannot reclaim /DiscoveryHolds when SIR is enabled." Gray
+                            Write-Detail "Use Invoke-MailboxCleanup.ps1 [C] mode for remediation." Gray
+                            Write-Host ""
+                            $sirMailboxes = @($results | Where-Object { $null -ne $_.RecoverableItems_GB } |
+                                Sort-Object RecoverableItems_GB -Descending)
+
+                            if ($sirMailboxes.Count -eq 0) {
+                                Write-Detail "No Recoverable Items data available." Gray
+                            } else {
+                                $upnW = [Math]::Min(([int]($sirMailboxes | ForEach-Object { $_.UPN.Length } | Measure-Object -Maximum).Maximum), 45)
+                                Write-Host ("   {0}  {1,-12}  {2,-14}  {3}" -f 'UPN'.PadRight($upnW), 'SIR State', 'Rec.Items GB', 'Risk') -ForegroundColor DarkGray
+                                Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+                                foreach ($r in $sirMailboxes) {
+                                    $sirLabel = if ($r.SIREnabled) { 'Enabled' } else { 'DISABLED' }
+                                    $sirColor = if ($r.SIREnabled) { 'Green' } else { 'Yellow' }
+                                    $riColor  = if ($r.RecoverableItems_GB -ge 90) { 'Red' } elseif ($r.RecoverableItems_GB -ge $Script:RiThresholdGB) { 'Yellow' } else { 'White' }
+                                    $upnStr   = if ($r.UPN.Length -gt $upnW) { $r.UPN.Substring(0, $upnW - 3) + '...' } else { $r.UPN.PadRight($upnW) }
+                                    Write-Host ("   {0}  " -f $upnStr) -NoNewline -ForegroundColor White
+                                    Write-Host ("{0,-12}  " -f $sirLabel) -NoNewline -ForegroundColor $sirColor
+                                    Write-Host ("{0,-14}  " -f ("{0:N1} GB" -f $r.RecoverableItems_GB)) -NoNewline -ForegroundColor $riColor
+                                    Write-Host ("{0}" -f $r.RiskScore) -ForegroundColor $(if ($r.RiskScore -ge 3) { 'Red' } elseif ($r.RiskScore -ge 2) { 'Yellow' } else { 'White' })
+                                }
+                            }
+                        }
+                        Write-Host ""
+                    }
+                    '^[Qq]' { $batchActive = $false }
+                    default  { Write-Detail "Invalid choice. Enter E, H, S, or Q." Yellow }
+                }
+            }
+        }
         '^[Xx]' {
             $doExport   = $true
             $menuActive = $false
@@ -404,9 +521,7 @@ while ($menuActive) {
             $menuActive = $false
         }
         default {
-            if ($menuChoice -notmatch '^[Bb]') {
-                Write-Detail "Invalid choice. Enter U, B, X, or Q." Yellow
-            }
+            Write-Detail "Invalid choice. Enter U, B, X, or Q." Yellow
         }
     }
 }
