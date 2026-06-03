@@ -1,3 +1,5 @@
+#Requires -Version 5.1
+
 param(
     [string]$TenantDomain
 )
@@ -525,3 +527,89 @@ while ($menuActive) {
         }
     }
 }
+
+# --- Export ---
+if ($doExport) {
+    $sep  = '=' * 60
+    $dash = '-' * 60
+
+    $highCount = @($flagged | Where-Object { $_.RiskScore -ge 3 }).Count
+    $medCount  = @($flagged | Where-Object { $_.RiskScore -eq 2 }).Count
+    $lowCount  = @($flagged | Where-Object { $_.RiskScore -eq 1 }).Count
+
+    # CSV — one row per scanned mailbox
+    $csvFile = "$([System.Environment]::GetFolderPath('Desktop'))\MailboxHealthAudit-$scanTimestamp.csv"
+    $results | Select-Object DisplayName, UPN, PrimarySize_GB, RecoverableItems_GB,
+        ElcProcessingDisabled, LitigationHold, LitigationHoldDuration, LegacyHoldCount,
+        @{ Name = 'LegacyHoldGUIDs'; Expression = { $_.LegacyHoldGUIDs -join '; ' } },
+        SIREnabled, RiskScore |
+        Export-Csv -Path $csvFile -NoTypeInformation -Encoding UTF8
+
+    # TXT summary
+    $txtFile = "$([System.Environment]::GetFolderPath('Desktop'))\MailboxHealthAudit-$scanTimestamp.txt"
+    $report  = @(
+        $sep
+        " MAILBOX HEALTH AUDIT SUMMARY"
+        $sep
+        (" Date        : {0}" -f $scanTime)
+        (" Scan Type   : {0}" -f $(if ($Script:FullScan) { 'Full' } else { 'Fast' }))
+        (" Thresholds  : Primary >= {0} GB | Recoverable Items >= {1} GB" -f $Script:PrimaryThresholdGB, $Script:RiThresholdGB)
+        (" Scanned     : {0:N0} mailboxes" -f $total)
+        (" Flagged     : {0} mailboxes" -f $flagged.Count)
+        ""
+        $dash
+        " FLAG BREAKDOWN"
+        $dash
+        (" ElcProcessingDisabled     : {0,-4}  Safe to clear — no compliance review needed" -f $elcCount)
+        (" Legacy holds (non-UniH)   : {0,-4}  Requires compliance team review before removal" -f $legCount)
+        (" Litigation hold (no TTL)  : {0,-4}  Requires legal sign-off" -f $litCount)
+        (" Primary size >= {0} GB  : {1,-4}" -f $Script:PrimaryThresholdGB, $priCount)
+    )
+    if ($Script:FullScan) {
+        $report += (" SIR + high RI risk        : {0,-4}  Candidates for Invoke-MailboxCleanup.ps1" -f $sirCount)
+        $report += (" Recoverable Items >= {0} GB: {1,-4}  [Full scan]" -f $Script:RiThresholdGB, $riCount)
+    }
+    $report += @(
+        ""
+        $dash
+        " RISK TIER BREAKDOWN"
+        $dash
+        (" HIGH   (score 3-4) : {0} mailboxes" -f $highCount)
+        (" MEDIUM (score 2)   : {0} mailboxes" -f $medCount)
+        (" LOW    (score 1)   : {0} mailboxes" -f $lowCount)
+        ""
+        $dash
+        " RECOMMENDED ACTIONS"
+        $dash
+        " 1. ElcProcessingDisabled = True"
+        "    Run: Set-Mailbox -Identity <UPN> -ElcProcessingDisabled `$false"
+        "    Effect: MFA resumes processing — mailbox rejoins normal retention cycle."
+        "    Approval: None required."
+        ""
+        " 2. Legacy in-place holds (non-UniH GUIDs)"
+        "    Review each GUID with the compliance team to confirm the hold is still needed."
+        "    If stale: Remove-MailboxSearch or close the eDiscovery case that created it."
+        "    Approval: Compliance team sign-off required."
+        ""
+        " 3. Litigation hold with no duration"
+        "    Confirm with legal whether an expiry date can be set."
+        "    If no longer needed: Set-Mailbox '<UPN>' -LitigationHoldEnabled `$false"
+        "    Approval: Legal sign-off required."
+        ""
+        " 4. SIR + high Recoverable Items"
+        "    These mailboxes are candidates for Invoke-MailboxCleanup.ps1 [C] mode."
+        "    See: tools\mailbox-cleanup\Invoke-MailboxCleanup.ps1"
+        $sep
+    )
+    $report | Out-File -FilePath $txtFile -Encoding UTF8
+
+    Write-Host ""
+    Write-Host "  Exports saved to Desktop:" -ForegroundColor Green
+    Write-Host ("    {0}" -f $csvFile) -ForegroundColor Cyan
+    Write-Host ("    {0}" -f $txtFile) -ForegroundColor Cyan
+    Write-Host ""
+}
+
+# --- Session cleanup ---
+Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+Write-Host "  Exchange Online session disconnected.`n" -ForegroundColor DarkGray
