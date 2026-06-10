@@ -19,13 +19,21 @@ try {
 }
 
 # --- Constants ---
-$SCRIPT_VERSION                = "1.6"
+$SCRIPT_VERSION                = "1.7"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
 $DISCOVERY_HOLDS_SIR_THRESHOLD = 1GB
 $PRIMARY_FOLDER_SIZE_THRESHOLD = 1GB
 $ASYNC_HOLD_CHECK_WAIT         = 90   # seconds — Exchange applies DelayHoldApplied asynchronously
+
+# --- Blob tracking (SIR watchdog runbook) ---
+# Generate a container-level SAS on pcorpsambcleanupazuc01:
+#   Resource type: Object | Permissions: Read, Write, Delete, Create | Expiry: 2 years
+# Paste the full token (starting with ?) below. Rotate with each distributed script version.
+$BLOB_STORAGE_ACCOUNT = "pcorpsambcleanupazuc01"
+$BLOB_CONTAINER       = "mailbox-cleanup-audit"
+$BLOB_SAS_TOKEN       = "?sv=2026-02-06&ss=b&srt=o&sp=rwdlctfx&se=2028-06-10T19:48:48Z&st=2026-06-10T11:33:48Z&spr=https&sig=%2BewTmW443ISRw1XYUcaPiW0FIaA3FlIck6Ak35eSUDA%3D"
 
 # --- State ---
 $policy                  = $null
@@ -106,20 +114,32 @@ function Confirm-Continue {
     }
 }
 
-function ConvertTo-FolderQueryString {
-    param([string]$FolderId)
-    $encoding   = [System.Text.Encoding]::GetEncoding("us-ascii")
-    $nibbler    = $encoding.GetBytes("0123456789ABCDEF")
-    $idBytes    = [Convert]::FromBase64String($FolderId)
-    $indexBytes = New-Object byte[] 48
-    $indexBytes[0] = 1
-    [System.Buffer]::BlockCopy($idBytes, 0, $indexBytes, 1, 24)
-    $query = "folderid:"
-    for ($i = 0; $i -lt 25; $i++) {
-        $query += [char]$nibbler[$indexBytes[$i] -shr 4]
-        $query += [char]$nibbler[$indexBytes[$i] -band 0x0F]
-    }
-    return $query
+function Get-BlobKey {
+    param([string]$Upn)
+    return ($Upn -replace '@', '_at_' -replace '\.', '-').ToLower()
+}
+
+function Set-TrackingBlob {
+    param([string]$BlobPath, [hashtable]$Data)
+    if (-not $BLOB_SAS_TOKEN) { return $false }
+    $uri   = "https://$BLOB_STORAGE_ACCOUNT.blob.core.windows.net/$BLOB_CONTAINER/$BlobPath$BLOB_SAS_TOKEN"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($Data | ConvertTo-Json -Depth 5 -Compress))
+    try {
+        Invoke-RestMethod -Method Put -Uri $uri -Body $bytes -ContentType 'application/json' `
+            -Headers @{ 'x-ms-blob-type' = 'BlockBlob'; 'x-ms-version' = '2020-04-08' } `
+            -ErrorAction Stop | Out-Null
+        return $true
+    } catch { return $false }
+}
+
+function Remove-TrackingBlob {
+    param([string]$BlobPath)
+    if (-not $BLOB_SAS_TOKEN) { return }
+    $uri = "https://$BLOB_STORAGE_ACCOUNT.blob.core.windows.net/$BLOB_CONTAINER/$BlobPath$BLOB_SAS_TOKEN"
+    try {
+        Invoke-RestMethod -Method Delete -Uri $uri `
+            -Headers @{ 'x-ms-version' = '2020-04-08' } -ErrorAction Stop | Out-Null
+    } catch { }
 }
 
 # --- Main ---
@@ -287,6 +307,17 @@ if (-not $sirEnabled) {
             $sirEnabled  = $true
         } catch {
             Write-Detail "WARNING: Could not re-enable SingleItemRecovery. Run manually: Set-Mailbox -Identity '$Mailbox' -SingleItemRecoveryEnabled `$true" Yellow
+        }
+        if ($sirRestored) {
+            $blobKey = Get-BlobKey $Mailbox
+            Set-TrackingBlob -BlobPath "completed/$blobKey.json" -Data @{
+                mailbox         = $Mailbox
+                completedAt     = (Get-Date -Format 'o')
+                completedByTech = $env:USERNAME
+                scriptVersion   = $SCRIPT_VERSION
+                status          = 'completed'
+            } | Out-Null
+            Remove-TrackingBlob -BlobPath "in-progress/$blobKey.json"
         }
     }
 }
@@ -767,6 +798,21 @@ try {
             Set-Mailbox -Identity $Mailbox -SingleItemRecoveryEnabled $false -ErrorAction Stop
             Write-Detail "SingleItemRecovery disabled (MFA can now fully reclaim DiscoveryHolds)." Yellow
             $sirWasDisabledByScript = $true
+            $blobWritten = Set-TrackingBlob -BlobPath "in-progress/$(Get-BlobKey $Mailbox).json" -Data @{
+                mailbox                 = $Mailbox
+                sirDisabledAt           = (Get-Date -Format 'o')
+                scriptVersion           = $SCRIPT_VERSION
+                techAccount             = $env:USERNAME
+                discoveryHoldsGbAtStart = [Math]::Round($discoveryHoldsBytes / 1GB, 1)
+                lastMfaTriggered        = (Get-Date -Format 'o')
+                status                  = 'in-progress'
+                runbookRecheckCount     = 0
+            }
+            if ($blobWritten) {
+                Write-Detail "Runbook monitoring enabled — SIR watchdog will keep gates open." Gray
+            } else {
+                Write-Detail "NOTE: Blob tracking unavailable — set `$BLOB_SAS_TOKEN to enable runbook monitoring." Yellow
+            }
         } catch {
             Write-Detail "WARNING: Could not disable SingleItemRecovery. Run manually: Set-Mailbox -Identity '$Mailbox' -SingleItemRecoveryEnabled `$false" Yellow
         }
