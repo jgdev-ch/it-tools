@@ -26,6 +26,8 @@ $CONTAINER       = "mailbox-cleanup-audit"
 $ORGANIZATION    = "corrohealth.com"
 
 # --- Connect ---
+Import-Module ExchangeOnlineManagement -ErrorAction Stop
+
 try {
     Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
     Write-Output "Azure: connected via managed identity."
