@@ -19,7 +19,7 @@ try {
 }
 
 # --- Constants ---
-$SCRIPT_VERSION                = "1.7"
+$SCRIPT_VERSION                = "1.8"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
@@ -54,6 +54,7 @@ $mfaOnlyMode             = $false
 $statusOnlyMode          = $false
 $folderCleanupMode       = $false
 $folderCleanupResults    = @()
+$purviewExceptionActive  = $false
 $reportTime              = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $reportTimestamp         = Get-Date -Format 'yyyyMMdd-HHmmss'
 
@@ -140,6 +141,16 @@ function Remove-TrackingBlob {
         Invoke-RestMethod -Method Delete -Uri $uri `
             -Headers @{ 'x-ms-version' = '2020-04-08' } -ErrorAction Stop | Out-Null
     } catch { }
+}
+
+function Get-TrackingBlob {
+    param([string]$BlobPath)
+    if (-not $BLOB_SAS_TOKEN) { return $null }
+    $uri = "https://$BLOB_STORAGE_ACCOUNT.blob.core.windows.net/$BLOB_CONTAINER/$BlobPath$BLOB_SAS_TOKEN"
+    try {
+        return Invoke-RestMethod -Method Get -Uri $uri `
+            -Headers @{ 'x-ms-version' = '2020-04-08' } -ErrorAction Stop
+    } catch { return $null }
 }
 
 # --- Main ---
@@ -288,6 +299,14 @@ if (Test-Path $mfaStateFile) {
     Write-Detail "MFA last triggered : no history on this machine" Gray
 }
 
+# Purview exception status — read from tracking blob set during last [C] run
+$blobData = Get-TrackingBlob -BlobPath "in-progress/$(Get-BlobKey $Mailbox).json"
+if ($blobData -and $blobData.purviewExceptionActive) {
+    Write-Detail ""
+    Write-Detail "Purview exception  : ACTIVE — mailbox is excluded from the 3-Year Retention Policy" Yellow
+    Write-Detail "                     Remove when cleanup is confirmed (answer Y to Purview prompt after re-enabling SIR)" Gray
+}
+
 # --- SIR already disabled: prompt to re-enable before mode selection ---
 if (-not $sirEnabled) {
     Write-Host ""
@@ -295,6 +314,7 @@ if (-not $sirEnabled) {
     Write-Host "       SingleItemRecovery is currently DISABLED" -ForegroundColor Yellow
     Write-Host "       This was likely cleared during a previous cleanup run." -ForegroundColor White
     Write-Host "       Re-enable it once the mailbox quota has recovered." -ForegroundColor White
+    Write-Host "       Also remove the Purview exception in the same session." -ForegroundColor White
     Write-Host "      ================================================" -ForegroundColor Yellow
     Write-Host ""
     $reEnable = Read-Host "      Re-enable SingleItemRecovery? [Y/N]"
@@ -308,14 +328,34 @@ if (-not $sirEnabled) {
         } catch {
             Write-Detail "WARNING: Could not re-enable SingleItemRecovery. Run manually: Set-Mailbox -Identity '$Mailbox' -SingleItemRecoveryEnabled `$true" Yellow
         }
+
         if ($sirRestored) {
+            # Purview exception removal — offer to remove the exception left in place from the [C] run.
+            # This reconnects S&C briefly; the exception must stay in place until quota confirms clear.
+            Write-Host ""
+            $removePurview = Read-Host "      Remove Purview policy exception? [Y/N]"
+            Write-Host ""
+            if ($removePurview -match '^[Yy]') {
+                try {
+                    Connect-IPPSSession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+                    Set-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME `
+                        -RemoveExchangeLocationException $Mailbox -ErrorAction Stop
+                    Write-Detail "Purview exception removed. Mailbox is back under the 3-Year Retention Policy." Green
+                    $policyRestored = $true
+                    Disconnect-IPPSSession -Confirm:$false -ErrorAction SilentlyContinue
+                } catch {
+                    Write-Detail "WARNING: Could not remove Purview exception. Remove '$Mailbox' from '$RETENTION_POLICY_NAME' exceptions in Purview manually." Yellow
+                }
+            }
+
             $blobKey = Get-BlobKey $Mailbox
             Set-TrackingBlob -BlobPath "completed/$blobKey.json" -Data @{
-                mailbox         = $Mailbox
-                completedAt     = (Get-Date -Format 'o')
-                completedByTech = $env:USERNAME
-                scriptVersion   = $SCRIPT_VERSION
-                status          = 'completed'
+                mailbox                 = $Mailbox
+                completedAt             = (Get-Date -Format 'o')
+                completedByTech         = $env:USERNAME
+                scriptVersion           = $SCRIPT_VERSION
+                status                  = 'completed'
+                purviewExceptionRemoved = $policyRestored
             } | Out-Null
             Remove-TrackingBlob -BlobPath "in-progress/$blobKey.json"
         }
@@ -759,14 +799,9 @@ try {
     }
 
     if ($policy) {
-        try {
-            Set-RetentionCompliancePolicy -Identity $RETENTION_POLICY_NAME `
-                -RemoveExchangeLocationException $Mailbox -ErrorAction Stop
-            Write-Detail "Purview policy exception removed." Green
-            $policyRestored = $true
-        } catch {
-            Write-Detail "WARNING: Could not remove Purview exception. Remove '$Mailbox' from '$RETENTION_POLICY_NAME' exceptions in Purview manually." Yellow
-        }
+        $purviewExceptionActive = $true
+        Write-Detail "Purview exception left in place — retention policy will not re-populate DiscoveryHolds while MFA reclaims space." Yellow
+        Write-Detail "Re-run this script once quota recovers to re-enable SIR and remove the exception." Gray
     }
 
     # Clear delay holds — Exchange sets these automatically when a hold is modified,
@@ -807,6 +842,7 @@ try {
                 lastMfaTriggered        = (Get-Date -Format 'o')
                 status                  = 'in-progress'
                 runbookRecheckCount     = 0
+                purviewExceptionActive  = $true
             }
             if ($blobWritten) {
                 Write-Detail "Runbook monitoring enabled — SIR watchdog will keep gates open." Gray
@@ -912,9 +948,11 @@ if (-not $aborted -and -not $errorOccurred) {
 if ($sirWasDisabledByScript) {
     Write-Host "      ================================================" -ForegroundColor Yellow
     Write-Host "       SingleItemRecovery is now DISABLED" -ForegroundColor Yellow
+    Write-Host "       Purview exception left in place." -ForegroundColor White
     Write-Host "       MFA triggered. Allow $mfaWait." -ForegroundColor White
-    Write-Host "       Re-run this script on $Mailbox once" -ForegroundColor White
-    Write-Host "       quota recovers to re-enable SingleItemRecovery." -ForegroundColor White
+    Write-Host "       Re-run this script on $Mailbox once quota" -ForegroundColor White
+    Write-Host "       recovers to re-enable SIR and remove the" -ForegroundColor White
+    Write-Host "       Purview exception." -ForegroundColor White
     Write-Host "      ================================================`n" -ForegroundColor Yellow
 }
 
@@ -974,7 +1012,8 @@ if ($export -match '^[Yy]') {
         $dash
         " CLEANUP ACTIONS"
         $dash
-        (" Purview policy exception removed : {0}" -f $(if ($policyRestored)          { 'Yes' } else { 'No' }))
+        (" Purview exception left in place  : {0}" -f $(if ($purviewExceptionActive)   { 'Yes — remove when cleanup confirmed' } else { 'No / N-A' }))
+        (" Purview exception removed        : {0}" -f $(if ($policyRestored)          { 'Yes' } else { 'No' }))
         (" Delay hold cleared               : {0}" -f $(if ($delayHoldCleared)        { 'Yes' } else { 'No (not present)' }))
         (" Delay release hold cleared       : {0}" -f $(if ($delayReleaseHoldCleared) { 'Yes' } else { 'No (not present)' }))
         (" Late delay hold cleared          : {0}" -f $(if ($lateDelayHoldCleared)    { 'Yes — Exchange applied async after policy exception removed' } else { 'No' }))

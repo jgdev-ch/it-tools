@@ -23,7 +23,7 @@
 
 $STORAGE_ACCOUNT = "pcorpsambcleanupazuc01"
 $CONTAINER       = "mailbox-cleanup-audit"
-$ORGANIZATION    = "corrohealth.com"
+$ORGANIZATION    = "trusthcs0.onmicrosoft.com"
 
 # --- Connect ---
 Import-Module ExchangeOnlineManagement -ErrorAction Stop
@@ -37,7 +37,9 @@ try {
 }
 
 try {
-    Connect-ExchangeOnline -ManagedIdentity -Organization $ORGANIZATION -ShowBanner:$false -ErrorAction Stop
+    $exoToken    = Get-AzAccessToken -ResourceUrl "https://outlook.office365.com" -ErrorAction Stop
+    $tokenString = [string]$exoToken.Token
+    Connect-ExchangeOnline -AccessToken $tokenString -Organization $ORGANIZATION -ShowBanner:$false -ErrorAction Stop
     Write-Output "Exchange Online: connected."
 } catch {
     Write-Error "ERROR: Could not connect to Exchange Online. Managed identity may be missing Exchange RBAC. $_"
