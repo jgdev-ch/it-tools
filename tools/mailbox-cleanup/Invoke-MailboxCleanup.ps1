@@ -19,7 +19,7 @@ try {
 }
 
 # --- Constants ---
-$SCRIPT_VERSION                = "1.8"
+$SCRIPT_VERSION                = "1.9"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
@@ -342,9 +342,10 @@ if (-not $sirEnabled) {
                         -RemoveExchangeLocationException $Mailbox -ErrorAction Stop
                     Write-Detail "Purview exception removed. Mailbox is back under the 3-Year Retention Policy." Green
                     $policyRestored = $true
-                    Disconnect-IPPSSession -Confirm:$false -ErrorAction SilentlyContinue
                 } catch {
                     Write-Detail "WARNING: Could not remove Purview exception. Remove '$Mailbox' from '$RETENTION_POLICY_NAME' exceptions in Purview manually." Yellow
+                } finally {
+                    Disconnect-IPPSSession -Confirm:$false -ErrorAction SilentlyContinue
                 }
             }
 

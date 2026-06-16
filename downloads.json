@@ -4,7 +4,7 @@
       "id": "mailbox-cleanup",
       "name": "Mailbox Cleanup Script",
       "description": "Clear Recoverable Items for quota-blocked Exchange Online users under the 3-Year Retention Policy. Runs in ~6 minutes vs days with the legacy approach.",
-      "version": "1.8",
+      "version": "1.9",
       "type": "PowerShell",
       "accent": "#1d4ed8",
       "iconBg": "#1e2d5a",
