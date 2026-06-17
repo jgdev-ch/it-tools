@@ -19,7 +19,7 @@ try {
 }
 
 # --- Constants ---
-$SCRIPT_VERSION                = "1.9"
+$SCRIPT_VERSION                = "1.9.1"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
@@ -345,7 +345,7 @@ if (-not $sirEnabled) {
                 } catch {
                     Write-Detail "WARNING: Could not remove Purview exception. Remove '$Mailbox' from '$RETENTION_POLICY_NAME' exceptions in Purview manually." Yellow
                 } finally {
-                    Disconnect-IPPSSession -Confirm:$false -ErrorAction SilentlyContinue
+                    try { Disconnect-IPPSSession -Confirm:$false -ErrorAction SilentlyContinue } catch {}
                 }
             }
 
