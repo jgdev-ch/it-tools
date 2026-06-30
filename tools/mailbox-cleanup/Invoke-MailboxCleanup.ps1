@@ -1140,6 +1140,8 @@ if (-not $mfaOnlyMode) {
     Write-Host ""
     if ($go -notmatch '^[Yy]') {
         Write-Host "  Cleanup cancelled. No changes were made.`n" -ForegroundColor Cyan
+        $modeLoopActive = $false
+        continue
     }
 }
 
