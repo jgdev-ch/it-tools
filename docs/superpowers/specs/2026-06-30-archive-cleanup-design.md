@@ -81,18 +81,21 @@ Same per-folder confirm prompt as [F]: `Proceed with HardDelete purge of all ite
 
 Search name pattern: `ArchiveCleanup-<alias>-<foldersafename>-<timestamp>`
 
-**Query strategy — folderid: preferred over folderpath:**
+**Query strategy — folderid: is the only acceptable approach:**
 
-`folderpath:` queries match same-named folders across BOTH the primary mailbox and the archive. Using `folderpath:"Inbox"` in a compliance search against the mailbox would HardDelete items from the live primary Inbox as well as the archive Inbox — a serious risk for active users.
+`folderpath:` queries match same-named folders across BOTH the primary mailbox and the archive in a single compliance search. This means `folderpath:"Inbox"` would HardDelete items from the live primary Inbox alongside the archive Inbox. This is not an acceptable risk for [A] mode — the archive cleanup must exclusively touch archive folders, never the primary mailbox.
 
-The correct approach is `folderid:` queries, which are unique per folder and scope the search exclusively to the selected archive folder:
+`folderid:` queries reference a single folder by its unique Exchange identifier. The archive Inbox and the primary Inbox have completely different FolderIds at the storage layer. A `folderid:` query targeting an archive folder is physically incapable of matching any primary mailbox folder, regardless of name.
 
-- **Primary approach:** Retrieve the archive folder ID from `Get-MailboxFolderStatistics -Identity $Mailbox -Archive` (`.FolderId` property). Convert to the URL-safe Base64 format that compliance search expects. Use `ContentMatchQuery = "folderid:<converted-id>"`.
-- **Why this may need testing:** EXO v3 REST mode returns FolderIds in a different byte format than legacy RPS mode. [F] mode encountered this and fell back to `folderpath:`. Archive FolderIds may behave differently — this must be validated during implementation before committing to the approach.
-- **Fallback if folderid: fails in REST mode:** Use `folderpath:` but gate it behind a hard typed confirmation — tech must type `CONFIRM` (not Y/N) after a red banner explicitly stating that the live primary mailbox folder with the same name will also be purged. This fallback is a last resort; the implementation goal is to make folderid: work.
+**Implementation requirement:**
+- Retrieve archive folder ID: `Get-MailboxFolderStatistics -Identity $Mailbox -Archive` → `.FolderId` property
+- Convert to compliance search format (Base64 re-encoding — exact conversion to be validated in implementation, as EXO v3 REST mode returns FolderIds in a different byte format than legacy RPS mode)
+- Use `ContentMatchQuery = "folderid:<converted-id>"`
 
-Mechanics (same as [F] mode once query is resolved):
-- `New-ComplianceSearch` with `ExchangeLocation = $Mailbox`, `ContentMatchQuery = <folderid or folderpath query>`
+**If folderid: conversion cannot be made to work in REST mode:** [A] mode aborts with a clear error message explaining that safe archive-only targeting is unavailable in the current module version. The tech is directed to raise it as a known limitation. `folderpath:` is NOT used as a fallback — cross-contamination of an active mailbox is worse than the feature not working.
+
+Mechanics (same as [F] mode once folderid: is resolved):
+- `New-ComplianceSearch` with `ExchangeLocation = $Mailbox`, `ContentMatchQuery = "folderid:<id>"`
 - `Start-ComplianceSearch`, poll until Completed/Failed
 - `New-ComplianceSearchAction -Purge -PurgeType HardDelete`
 - Poll until Completed/Failed
