@@ -774,10 +774,15 @@ if ($archiveCleanupMode) {
 
         # Refresh archive folder stats each loop so sizes reflect previous purge
         $allArchiveFolders = Get-MailboxFolderStatistics -Identity $Mailbox -Archive
-        $archiveTotalBytes = ConvertTo-Bytes $archiveStats.TotalItemSize
+        $archiveTotalBytes = ($allArchiveFolders |
+            ForEach-Object { ConvertTo-Bytes $_.FolderAndSubfolderSize } |
+            Measure-Object -Sum).Sum
+        if (-not $archiveTotalBytes) { $archiveTotalBytes = 0 }
+        $archiveItemCount = ($allArchiveFolders | Measure-Object -Property ItemsInFolderAndSubfolders -Sum).Sum
+        if (-not $archiveItemCount) { $archiveItemCount = 0 }
 
         Write-Host ""
-        Write-Detail ("In-Place Archive   : {0}  ({1:N0} items)" -f (Format-Size $archiveTotalBytes), $archiveStats.ItemCount) `
+        Write-Detail ("In-Place Archive   : {0}  ({1:N0} items)" -f (Format-Size $archiveTotalBytes), $archiveItemCount) `
             $(if ($archiveTotalBytes -ge 50GB) { 'Red' } elseif ($archiveTotalBytes -ge 10GB) { 'Yellow' } else { 'Green' })
         Write-Host ""
 
@@ -842,6 +847,132 @@ if ($archiveCleanupMode) {
             $archiveLoopActive = $true
             continue
         }
+
+        # folderid: compliance search — archive-only, never touches primary mailbox
+        $archiveSearchName = $null
+        $archiveSearch     = $null
+        try {
+            $archiveAlias      = ($Mailbox -split '@')[0]
+            $archiveSafeName   = $selectedArchiveFolder.Name -replace '[^A-Za-z0-9]', ''
+            $archiveTimestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
+            $archiveSearchName = "ArchiveCleanup-$archiveAlias-$archiveSafeName-$archiveTimestamp"
+
+            $convertedFolderId = ConvertTo-ComplianceFolderId -FolderId $selectedArchiveFolder.FolderId
+            if ($null -eq $convertedFolderId) {
+                throw "Could not convert archive folder ID for '$($selectedArchiveFolder.Name)' to compliance search format. Archive cleanup aborted — primary mailbox is unaffected."
+            }
+
+            Write-Detail "Archive folder ID  : verified — targeting archive folder exclusively" Green
+            Write-Detail "Compliance search  : $archiveSearchName" Gray
+
+            New-ComplianceSearch -Name $archiveSearchName `
+                -ExchangeLocation $Mailbox `
+                -ContentMatchQuery "folderid:$convertedFolderId" `
+                -ErrorAction Stop | Out-Null
+
+            Start-ComplianceSearch -Identity $archiveSearchName -ErrorAction Stop
+
+            $elapsed = 0
+            do {
+                Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+                $elapsed += $POLL_INTERVAL_SECONDS
+                $archiveSearch = Get-ComplianceSearch -Identity $archiveSearchName
+                Write-Detail "Searching... (${elapsed}s) - $($archiveSearch.Status)" Gray
+            } while ($archiveSearch.Status -notin @('Completed', 'Failed'))
+
+            if ($archiveSearch.Status -eq 'Failed') {
+                throw "Compliance search '$archiveSearchName' failed. Check the Security & Compliance portal."
+            }
+
+            Write-Detail ("Search complete — {0:N0} items found ({1})" -f `
+                $archiveSearch.Items, (Format-Size $archiveSearch.Size)) Green
+
+            if ($archiveSearch.Items -eq 0) {
+                Write-Host ""
+                Write-Detail "0 items found. The folder may be protected by an active hold," Yellow
+                Write-Detail "or the folderid conversion may not match this module version." Yellow
+                Write-Detail "No purge action will run — primary mailbox is unaffected." Gray
+                $archiveCleanupResults += [PSCustomObject]@{
+                    FolderName = $selectedArchiveFolder.Name
+                    Items      = 0
+                    SizeBytes  = 0
+                    Status     = 'NoItems'
+                }
+            } else {
+                Write-Detail "Running purge (HardDelete)..." Yellow
+
+                New-ComplianceSearchAction -SearchName $archiveSearchName `
+                    -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
+
+                $archiveActionName = "$archiveSearchName`_Purge"
+                $elapsed = 0
+                do {
+                    Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+                    $elapsed += $POLL_INTERVAL_SECONDS
+                    $archiveAction = Get-ComplianceSearchAction -Identity $archiveActionName
+                    Write-Detail "Purging... (${elapsed}s) - $($archiveAction.Status)" Gray
+                } while ($archiveAction.Status -notin @('Completed', 'Failed'))
+
+                if ($archiveAction.Status -eq 'Failed') {
+                    throw "Compliance purge '$archiveActionName' failed. Check the Security & Compliance portal."
+                }
+
+                Write-Detail "Purge complete." Green
+
+                Write-Host ""
+                Write-Host "      ================================================" -ForegroundColor DarkCyan
+                Write-Host "       Results" -ForegroundColor White
+                Write-Detail ("  Folder : {0} (Archive)" -f $selectedArchiveFolder.Name) White
+                Write-Detail ("  Purged : {0:N0} items  ({1})" -f $archiveSearch.Items, (Format-Size $archiveSearch.Size)) Green
+                Write-Host "      ================================================" -ForegroundColor DarkCyan
+                Write-Host ""
+
+                $archiveCleanupResults += [PSCustomObject]@{
+                    FolderName = $selectedArchiveFolder.Name
+                    Items      = $archiveSearch.Items
+                    SizeBytes  = $archiveSearch.Size
+                    Status     = 'Purged'
+                }
+            }
+
+        } catch {
+            Write-Host "`n      ERROR: $_" -ForegroundColor Red
+            $archiveCleanupResults += [PSCustomObject]@{
+                FolderName = if ($selectedArchiveFolder) { $selectedArchiveFolder.Name } else { 'Unknown' }
+                Items      = 0
+                SizeBytes  = 0
+                Status     = 'Failed'
+            }
+        } finally {
+            if ($archiveSearchName) {
+                try {
+                    Remove-ComplianceSearch -Identity $archiveSearchName -Confirm:$false -ErrorAction Stop
+                    Write-Detail "Compliance search deleted." Green
+                } catch {
+                    Write-Detail "WARNING: Could not delete compliance search '$archiveSearchName'. Delete it from the Security & Compliance portal." Yellow
+                }
+            }
+        }
+
+        Write-Host ""
+        Write-Host "      What would you like to do next?" -ForegroundColor White
+        Write-Host "        [A] Target another archive folder" -ForegroundColor Gray
+        Write-Host "        [M] Back to main menu" -ForegroundColor Gray
+        Write-Host "        [Q] Quit" -ForegroundColor Gray
+        Write-Host ""
+        $archiveLoopChoice = Read-Host "      Choice"
+        Write-Host ""
+
+        switch -Regex ($archiveLoopChoice) {
+            '^[Aa]' { $archiveLoopActive = $true }
+            '^[Mm]' { $modeLoopActive    = $true }
+            default { }
+        }
+
+    } # end archive loop
+
+    continue
+} # end archiveCleanupMode
 
 # --- MFA only: confirm intent, then fall through to Phase 6 via empty try ---
 if ($mfaOnlyMode) {
