@@ -560,6 +560,8 @@ if (-not $sirEnabled) {
 $continueScript = $true
 while ($continueScript) {
     $continueScript = $false
+    $reportTime      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $reportTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
 # --- Mode loop — allows [F]/[A] post-purge [M] to return here ---
 $modeLoopActive = $true
@@ -598,7 +600,7 @@ while ($modeLoopActive) {
             $quitRequested = $true
         }
     }
-    if ($quitRequested) { continue }  # exits while loop (modeLoopActive is $false); ticket export runs
+    if ($quitRequested) { continue }  # exits mode loop; falls through to post-action menu
 
 # --- Status only: exit cleanly ---
 if ($statusOnlyMode) {
@@ -1137,9 +1139,7 @@ if (-not $mfaOnlyMode) {
     $go = Read-Host "      Proceed with cleanup? [Y/N]"
     Write-Host ""
     if ($go -notmatch '^[Yy]') {
-        Write-Host "  Status check complete. No changes were made.`n" -ForegroundColor Cyan
-        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-        exit 0
+        Write-Host "  Cleanup cancelled. No changes were made.`n" -ForegroundColor Cyan
     }
 }
 
