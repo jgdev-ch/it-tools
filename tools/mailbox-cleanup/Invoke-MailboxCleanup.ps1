@@ -582,8 +582,8 @@ while ($modeLoopActive) {
     # --- Mode selection ---
     Write-Host ""
     Write-Host "      What would you like to do?" -ForegroundColor White
-    Write-Host "        [C] Full cleanup   — compliance search, purge, and MFA" -ForegroundColor Gray
-    Write-Host "        [M] MFA only       — re-check SIR, clear delay holds, and re-trigger MFA" -ForegroundColor Gray
+    Write-Host "        [C] Full cleanup     — compliance search, purge, and MFA" -ForegroundColor Gray
+    Write-Host "        [M] MFA only         — re-check SIR, clear delay holds, and re-trigger MFA" -ForegroundColor Gray
     Write-Host "        [F] Folder cleanup   — permanently purge contents of a primary mailbox folder" -ForegroundColor Gray
     Write-Host "        [A] Archive cleanup  — permanently purge contents of an In-Place Archive folder" -ForegroundColor Gray
     Write-Host "        [S] Status only      — view status, no changes" -ForegroundColor Gray
