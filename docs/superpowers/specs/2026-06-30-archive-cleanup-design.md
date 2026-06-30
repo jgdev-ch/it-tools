@@ -78,14 +78,25 @@ If no archive folders exceed 1 GB: `No archive folders exceed 1 GB. Nothing to t
 Same per-folder confirm prompt as [F]: `Proceed with HardDelete purge of all items in this folder? [Y/N]`
 
 **Step 5 — Compliance search + HardDelete**  
-Identical mechanics to [F] mode:
-- `New-ComplianceSearch` with `ExchangeLocation = $Mailbox`, `ContentMatchQuery = 'folderpath:"<folder name>"'`
+
+Search name pattern: `ArchiveCleanup-<alias>-<foldersafename>-<timestamp>`
+
+**Query strategy — folderid: preferred over folderpath:**
+
+`folderpath:` queries match same-named folders across BOTH the primary mailbox and the archive. Using `folderpath:"Inbox"` in a compliance search against the mailbox would HardDelete items from the live primary Inbox as well as the archive Inbox — a serious risk for active users.
+
+The correct approach is `folderid:` queries, which are unique per folder and scope the search exclusively to the selected archive folder:
+
+- **Primary approach:** Retrieve the archive folder ID from `Get-MailboxFolderStatistics -Identity $Mailbox -Archive` (`.FolderId` property). Convert to the URL-safe Base64 format that compliance search expects. Use `ContentMatchQuery = "folderid:<converted-id>"`.
+- **Why this may need testing:** EXO v3 REST mode returns FolderIds in a different byte format than legacy RPS mode. [F] mode encountered this and fell back to `folderpath:`. Archive FolderIds may behave differently — this must be validated during implementation before committing to the approach.
+- **Fallback if folderid: fails in REST mode:** Use `folderpath:` but gate it behind a hard typed confirmation — tech must type `CONFIRM` (not Y/N) after a red banner explicitly stating that the live primary mailbox folder with the same name will also be purged. This fallback is a last resort; the implementation goal is to make folderid: work.
+
+Mechanics (same as [F] mode once query is resolved):
+- `New-ComplianceSearch` with `ExchangeLocation = $Mailbox`, `ContentMatchQuery = <folderid or folderpath query>`
 - `Start-ComplianceSearch`, poll until Completed/Failed
 - `New-ComplianceSearchAction -Purge -PurgeType HardDelete`
 - Poll until Completed/Failed
 - `Remove-ComplianceSearch` in finally block
-
-Search name pattern: `ArchiveCleanup-<alias>-<foldersafename>-<timestamp>`
 
 **No additional Exchange operations:** No SIR management, no Purview exception, no delay hold clearing, no MFA trigger. Archive folders contain regular email items — compliance search HardDelete is the complete cleanup path.
 
@@ -105,15 +116,6 @@ Search name pattern: `ArchiveCleanup-<alias>-<foldersafename>-<timestamp>`
     SizeBytes  = $folderSearch.Size
     Status     = 'Purged'  # or 'Failed'
 }
-```
-
-### Known limitation
-`folderpath:` queries match same-named folders across both primary mailbox and archive (e.g., selecting archive "Inbox" will also purge primary "Inbox"). For F3 users with near-empty primary mailboxes this is benign, but the warning banner calls it out explicitly:
-```
-NOTE: Compliance search targets folders by name across the entire
-mailbox. Primary folders with the same name will also be purged.
-For users with large primary mailboxes, use [F] to clear primary
-folders first, then [A] for archive folders.
 ```
 
 ---
