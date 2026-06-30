@@ -904,7 +904,7 @@ if ($archiveCleanupMode) {
                 New-ComplianceSearchAction -SearchName $archiveSearchName `
                     -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
 
-                $archiveActionName = "$archiveSearchName`_Purge"
+                $archiveActionName = "${archiveSearchName}_Purge"
                 $elapsed = 0
                 do {
                     Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
