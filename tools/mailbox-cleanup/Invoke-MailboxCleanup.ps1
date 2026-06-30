@@ -19,13 +19,14 @@ try {
 }
 
 # --- Constants ---
-$SCRIPT_VERSION                = "1.9.1"
+$SCRIPT_VERSION                = "2.0"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
 $DISCOVERY_HOLDS_SIR_THRESHOLD = 1GB
 $PRIMARY_FOLDER_SIZE_THRESHOLD = 1GB
 $ASYNC_HOLD_CHECK_WAIT         = 90   # seconds — Exchange applies DelayHoldApplied asynchronously
+$ARCHIVE_SIZE_ADVISORY_THRESHOLD = 10GB
 
 # --- Blob tracking (SIR watchdog runbook) ---
 # Generate a container-level SAS on pcorpsambcleanupazuc01:
@@ -54,6 +55,9 @@ $mfaOnlyMode             = $false
 $statusOnlyMode          = $false
 $folderCleanupMode       = $false
 $folderCleanupResults    = @()
+$archiveCleanupMode      = $false
+$archiveCleanupResults   = @()
+$mfaWait                 = ""
 $purviewExceptionActive  = $false
 $reportTime              = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $reportTimestamp         = Get-Date -Format 'yyyyMMdd-HHmmss'
