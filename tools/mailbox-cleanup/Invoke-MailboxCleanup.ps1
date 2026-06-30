@@ -198,6 +198,8 @@ try {
 
 # --- Phase 2: Mailbox status check ---
 Write-Step 2 "Mailbox status: $Mailbox"
+Write-Host ""
+Write-Host "  --- [Active Mailbox] ---" -ForegroundColor DarkCyan
 $mbx = $null
 try {
     $mbx = Get-Mailbox -Identity $Mailbox -ErrorAction Stop
@@ -330,6 +332,49 @@ if ($blobData -and $blobData.purviewExceptionActive) {
     Write-Detail ""
     Write-Detail "Purview exception  : ACTIVE — mailbox is excluded from the 3-Year Retention Policy" Yellow
     Write-Detail "                     Remove when cleanup is confirmed (answer Y to Purview prompt after re-enabling SIR)" Gray
+}
+
+# --- In-Place Archive status ---
+Write-Host ""
+Write-Host "  --- [In-Place Archive] ---" -ForegroundColor DarkCyan
+$archiveStats       = $null
+$archiveFolderStats = $null
+try {
+    $archiveStats = Get-MailboxStatistics -Identity $Mailbox -Archive -ErrorAction Stop
+} catch { }
+
+if ($null -eq $archiveStats) {
+    Write-Detail "No In-Place Archive provisioned." Gray
+} else {
+    $archiveTotalBytes = ConvertTo-Bytes $archiveStats.TotalItemSize
+    $archiveItemCount  = $archiveStats.ItemCount
+    Write-Detail ("Total size         : {0}  ({1:N0} items)" -f (Format-Size $archiveTotalBytes), $archiveItemCount) `
+        $(if ($archiveTotalBytes -ge 50GB) { 'Red' } elseif ($archiveTotalBytes -ge 10GB) { 'Yellow' } else { 'Green' })
+
+    try {
+        $archiveFolderStats = Get-MailboxFolderStatistics -Identity $Mailbox -Archive -ErrorAction Stop |
+            Where-Object { $_.FolderType -ne 'Root' -and $_.ItemsInFolderAndSubfolders -gt 0 } |
+            Sort-Object { ConvertTo-Bytes $_.FolderAndSubfolderSize } -Descending
+
+        if ($archiveFolderStats) {
+            Write-Detail "Folder breakdown   :" Gray
+            $archColWidth = [Math]::Max(($archiveFolderStats | ForEach-Object { $_.FolderPath.Length } | Measure-Object -Maximum).Maximum + 2, 30)
+            $archiveFolderStats | ForEach-Object {
+                $aBytes = ConvertTo-Bytes $_.FolderAndSubfolderSize
+                $aPct   = if ($archiveTotalBytes -gt 0) { ($aBytes / $archiveTotalBytes) * 100 } else { 0 }
+                $aColor = if     ($aPct -ge 60) { 'Red' }
+                           elseif ($aPct -ge 20) { 'DarkYellow' }
+                           elseif ($aPct -ge 5)  { 'Yellow' }
+                           else                   { 'Gray' }
+                Write-Detail ("    {0} {1,8} items   {2}" -f $_.FolderPath.PadRight($archColWidth), $_.ItemsInFolderAndSubfolders, (Format-Size $aBytes)) $aColor
+            }
+        }
+    } catch { }
+
+    if ($archiveTotalBytes -ge $ARCHIVE_SIZE_ADVISORY_THRESHOLD) {
+        Write-Host ""
+        Write-Detail "Archive is large — consider [A] Archive Cleanup from the main menu." Yellow
+    }
 }
 
 # --- SIR already disabled: prompt to re-enable before mode selection ---
