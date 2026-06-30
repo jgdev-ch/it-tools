@@ -700,6 +700,149 @@ if ($folderCleanupMode) {
     continue
 } # end folderCleanupMode
 
+# --- Archive cleanup mode ---
+if ($archiveCleanupMode) {
+
+    # Hard block: litigation hold covers entire mailbox including archive
+    if ($mbx.LitigationHoldEnabled) {
+        Write-Host ""
+        Write-Host "      ================================================" -ForegroundColor Red
+        Write-Host "       BLOCKED — Litigation Hold Detected" -ForegroundColor Red
+        Write-Host "       This mailbox is under an active litigation hold." -ForegroundColor White
+        Write-Host "       Purging archive items may violate legal" -ForegroundColor White
+        Write-Host "       preservation requirements." -ForegroundColor White
+        Write-Host "       Contact your compliance team before proceeding." -ForegroundColor White
+        Write-Host "      ================================================" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  Archive cleanup blocked. Returning to main menu.`n" -ForegroundColor Yellow
+        $modeLoopActive = $true
+        continue
+    }
+
+    # Advisory: active holds may protect some items — not a hard block
+    if ($mbx.InPlaceHolds -and $mbx.InPlaceHolds.Count -gt 0) {
+        Write-Host ""
+        Write-Host "      ================================================" -ForegroundColor Yellow
+        Write-Host "       WARNING — Active Retention Holds Detected" -ForegroundColor Yellow
+        Write-Host "       Items under active holds may be protected." -ForegroundColor White
+        Write-Host "       Compliance search results may be partial." -ForegroundColor White
+        Write-Host "       Confirm folder contents before proceeding." -ForegroundColor White
+        Write-Host "      ================================================" -ForegroundColor Yellow
+        Write-Host ""
+    }
+
+    # Verify archive exists (fetched in Phase 2)
+    if ($null -eq $archiveStats) {
+        Write-Host ""
+        Write-Detail "No In-Place Archive provisioned for $Mailbox. Nothing to clean." Yellow
+        $modeLoopActive = $true
+        continue
+    }
+
+    # PERMANENT DELETE warning gate — identical to [F] mode
+    Write-Host ""
+    Write-Host "      ================================================" -ForegroundColor Red
+    Write-Host "       PERMANENT DELETE — Archive Folder Cleanup" -ForegroundColor Red
+    Write-Host "       This action will hard-delete ALL items in the" -ForegroundColor White
+    Write-Host "       selected archive folder. They cannot be recovered." -ForegroundColor White
+    Write-Host ""
+    Write-Host "       Only the selected archive folder is targeted." -ForegroundColor White
+    Write-Host "       Primary mailbox folders are never touched." -ForegroundColor White
+    Write-Host "      ================================================" -ForegroundColor Red
+    Write-Host ""
+    $archWarnResponse = Read-Host "      Understood — proceed to archive folder selection? [Y/N]"
+    Write-Host ""
+    if ($archWarnResponse -notmatch '^[Yy]') {
+        Write-Host "  Archive cleanup cancelled. No changes made.`n" -ForegroundColor Cyan
+        $modeLoopActive = $true
+        continue
+    }
+
+    Write-Detail "Connecting to Security & Compliance..." Cyan
+    try {
+        Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+        Write-Detail "Security & Compliance: connected" Green
+    } catch {
+        Write-Detail "ERROR: Could not connect to Security & Compliance. $_" Red
+        $modeLoopActive = $true
+        continue
+    }
+
+    $archiveLoopActive = $true
+    while ($archiveLoopActive) {
+        $archiveLoopActive = $false
+
+        # Refresh archive folder stats each loop so sizes reflect previous purge
+        $allArchiveFolders = Get-MailboxFolderStatistics -Identity $Mailbox -Archive
+        $archiveTotalBytes = ConvertTo-Bytes $archiveStats.TotalItemSize
+
+        Write-Host ""
+        Write-Detail ("In-Place Archive   : {0}  ({1:N0} items)" -f (Format-Size $archiveTotalBytes), $archiveStats.ItemCount) `
+            $(if ($archiveTotalBytes -ge 50GB) { 'Red' } elseif ($archiveTotalBytes -ge 10GB) { 'Yellow' } else { 'Green' })
+        Write-Host ""
+
+        # Archive folder list — exclude root and RecoverableItems; filter > 1 GB; sort largest first
+        $archiveFolders = $allArchiveFolders |
+            Where-Object {
+                $_.FolderType -ne 'Root' -and
+                $_.FolderType -notlike 'RecoverableItems*' -and
+                (ConvertTo-Bytes $_.FolderAndSubfolderSize) -gt $PRIMARY_FOLDER_SIZE_THRESHOLD
+            } |
+            Sort-Object { ConvertTo-Bytes $_.FolderAndSubfolderSize } -Descending
+
+        if (-not $archiveFolders -or $archiveFolders.Count -eq 0) {
+            Write-Detail "No archive folders exceed 1 GB. Nothing to target." Yellow
+            Write-Host ""
+            $modeLoopActive = $true
+            continue
+        }
+
+        Write-Detail "Select an archive folder to purge (or [Q] to return to main menu):" White
+        Write-Host ""
+        $archNameColWidth = [Math]::Max(($archiveFolders | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum + 2, 20)
+        $idx = 1
+        foreach ($f in $archiveFolders) {
+            $fBytes = ConvertTo-Bytes $f.FolderAndSubfolderSize
+            $fPct   = if ($archiveTotalBytes -gt 0) { ($fBytes / $archiveTotalBytes) * 100 } else { 0 }
+            $fColor = if     ($fPct -ge 60) { 'Red' }
+                      elseif ($fPct -ge 20) { 'DarkYellow' }
+                      elseif ($fPct -ge 5)  { 'Yellow' }
+                      else                   { 'Gray' }
+            Write-Host ("      [{0}]  {1} {2,8} items   {3}" -f $idx, $f.Name.PadRight($archNameColWidth), $f.ItemsInFolderAndSubfolders, (Format-Size $fBytes)) -ForegroundColor $fColor
+            $idx++
+        }
+        Write-Host ""
+
+        $selectedArchiveFolder = $null
+        while ($null -eq $selectedArchiveFolder) {
+            $archiveChoice = Read-Host "      Choice"
+            if ($archiveChoice -match '^[Qq]') {
+                Write-Host ""
+                $modeLoopActive = $true
+                break
+            }
+            $archiveIndex = 0
+            if ([int]::TryParse($archiveChoice, [ref]$archiveIndex) -and
+                $archiveIndex -ge 1 -and $archiveIndex -le $archiveFolders.Count) {
+                $selectedArchiveFolder = $archiveFolders[$archiveIndex - 1]
+            } else {
+                Write-Detail "Invalid selection. Enter a number between 1 and $($archiveFolders.Count), or Q to return." Yellow
+            }
+        }
+        if ($null -eq $selectedArchiveFolder) { continue }
+
+        $selArchiveBytes = ConvertTo-Bytes $selectedArchiveFolder.FolderAndSubfolderSize
+        Write-Host ""
+        Write-Detail ("Selected: {0}  ({1:N0} items / {2})" -f `
+            $selectedArchiveFolder.Name, $selectedArchiveFolder.ItemsInFolderAndSubfolders, (Format-Size $selArchiveBytes)) White
+        $archivePurgeConfirm = Read-Host "      Proceed with HardDelete purge of all items in this archive folder? [Y/N]"
+        Write-Host ""
+        if ($archivePurgeConfirm -notmatch '^[Yy]') {
+            Write-Detail "Purge cancelled. Returning to archive folder list." Yellow
+            $archiveLoopActive = $true
+            continue
+        }
+
 # --- MFA only: confirm intent, then fall through to Phase 6 via empty try ---
 if ($mfaOnlyMode) {
     Write-Detail "MFA-only mode: will clear delay holds and re-trigger Managed Folder Assistant." Yellow
