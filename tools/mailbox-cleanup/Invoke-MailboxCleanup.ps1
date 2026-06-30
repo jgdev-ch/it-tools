@@ -438,29 +438,32 @@ if (-not $sirEnabled) {
 # --- Mode loop — allows [F] post-purge [M] to return here ---
 $modeLoopActive = $true
 while ($modeLoopActive) {
-    $modeLoopActive    = $false
-    $mfaOnlyMode       = $false
-    $statusOnlyMode    = $false
-    $folderCleanupMode = $false
-    $quitRequested     = $false
+    $modeLoopActive     = $false
+    $mfaOnlyMode        = $false
+    $statusOnlyMode     = $false
+    $folderCleanupMode  = $false
+    $archiveCleanupMode = $false
+    $quitRequested      = $false
 
     # --- Mode selection ---
     Write-Host ""
     Write-Host "      What would you like to do?" -ForegroundColor White
     Write-Host "        [C] Full cleanup   — compliance search, purge, and MFA" -ForegroundColor Gray
     Write-Host "        [M] MFA only       — re-check SIR, clear delay holds, and re-trigger MFA" -ForegroundColor Gray
-    Write-Host "        [F] Folder cleanup — permanently purge contents of a primary mailbox folder" -ForegroundColor Gray
-    Write-Host "        [S] Status only    — exit here, no changes made" -ForegroundColor Gray
+    Write-Host "        [F] Folder cleanup   — permanently purge contents of a primary mailbox folder" -ForegroundColor Gray
+    Write-Host "        [A] Archive cleanup  — permanently purge contents of an In-Place Archive folder" -ForegroundColor Gray
+    Write-Host "        [S] Status only      — view status, no changes" -ForegroundColor Gray
     Write-Host "        [Q] Quit" -ForegroundColor Gray
     Write-Host ""
     $modeChoice = Read-Host "      Choice"
     Write-Host ""
 
     switch -Regex ($modeChoice) {
-        '^[Ss]' { $statusOnlyMode    = $true }
-        '^[Mm]' { $mfaOnlyMode       = $true }
+        '^[Ss]' { $statusOnlyMode     = $true }
+        '^[Mm]' { $mfaOnlyMode        = $true }
         '^[Cc]' { }
-        '^[Ff]' { $folderCleanupMode = $true }
+        '^[Ff]' { $folderCleanupMode  = $true }
+        '^[Aa]' { $archiveCleanupMode = $true }
         default {
             $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Exited." } `
                        elseif ($folderCleanupResults.Count -gt 0) { "Session ended." } `
