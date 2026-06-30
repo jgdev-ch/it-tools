@@ -369,7 +369,9 @@ if ($null -eq $archiveStats) {
                 Write-Detail ("    {0} {1,8} items   {2}" -f $_.FolderPath.PadRight($archColWidth), $_.ItemsInFolderAndSubfolders, (Format-Size $aBytes)) $aColor
             }
         }
-    } catch { }
+    } catch {
+        Write-Detail "Folder breakdown unavailable — $_" Yellow
+    }
 
     if ($archiveTotalBytes -ge $ARCHIVE_SIZE_ADVISORY_THRESHOLD) {
         Write-Host ""
