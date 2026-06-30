@@ -467,13 +467,19 @@ try {
 if ($null -eq $archiveStats) {
     Write-Detail "No In-Place Archive provisioned." Gray
 } else {
-    $archiveTotalBytes = ConvertTo-Bytes $archiveStats.TotalItemSize
     $archiveItemCount  = $archiveStats.ItemCount
-    Write-Detail ("Total size         : {0}  ({1:N0} items)" -f (Format-Size $archiveTotalBytes), $archiveItemCount) `
-        $(if ($archiveTotalBytes -ge 50GB) { 'Red' } elseif ($archiveTotalBytes -ge 10GB) { 'Yellow' } else { 'Green' })
 
     try {
-        $archiveFolderStats = Get-MailboxFolderStatistics -Identity $Mailbox -Archive -ErrorAction Stop |
+        $rawArchiveFolders = Get-MailboxFolderStatistics -Identity $Mailbox -Archive -ErrorAction Stop
+        $archiveTotalBytes = ($rawArchiveFolders |
+            Where-Object { $_.FolderType -eq 'Root' } |
+            ForEach-Object { ConvertTo-Bytes $_.FolderAndSubfolderSize } |
+            Select-Object -First 1)
+        if (-not $archiveTotalBytes) { $archiveTotalBytes = 0 }
+        Write-Detail ("Total size         : {0}  ({1:N0} items)" -f (Format-Size $archiveTotalBytes), $archiveItemCount) `
+            $(if ($archiveTotalBytes -ge 50GB) { 'Red' } elseif ($archiveTotalBytes -ge 10GB) { 'Yellow' } else { 'Green' })
+
+        $archiveFolderStats = $rawArchiveFolders |
             Where-Object { $_.FolderType -ne 'Root' -and $_.ItemsInFolderAndSubfolders -gt 0 } |
             Sort-Object { ConvertTo-Bytes $_.FolderAndSubfolderSize } -Descending
 
