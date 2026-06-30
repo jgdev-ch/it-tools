@@ -165,6 +165,7 @@ function ConvertTo-ComplianceFolderId {
         $encoding      = [System.Text.Encoding]::GetEncoding("us-ascii")
         $nibbler       = $encoding.GetBytes("0123456789ABCDEF")
         $folderIdBytes = [Convert]::FromBase64String($folderIdPart)
+        if ($folderIdBytes.Length -lt 47) { return $null }
         $indexIdBytes  = New-Object byte[] 48
         $indexIdIdx    = 0
         $folderIdBytes | Select-Object -Skip 23 -First 24 | ForEach-Object {
