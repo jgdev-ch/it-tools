@@ -178,6 +178,127 @@ function ConvertTo-ComplianceFolderId {
     }
 }
 
+function Write-TicketReport {
+    $reportAlias = ($Mailbox -split '@')[0]
+    $reportFile  = "$([System.Environment]::GetFolderPath('Desktop'))\MailboxCleanup-$reportAlias-$reportTimestamp.txt"
+
+    $modeLabel = if     ($mfaOnlyMode)       { 'MFA Only' }
+                 elseif ($folderCleanupMode)  { 'Folder Cleanup' }
+                 elseif ($archiveCleanupMode) { 'Archive Cleanup' }
+                 elseif ($statusOnlyMode)     { 'Status Only' }
+                 else                          { 'Full Cleanup' }
+
+    $sep  = "=" * 60
+    $dash = "-" * 60
+    $report = @(
+        $sep
+        " MAILBOX CLEANUP REPORT"
+        $sep
+        " Date   : $reportTime"
+        " Target : $Mailbox"
+        " Mode   : $modeLabel"
+        ""
+        $dash
+        " PRE-FLIGHT"
+        $dash
+        (" Recoverable Items  : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
+        (" SingleItemRecovery : {0}" -f $(if ($sirEnabledOriginal) { 'Enabled' } else { 'DISABLED' }))
+        (" RetentionHold      : {0}" -f $(if ($retentionHoldEnabled) { 'ENABLED (MFA will not reclaim space while active)' } else { 'False' }))
+        (" Holds active       : {0}" -f $holdDisplay)
+    )
+    if ($mbx.InPlaceHolds -and $mbx.InPlaceHolds.Count -gt 0) {
+        $mbx.InPlaceHolds | ForEach-Object { $report += "     - $_" }
+    }
+    $report += " Folder breakdown   :"
+    if ($folderBreakdown) {
+        $rptColWidth = [Math]::Max(($folderBreakdown | ForEach-Object { $_.FolderPath.Length } | Measure-Object -Maximum).Maximum + 2, 30)
+        $folderBreakdown | ForEach-Object {
+            $report += ("   {0} {1,8} items   {2}" -f $_.FolderPath.PadRight($rptColWidth), $_.ItemsInFolder, $_.FolderAndSubfolderSize)
+        }
+    }
+    $report += @(
+        ""
+        $dash
+        " RESULTS"
+        $dash
+        (" Before : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
+    )
+    if ($search -and $search.Items -gt 0) {
+        $report += (" Purged : {0:N0} items  ({1} compliance-hold storage freed)" -f $search.Items, (Format-Size $search.Size))
+    }
+    if ($null -ne $afterBytes) {
+        $report += (" After  : {0} / {1} ({2}%)*" -f (Format-Size $afterBytes), (Format-Size $limitBytes), $afterPct)
+        $report += " * Exchange reclaims space within ~1h after MFA runs"
+    }
+    $report += @(
+        ""
+        $dash
+        " CLEANUP ACTIONS"
+        $dash
+        (" Purview exception left in place  : {0}" -f $(if ($purviewExceptionActive)   { 'Yes — remove when cleanup confirmed' } else { 'No / N-A' }))
+        (" Purview exception removed        : {0}" -f $(if ($policyRestored)           { 'Yes' } else { 'No' }))
+        (" Delay hold cleared               : {0}" -f $(if ($delayHoldCleared)         { 'Yes' } else { 'No (not present)' }))
+        (" Delay release hold cleared       : {0}" -f $(if ($delayReleaseHoldCleared)  { 'Yes' } else { 'No (not present)' }))
+        (" Late delay hold cleared          : {0}" -f $(if ($lateDelayHoldCleared)     { 'Yes — Exchange applied async after policy exception removed' } else { 'No' }))
+        (" SIR disabled this run            : {0}" -f $(if ($sirWasDisabledByScript)   { 'Yes — re-enable after quota recovers' } else { 'No' }))
+        (" SIR re-enabled this run          : {0}" -f $(if ($sirRestored)              { 'Yes' } else { 'No' }))
+        (" Managed Folder Assistant triggered: {0}" -f $(if ($mfaTriggered)            { 'Yes' } else { 'No' }))
+        (" MFA re-triggered (late hold)     : {0}" -f $(if ($mfaRetriggered)           { 'Yes' } else { 'No' }))
+        ""
+        $dash
+        " OUTCOME"
+        $dash
+    )
+    if (-not $aborted -and -not $errorOccurred) {
+        if ($statusOnlyMode) {
+            $report += " Status check complete. No changes made."
+        } elseif ($folderCleanupMode -or $archiveCleanupMode) {
+            $report += " Cleanup complete. See folder/archive sections above for details."
+        } else {
+            $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered." } else { "Purge complete. MFA triggered." }
+            $waitStr     = if ($mfaWait)     { " Space reclaims within $mfaWait." } else { "" }
+            $report += " $actionLabel$waitStr"
+            if ($sirWasDisabledByScript) {
+                $report += " Re-run script on $Mailbox to re-enable SingleItemRecovery once quota recovers."
+            }
+        }
+    } elseif ($aborted) {
+        $report += " Aborted by operator. No items were purged."
+    } else {
+        $report += " Completed with errors. Review console output for details."
+    }
+    if ($folderCleanupResults.Count -gt 0) {
+        $report += @("", $dash, " FOLDER CLEANUP", $dash)
+        foreach ($r in $folderCleanupResults) {
+            if ($r.Status -eq 'Purged') {
+                $report += (" {0,-30} : {1:N0} items purged  ({2}) — HardDelete" -f `
+                    $r.FolderName, $r.Items, (Format-Size $r.SizeBytes))
+            } else {
+                $report += (" {0,-30} : Failed — check console output" -f $r.FolderName)
+            }
+        }
+    }
+    if ($archiveCleanupResults.Count -gt 0) {
+        $report += @("", $dash, " ARCHIVE CLEANUP", $dash)
+        foreach ($r in $archiveCleanupResults) {
+            if ($r.Status -eq 'Purged') {
+                $report += (" {0,-30} : {1:N0} items purged  ({2}) — HardDelete" -f `
+                    $r.FolderName, $r.Items, (Format-Size $r.SizeBytes))
+            } elseif ($r.Status -eq 'NoItems') {
+                $report += (" {0,-30} : 0 items found — folder may be hold-protected or folderid conversion failed" -f $r.FolderName)
+            } else {
+                $report += (" {0,-30} : Failed — check console output" -f $r.FolderName)
+            }
+        }
+    }
+    $report += $sep
+
+    $report | Out-File -FilePath $reportFile -Encoding UTF8
+    Write-Host ""
+    Write-Host "      Report saved to: $reportFile" -ForegroundColor Green
+    Write-Host ""
+}
+
 # --- Main ---
 Write-Host ""
 Write-Host "  ================================================" -ForegroundColor DarkCyan
@@ -435,7 +556,12 @@ if (-not $sirEnabled) {
     }
 }
 
-# --- Mode loop — allows [F] post-purge [M] to return here ---
+# --- Outer loop — allows post-action [M] to return to mode selection ---
+$continueScript = $true
+while ($continueScript) {
+    $continueScript = $false
+
+# --- Mode loop — allows [F]/[A] post-purge [M] to return here ---
 $modeLoopActive = $true
 while ($modeLoopActive) {
     $modeLoopActive     = $false
@@ -478,8 +604,6 @@ while ($modeLoopActive) {
 if ($statusOnlyMode) {
     $exitMsg = if ($sirRestored) { "SingleItemRecovery re-enabled. Status check complete." } else { "Status check complete. No changes were made." }
     Write-Host "  $exitMsg`n" -ForegroundColor Cyan
-    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-    exit 0
 }
 
 # --- Folder cleanup mode ---
@@ -1308,112 +1432,32 @@ if ($sirWasDisabledByScript) {
 
 } # end mode loop
 
-# --- Ticket export ---
+# --- Post-action menu ---
 Write-Host ""
-$export = Read-Host "      Export summary report for ticket? [Y/N]"
-if ($export -match '^[Yy]') {
-    $reportAlias = ($Mailbox -split '@')[0]
-    $reportFile  = "$([System.Environment]::GetFolderPath('Desktop'))\MailboxCleanup-$reportAlias-$reportTimestamp.txt"
+Write-Host "      What would you like to do next?" -ForegroundColor White
+Write-Host "        [R] Export report and quit" -ForegroundColor Gray
+Write-Host "        [M] Back to main menu" -ForegroundColor Gray
+Write-Host "        [Q] Quit without exporting" -ForegroundColor Gray
+Write-Host ""
+$postChoice = Read-Host "      Choice"
+Write-Host ""
 
-    $sep  = "=" * 60
-    $dash = "-" * 60
-    $report = @(
-        $sep
-        " MAILBOX CLEANUP REPORT"
-        $sep
-        " Date   : $reportTime"
-        " Target : $Mailbox"
-        " Mode   : $(if ($mfaOnlyMode) { 'MFA Only' } elseif ($folderCleanupMode) { 'Folder Cleanup' } else { 'Full Cleanup' })"
-        ""
-        $dash
-        " PRE-FLIGHT"
-        $dash
-        (" Recoverable Items  : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
-        (" SingleItemRecovery : {0}" -f $(if ($sirEnabledOriginal) { 'Enabled' } else { 'DISABLED' }))
-        (" RetentionHold      : {0}" -f $(if ($retentionHoldEnabled) { 'ENABLED (MFA will not reclaim space while active)' } else { 'False' }))
-        (" Holds active       : {0}" -f $holdDisplay)
-    )
-    if ($mbx.InPlaceHolds -and $mbx.InPlaceHolds.Count -gt 0) {
-        $mbx.InPlaceHolds | ForEach-Object { $report += "     - $_" }
+switch -Regex ($postChoice) {
+    '^[Rr]' {
+        Write-TicketReport
+        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+        Write-Host "  Exchange Online session disconnected.`n" -ForegroundColor DarkGray
     }
-    $report += " Folder breakdown   :"
-    if ($folderBreakdown) {
-        $rptColWidth = [Math]::Max(($folderBreakdown | ForEach-Object { $_.FolderPath.Length } | Measure-Object -Maximum).Maximum + 2, 30)
-        $folderBreakdown | ForEach-Object {
-            $report += ("   {0} {1,8} items   {2}" -f $_.FolderPath.PadRight($rptColWidth), $_.ItemsInFolder, $_.FolderAndSubfolderSize)
-        }
+    '^[Mm]' {
+        $continueScript = $true
     }
-    $report += @(
-        ""
-        $dash
-        " RESULTS"
-        $dash
-        (" Before : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
-    )
-    if ($search -and $search.Items -gt 0) {
-        $report += (" Purged : {0:N0} items  ({1} compliance-hold storage freed)" -f $search.Items, (Format-Size $search.Size))
+    default {
+        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+        Write-Host "  Exchange Online session disconnected.`n" -ForegroundColor DarkGray
     }
-    if ($null -ne $afterBytes) {
-        $report += (" After  : {0} / {1} ({2}%)*" -f (Format-Size $afterBytes), (Format-Size $limitBytes), $afterPct)
-        $report += " * Exchange reclaims space within ~1h after MFA runs"
-    }
-    $report += @(
-        ""
-        $dash
-        " CLEANUP ACTIONS"
-        $dash
-        (" Purview exception left in place  : {0}" -f $(if ($purviewExceptionActive)   { 'Yes — remove when cleanup confirmed' } else { 'No / N-A' }))
-        (" Purview exception removed        : {0}" -f $(if ($policyRestored)          { 'Yes' } else { 'No' }))
-        (" Delay hold cleared               : {0}" -f $(if ($delayHoldCleared)        { 'Yes' } else { 'No (not present)' }))
-        (" Delay release hold cleared       : {0}" -f $(if ($delayReleaseHoldCleared) { 'Yes' } else { 'No (not present)' }))
-        (" Late delay hold cleared          : {0}" -f $(if ($lateDelayHoldCleared)    { 'Yes — Exchange applied async after policy exception removed' } else { 'No' }))
-        (" SIR disabled this run            : {0}" -f $(if ($sirWasDisabledByScript)  { 'Yes — re-enable after quota recovers' } else { 'No' }))
-        (" SIR re-enabled this run          : {0}" -f $(if ($sirRestored)             { 'Yes' } else { 'No' }))
-        (" Managed Folder Assistant triggered: {0}" -f $(if ($mfaTriggered)           { 'Yes' } else { 'No' }))
-        (" MFA re-triggered (late hold)     : {0}" -f $(if ($mfaRetriggered)          { 'Yes' } else { 'No' }))
-        ""
-        $dash
-        " OUTCOME"
-        $dash
-    )
-    if (-not $aborted -and -not $errorOccurred) {
-        $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered." } else { "Purge complete. MFA triggered." }
-        $report += " $actionLabel Space reclaims within $mfaWait."
-        if ($sirWasDisabledByScript) {
-            $report += " Re-run script on $Mailbox to re-enable SingleItemRecovery once quota recovers."
-        }
-    } elseif ($aborted) {
-        $report += " Aborted by operator. No items were purged."
-    } else {
-        $report += " Completed with errors. Review console output for details."
-    }
-    if ($folderCleanupResults.Count -gt 0) {
-        $report += @(
-            ""
-            $dash
-            " FOLDER CLEANUP"
-            $dash
-        )
-        foreach ($r in $folderCleanupResults) {
-            if ($r.Status -eq 'Purged') {
-                $report += (" {0,-30} : {1:N0} items purged  ({2}) — HardDelete" -f `
-                    $r.FolderName, $r.Items, (Format-Size $r.SizeBytes))
-            } else {
-                $report += (" {0,-30} : Failed — check console output" -f $r.FolderName)
-            }
-        }
-    }
-    $report += $sep
-
-    $report | Out-File -FilePath $reportFile -Encoding UTF8
-    Write-Host ""
-    Write-Host "      Report saved to: $reportFile" -ForegroundColor Green
-    Write-Host ""
 }
 
-# --- Session cleanup ---
-Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-Write-Host "  Exchange Online session disconnected.`n" -ForegroundColor DarkGray
+} # end outer continueScript loop
 
 # --- Future enhancement notes ---
 # The following scenarios are not currently handled and may warrant wizard-style
