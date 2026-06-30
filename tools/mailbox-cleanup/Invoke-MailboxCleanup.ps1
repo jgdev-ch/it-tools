@@ -157,6 +157,17 @@ function Get-TrackingBlob {
     } catch { return $null }
 }
 
+function ConvertTo-ComplianceFolderId {
+    param([string]$FolderId)
+    if ([string]::IsNullOrWhiteSpace($FolderId)) { return $null }
+    try {
+        $bytes = [System.Convert]::FromBase64String($FolderId)
+        return [System.Convert]::ToBase64String($bytes)
+    } catch {
+        return $null
+    }
+}
+
 # --- Main ---
 Write-Host ""
 Write-Host "  ================================================" -ForegroundColor DarkCyan
