@@ -636,7 +636,7 @@ if ($folderCleanupMode) {
     Write-Host ""
     Write-Detail "Connecting to Security & Compliance..." Cyan
     try {
-        Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+        Connect-IPPSSession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
         Write-Detail "Security & Compliance: connected" Green
     } catch {
         Write-Detail "ERROR: Could not connect to Security & Compliance. $_" Red
@@ -892,7 +892,7 @@ if ($archiveCleanupMode) {
 
     Write-Detail "Connecting to Security & Compliance..." Cyan
     try {
-        Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+        Connect-IPPSSession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
         Write-Detail "Security & Compliance: connected" Green
     } catch {
         Write-Detail "ERROR: Could not connect to Security & Compliance. $_" Red
