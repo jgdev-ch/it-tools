@@ -161,8 +161,17 @@ function ConvertTo-ComplianceFolderId {
     param([string]$FolderId)
     if ([string]::IsNullOrWhiteSpace($FolderId)) { return $null }
     try {
-        $bytes = [System.Convert]::FromBase64String($FolderId)
-        return [System.Convert]::ToBase64String($bytes)
+        $folderIdPart  = $FolderId.Split("-")[0]
+        $encoding      = [System.Text.Encoding]::GetEncoding("us-ascii")
+        $nibbler       = $encoding.GetBytes("0123456789ABCDEF")
+        $folderIdBytes = [Convert]::FromBase64String($folderIdPart)
+        $indexIdBytes  = New-Object byte[] 48
+        $indexIdIdx    = 0
+        $folderIdBytes | Select-Object -Skip 23 -First 24 | ForEach-Object {
+            $indexIdBytes[$indexIdIdx++] = $nibbler[$_ -shr 4]
+            $indexIdBytes[$indexIdIdx++] = $nibbler[$_ -band 0xf]
+        }
+        return $encoding.GetString($indexIdBytes)
     } catch {
         return $null
     }
