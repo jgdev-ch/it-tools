@@ -396,15 +396,6 @@
       radial-gradient(ellipse 70% 40% at 50% -10%, rgba(226,161,61,.06) 0%, transparent 55%);
   }
 
-  /* Glass cards */
-  .card {
-    background: var(--glass-fill);
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    border-color: var(--glass-border);
-    box-shadow: var(--shadow-sm);
-  }
-
   /* Hero — amber-washed glass tile, the centrepiece of the page */
   .spend-hero {
     background: linear-gradient(135deg, rgba(226,161,61,.22) 0%, var(--glass-fill) 55%);
@@ -424,7 +415,7 @@
     background: linear-gradient(90deg, var(--amber), rgba(226,161,61,.25), transparent 80%);
   }
 
-  /* KPI cards — glass with a full-width 2px accent line */
+  /* KPI cards — glass, no top accent line; value colour carries the identity */
   .kpi-card {
     background: var(--glass-fill);
     backdrop-filter: blur(22px) saturate(180%);
@@ -432,7 +423,7 @@
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-sm);
   }
-  .kpi-card::before { height: 2px; left: 0; right: 0; border-radius: 0; }
+  .kpi-card::before { display: none; }
 
   /* Callout — glass tile, typed by border colour, no blunt left rail */
   .callout {
@@ -475,15 +466,12 @@
     border-color: var(--glass-border);
   }
 
-  /* Tables inside glass cards — transparent so glass shows through */
-  .card table,
+  /* Tables inside glass cards — transparent, amber row hover */
   .proj-table-wrap table { background: transparent; }
-  .card th               { background: rgba(0,0,0,.045); }
   .proj-table-wrap th    { background: rgba(0,0,0,.045); }
-  [data-theme="dark"] .card th,
   [data-theme="dark"] .proj-table-wrap th { background: rgba(255,255,255,.045); }
-  .card tr:hover td      { background: rgba(226,161,61,.06); }
-  [data-theme="dark"] .card tr:hover td { background: rgba(226,161,61,.08); }
+  .card tr:hover td      { background: rgba(226,161,61,.07); }
+  [data-theme="dark"] .card tr:hover td  { background: rgba(226,161,61,.09); }
 
   /* Sticky headers in inactive/active tables */
   #inactiveTableWrap thead th,

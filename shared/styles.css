@@ -323,9 +323,19 @@ a:hover { text-decoration: underline; }
    CARDS
 ───────────────────────────────────────────────────────────── */
 .card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem;
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  box-shadow: var(--shadow-sm);
 }
+/* Tables inside glass cards */
+.card table   { background: transparent; }
+.card th      { background: rgba(0,0,0,.04); }
+[data-theme="dark"] .card th { background: rgba(255,255,255,.04); }
 .card-title {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .05em; color: var(--muted); margin-bottom: 1rem;
