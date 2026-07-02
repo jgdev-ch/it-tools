@@ -213,6 +213,28 @@ body::before {
 }
 .btn-signin.loading { opacity: .55; pointer-events: none; }
 
+/* ── Downloads dropdown panel ── */
+.downloads-panel {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  background: var(--glass-fill);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px; box-shadow: var(--shadow-md);
+  width: 480px; max-width: calc(100vw - 32px);
+  z-index: 200; overflow: hidden;
+}
+.downloads-panel-head {
+  padding: 12px 14px 10px; border-bottom: 1px solid var(--glass-border);
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--ink-dim);
+}
+.downloads-panel-list {
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  max-height: 70vh; overflow-y: auto;
+}
+.downloads-panel .dl-row { border-radius: 12px; }
+
 /* ── Page shell ── */
 .hub-shell { max-width: 1300px; margin: 0 auto; padding: 2.25rem 1.5rem 5rem; position: relative; z-index: 1; }
 
@@ -474,6 +496,16 @@ body::before {
     </a>
 
     <div style="position:relative">
+      <button type="button" class="btn-icon" id="downloadsBtn" onclick="toggleDownloadsDropdown()" title="Scripts &amp; Downloads" aria-label="Scripts and Downloads" aria-expanded="false" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+      <div class="downloads-panel" id="downloadsPanel" style="display:none">
+        <div class="downloads-panel-head">Scripts &amp; Downloads</div>
+        <div class="downloads-panel-list" id="downloadsPanelList"></div>
+      </div>
+    </div>
+
+    <div style="position:relative">
       <button type="button" class="account-btn" id="accountBtn" onclick="toggleAccountDropdown()" style="display:none" aria-label="Account menu" aria-expanded="false" aria-controls="accountDropdown">
         <span id="accountInitials"></span>
       </button>
@@ -523,14 +555,6 @@ body::before {
       <div class="skeleton-card"></div>
       <div class="skeleton-card"></div>
     </div>
-  </div>
-
-  <div id="downloadsSection" style="display:none;margin-top:1.5rem;margin-bottom:1.5rem">
-    <div class="section-label" id="downloadsToggle" onclick="toggleDownloads()" style="cursor:pointer;display:flex;align-items:center;user-select:none">
-      Scripts &amp; Downloads
-      <span id="downloadsChevron" style="font-size:14px;color:var(--ink-dim);margin-left:auto;line-height:1">▾</span>
-    </div>
-    <div id="downloadsGrid" class="downloads-grid"></div>
   </div>
 
   <button class="setup-toggle" id="setupToggle" onclick="toggleSetup()">
@@ -1009,31 +1033,26 @@ async function loadDownloads() {
     const res  = await fetch("downloads.json?v=" + Date.now());
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
-    document.getElementById("downloadsGrid").innerHTML = data.scripts.map(buildDownloadRow).join("");
-    document.getElementById("downloadsSection").style.display = "";
-    applyDownloadsCollapse(localStorage.getItem('it-tools-downloads-open') !== 'false');
+    document.getElementById("downloadsPanelList").innerHTML = data.scripts.map(buildDownloadRow).join("");
+    document.getElementById("downloadsBtn").style.display = "flex";
   } catch(_) {}
 }
 
 function hideDownloads() {
-  const section = document.getElementById("downloadsSection");
-  if (!section) return;
-  section.style.display = "none";
-  document.getElementById("downloadsGrid").innerHTML = "";
+  const btn   = document.getElementById("downloadsBtn");
+  const panel = document.getElementById("downloadsPanel");
+  const list  = document.getElementById("downloadsPanelList");
+  if (btn)   btn.style.display   = "none";
+  if (panel) panel.style.display = "none";
+  if (list)  list.innerHTML = "";
 }
 
-function toggleDownloads() {
-  const open = localStorage.getItem('it-tools-downloads-open') !== 'false';
-  const next = !open;
-  localStorage.setItem('it-tools-downloads-open', String(next));
-  applyDownloadsCollapse(next);
-}
-
-function applyDownloadsCollapse(open) {
-  const grid    = document.getElementById('downloadsGrid');
-  const chevron = document.getElementById('downloadsChevron');
-  if (grid)    grid.style.display  = open ? '' : 'none';
-  if (chevron) chevron.textContent = open ? '▾' : '▸';
+function toggleDownloadsDropdown() {
+  const panel = document.getElementById("downloadsPanel");
+  const btn   = document.getElementById("downloadsBtn");
+  const isOpen = panel.style.display !== "none";
+  panel.style.display = isOpen ? "none" : "block";
+  btn.setAttribute("aria-expanded", String(!isOpen));
 }
 
 // ── Setup toggle ──────────────────────────────────────────────────────────────
@@ -1071,21 +1090,37 @@ function toggleAccountDropdown() {
 document.addEventListener("click", e => {
   const dropdown = document.getElementById("accountDropdown");
   const btn      = document.getElementById("accountBtn");
-  if (!dropdown || dropdown.style.display === "none") return;
-  if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-    dropdown.style.display = "none";
-    btn.classList.remove("open");
-    btn.setAttribute("aria-expanded", "false");
+  if (dropdown && dropdown.style.display !== "none") {
+    if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+      dropdown.style.display = "none";
+      btn.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+  }
+  const dlPanel = document.getElementById("downloadsPanel");
+  const dlBtn   = document.getElementById("downloadsBtn");
+  if (dlPanel && dlPanel.style.display !== "none") {
+    if (!dlPanel.contains(e.target) && !dlBtn.contains(e.target)) {
+      dlPanel.style.display = "none";
+      dlBtn.setAttribute("aria-expanded", "false");
+    }
   }
 });
 
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   const dropdown = document.getElementById("accountDropdown");
-  if (!dropdown || dropdown.style.display === "none") return;
-  const btn = document.getElementById("accountBtn");
-  dropdown.style.display = "none";
-  if (btn) { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+  const btn      = document.getElementById("accountBtn");
+  if (dropdown && dropdown.style.display !== "none") {
+    dropdown.style.display = "none";
+    if (btn) { btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+  }
+  const dlPanel = document.getElementById("downloadsPanel");
+  const dlBtn   = document.getElementById("downloadsBtn");
+  if (dlPanel && dlPanel.style.display !== "none") {
+    dlPanel.style.display = "none";
+    if (dlBtn) dlBtn.setAttribute("aria-expanded", "false");
+  }
 });
 
 loadTools();
