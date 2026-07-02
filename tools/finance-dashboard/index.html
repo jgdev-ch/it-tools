@@ -379,6 +379,100 @@
   .finetune-fill  { height: 100%; border-radius: 3px; background: var(--amber); transition: width .3s ease; }
 
   /* ══════════════════════════════════════════════════════
+     GLASS CONTROL CENTER — License Spend
+  ══════════════════════════════════════════════════════ */
+
+  /* Amber identity mesh — overrides the neutral glow from shared/styles.css */
+  body::before {
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 15%, rgba(226,161,61,.15) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 45% at 15% 85%, rgba(146,64,14,.10) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 40% at 50% -5%, rgba(255,255,255,.30) 0%, transparent 55%);
+  }
+  [data-theme="dark"] body::before {
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 15%, rgba(226,161,61,.10) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 45% at 15% 85%, rgba(146,64,14,.07) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 40% at 50% -5%, rgba(226,161,61,.04) 0%, transparent 55%);
+  }
+
+  /* Glass cards */
+  .card {
+    background: var(--glass-fill);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Glass spend hero */
+  .spend-hero {
+    background: var(--glass-fill);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Glass KPI cards */
+  .kpi-card {
+    background: var(--glass-fill);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Glass print btn */
+  .action-row .btn-print {
+    background: var(--glass-fill);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border-color: var(--glass-border);
+  }
+
+  /* Glass step tracker + finetune bar */
+  .step-tracker {
+    background: var(--glass-fill);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border-color: var(--glass-border);
+  }
+  .finetune-bar {
+    background: var(--glass-fill);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border-color: var(--glass-border);
+  }
+
+  /* Glass access denied card */
+  .access-card {
+    background: var(--glass-fill);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border-color: var(--glass-border);
+  }
+
+  /* Tables inside glass cards — let the glass show through */
+  .card table,
+  .proj-table-wrap table { background: transparent; }
+  .card th               { background: rgba(0,0,0,.04); }
+  .proj-table-wrap th    { background: rgba(0,0,0,.04); }
+  [data-theme="dark"] .card th,
+  [data-theme="dark"] .proj-table-wrap th { background: rgba(255,255,255,.04); }
+
+  /* Sticky headers in inactive/active tables — glass blur so content scrolls behind */
+  #inactiveTableWrap thead th,
+  #activeTableWrap thead th {
+    background: transparent;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+  }
+
+  /* Proj table border */
+  .proj-table-wrap { border-color: var(--glass-border); }
+
+  /* ══════════════════════════════════════════════════════
      PRINT / PDF
   ══════════════════════════════════════════════════════ */
 
@@ -840,7 +934,7 @@ let _inactiveCtx = { users: [], days: 90, col: "cost", dir: -1 };
 let _activeCtx   = { users: [], days: 90, col: "cost", dir: -1, multiOnly: true };
 
 // ── Chart.js global defaults ───────────────────────────────────────────────────
-Chart.defaults.font.family = "'Open Sans', 'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 function destroyCharts() {
   Object.values(_charts).forEach(c => c?.destroy());
@@ -853,7 +947,7 @@ function cd() {
   return {
     text:   dark ? "#64748b" : "#94a3b8",
     grid:   dark ? "rgba(255,255,255,.05)" : "rgba(0,0,0,.05)",
-    bg:     dark ? "#0c1020" : "#ffffff",
+    bg:     dark ? "#17181d" : "#ffffff",
     border: dark ? "#1e2a3a" : "#e2e8f0",
     mono:   "'JetBrains Mono', 'Cascadia Code', monospace",
   };
