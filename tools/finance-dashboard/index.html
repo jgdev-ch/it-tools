@@ -382,18 +382,18 @@
      GLASS CONTROL CENTER — License Spend
   ══════════════════════════════════════════════════════ */
 
-  /* Amber identity mesh — overrides the neutral glow from shared/styles.css */
+  /* Amber identity mesh — bold enough to make the glass visible */
   body::before {
     background:
-      radial-gradient(ellipse 60% 50% at 80% 15%, rgba(226,161,61,.15) 0%, transparent 65%),
-      radial-gradient(ellipse 50% 45% at 15% 85%, rgba(146,64,14,.10) 0%, transparent 60%),
-      radial-gradient(ellipse 80% 40% at 50% -5%, rgba(255,255,255,.30) 0%, transparent 55%);
+      radial-gradient(ellipse 55% 55% at 90% 10%, rgba(226,161,61,.32) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 50% at 10% 90%, rgba(146,64,14,.22) 0%, transparent 58%),
+      radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.28) 0%, transparent 55%);
   }
   [data-theme="dark"] body::before {
     background:
-      radial-gradient(ellipse 60% 50% at 80% 15%, rgba(226,161,61,.10) 0%, transparent 65%),
-      radial-gradient(ellipse 50% 45% at 15% 85%, rgba(146,64,14,.07) 0%, transparent 60%),
-      radial-gradient(ellipse 80% 40% at 50% -5%, rgba(226,161,61,.04) 0%, transparent 55%);
+      radial-gradient(ellipse 55% 55% at 90% 10%, rgba(226,161,61,.18) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 50% at 10% 90%, rgba(146,64,14,.12) 0%, transparent 58%),
+      radial-gradient(ellipse 70% 40% at 50% -10%, rgba(226,161,61,.06) 0%, transparent 55%);
   }
 
   /* Glass cards */
@@ -405,16 +405,26 @@
     box-shadow: var(--shadow-sm);
   }
 
-  /* Glass spend hero */
+  /* Hero — amber-washed glass tile, the centrepiece of the page */
   .spend-hero {
-    background: var(--glass-fill);
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    border-color: var(--glass-border);
-    box-shadow: var(--shadow-sm);
+    background: linear-gradient(135deg, rgba(226,161,61,.22) 0%, var(--glass-fill) 55%);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border-color: rgba(226,161,61,.35);
+    box-shadow: 0 4px 24px rgba(226,161,61,.12), var(--shadow-sm);
+  }
+  [data-theme="dark"] .spend-hero {
+    background: linear-gradient(135deg, rgba(226,161,61,.14) 0%, var(--glass-fill) 55%);
+    border-color: rgba(226,161,61,.22);
+    box-shadow: 0 4px 24px rgba(226,161,61,.10), var(--shadow-sm);
+  }
+  /* Full-width amber rule instead of centred segment */
+  .spend-hero::before {
+    left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--amber), rgba(226,161,61,.25), transparent 80%);
   }
 
-  /* Glass KPI cards */
+  /* KPI cards — glass with a full-width 2px accent line */
   .kpi-card {
     background: var(--glass-fill);
     backdrop-filter: blur(22px) saturate(180%);
@@ -422,8 +432,20 @@
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-sm);
   }
+  .kpi-card::before { height: 2px; left: 0; right: 0; border-radius: 0; }
 
-  /* Glass print btn */
+  /* Callout — glass tile, typed by border colour, no blunt left rail */
+  .callout {
+    border-left-width: 1px;
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+  }
+  .callout.savings { background: rgba(4,120,87,.08);  border-color: rgba(4,120,87,.25); }
+  .callout.warning { background: rgba(146,64,14,.08); border-color: rgba(146,64,14,.25); }
+  [data-theme="dark"] .callout.savings { background: rgba(52,199,111,.08);  border-color: rgba(52,199,111,.22); }
+  [data-theme="dark"] .callout.warning { background: rgba(226,161,61,.08); border-color: rgba(226,161,61,.22); }
+
+  /* Print + action buttons — glass */
   .action-row .btn-print {
     background: var(--glass-fill);
     backdrop-filter: blur(16px) saturate(160%);
@@ -431,7 +453,7 @@
     border-color: var(--glass-border);
   }
 
-  /* Glass step tracker + finetune bar */
+  /* Step tracker + finetune bar — glass */
   .step-tracker {
     background: var(--glass-fill);
     backdrop-filter: blur(16px) saturate(160%);
@@ -445,7 +467,7 @@
     border-color: var(--glass-border);
   }
 
-  /* Glass access denied card */
+  /* Access denied card — glass */
   .access-card {
     background: var(--glass-fill);
     backdrop-filter: blur(22px) saturate(180%);
@@ -453,15 +475,17 @@
     border-color: var(--glass-border);
   }
 
-  /* Tables inside glass cards — let the glass show through */
+  /* Tables inside glass cards — transparent so glass shows through */
   .card table,
   .proj-table-wrap table { background: transparent; }
-  .card th               { background: rgba(0,0,0,.04); }
-  .proj-table-wrap th    { background: rgba(0,0,0,.04); }
+  .card th               { background: rgba(0,0,0,.045); }
+  .proj-table-wrap th    { background: rgba(0,0,0,.045); }
   [data-theme="dark"] .card th,
-  [data-theme="dark"] .proj-table-wrap th { background: rgba(255,255,255,.04); }
+  [data-theme="dark"] .proj-table-wrap th { background: rgba(255,255,255,.045); }
+  .card tr:hover td      { background: rgba(226,161,61,.06); }
+  [data-theme="dark"] .card tr:hover td { background: rgba(226,161,61,.08); }
 
-  /* Sticky headers in inactive/active tables — glass blur so content scrolls behind */
+  /* Sticky headers in inactive/active tables */
   #inactiveTableWrap thead th,
   #activeTableWrap thead th {
     background: transparent;
