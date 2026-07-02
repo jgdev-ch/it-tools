@@ -287,13 +287,18 @@ body::before {
   transition: transform .2s, box-shadow .2s, border-color .2s;
   animation: cardIn .45s ease both;
 }
-.tool-card:nth-child(1) { animation-delay: .04s; }
-.tool-card:nth-child(2) { animation-delay: .08s; }
-.tool-card:nth-child(3) { animation-delay: .12s; }
-.tool-card:nth-child(4) { animation-delay: .16s; }
-.tool-card:nth-child(5) { animation-delay: .20s; }
-.tool-card:nth-child(6) { animation-delay: .24s; }
-.tool-card:nth-child(7) { animation-delay: .28s; }
+.tool-card:nth-child(1)  { animation-delay: .04s; }
+.tool-card:nth-child(2)  { animation-delay: .08s; }
+.tool-card:nth-child(3)  { animation-delay: .12s; }
+.tool-card:nth-child(4)  { animation-delay: .16s; }
+.tool-card:nth-child(5)  { animation-delay: .20s; }
+.tool-card:nth-child(6)  { animation-delay: .24s; }
+.tool-card:nth-child(7)  { animation-delay: .28s; }
+.tool-card:nth-child(8)  { animation-delay: .32s; }
+.tool-card:nth-child(9)  { animation-delay: .36s; }
+.tool-card:nth-child(10) { animation-delay: .40s; }
+.tool-card:nth-child(11) { animation-delay: .44s; }
+.tool-card:nth-child(12) { animation-delay: .48s; }
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(12px) scale(.98); }
   to   { opacity: 1; transform: translateY(0)    scale(1);   }
@@ -670,7 +675,7 @@ function statusDotHtml(status) {
   </div>`;
 }
 
-function buildLiveCard({ path, accent, icon, status, name, desc, betaNote }) {
+function buildLiveCard({ path, accent, icon, status, name, desc }) {
   return `<a class="tool-card" href="${path}" style="--tool-accent:${accent}">
     <div class="tool-icon-sq">${icon}</div>
     <div class="tool-name">${name}</div>
@@ -679,13 +684,11 @@ function buildLiveCard({ path, accent, icon, status, name, desc, betaNote }) {
   </a>`;
 }
 
-function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, perms, betaNote }) {
-  const permsStr = (perms || []).join("|");
+function buildLockedCard({ gateKey, path, accent, icon, status, name, desc }) {
   return `<div class="tool-card locked" data-gate="${gateKey}"
-      data-path="${path}" data-accent="${accent}" data-iconbg="${iconBg}"
+      data-path="${path}" data-accent="${accent}"
       data-icon="${icon}" data-status="${status}"
-      data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
-      data-betanote="${betaNote || ""}"
+      data-name="${name}" data-desc="${desc}"
       style="--tool-accent:${accent}">
     <div class="tool-icon-sq">${icon}</div>
     <div class="tool-name">${name}</div>
@@ -701,13 +704,12 @@ function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, de
 function unlockCard(gateKey) {
   document.querySelectorAll(`[data-gate="${gateKey}"]`).forEach(locked => {
     locked.outerHTML = buildLiveCard({
-      path:     locked.dataset.path,
-      accent:   locked.dataset.accent || locked.dataset.iconbg,
-      icon:     locked.dataset.icon,
-      status:   locked.dataset.status,
-      name:     locked.dataset.name,
-      desc:     locked.dataset.desc,
-      betaNote: locked.dataset.betanote || "",
+      path:   locked.dataset.path,
+      accent: locked.dataset.accent,
+      icon:   locked.dataset.icon,
+      status: locked.dataset.status,
+      name:   locked.dataset.name,
+      desc:   locked.dataset.desc,
     });
   });
 }
@@ -720,15 +722,12 @@ function lockCard(gateKey) {
     if (!live) continue;
     live.outerHTML = buildLockedCard({
       gateKey,
-      path:     meta.path,
-      accent:   meta.accent,
-      iconBg:   meta.iconBg,
-      icon:     meta.icon,
-      status:   meta.status,
-      name:     meta.name,
-      desc:     meta.desc,
-      perms:    meta.perms,
-      betaNote: meta.betaNote || "",
+      path:   meta.path,
+      accent: meta.accent,
+      icon:   meta.icon,
+      status: meta.status,
+      name:   meta.name,
+      desc:   meta.desc,
     });
   }
 }
@@ -894,13 +893,10 @@ async function loadTools() {
     const clickable = ["live", "beta"];
 
     function cardHtml(tool) {
-      const perms = tool.permissions || [];
-
       if (tool.financeOnly) {
         const meta = {
-          path: tool.path, accent: tool.accent, iconBg: tool.iconBg, icon: tool.icon,
+          path: tool.path, accent: tool.accent, icon: tool.icon,
           status: tool.status, name: tool.name, desc: tool.description,
-          perms, betaNote: tool.betaNote || "",
         };
         if (!_gateCardMeta["finance"]) _gateCardMeta["finance"] = [];
         _gateCardMeta["finance"].push(meta);
@@ -909,9 +905,8 @@ async function loadTools() {
 
       if (tool.reportingOnly) {
         const meta = {
-          path: tool.path, accent: tool.accent, iconBg: tool.iconBg, icon: tool.icon,
+          path: tool.path, accent: tool.accent, icon: tool.icon,
           status: tool.status, name: tool.name, desc: tool.description,
-          perms, betaNote: tool.betaNote || "",
         };
         if (!_gateCardMeta["reporting"]) _gateCardMeta["reporting"] = [];
         _gateCardMeta["reporting"].push(meta);
