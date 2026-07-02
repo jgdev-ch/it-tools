@@ -233,7 +233,6 @@ body::before {
   padding: 10px; display: flex; flex-direction: column; gap: 8px;
   max-height: 70vh; overflow-y: auto;
 }
-.downloads-panel .dl-row { border-radius: 12px; }
 
 /* ── Page shell ── */
 .hub-shell { max-width: 1300px; margin: 0 auto; padding: 2.25rem 1.5rem 5rem; position: relative; z-index: 1; }
@@ -421,16 +420,13 @@ body::before {
 .footer-links a:hover { color: var(--blue); }
 
 /* ── Downloads section ── */
-.downloads-grid { display: flex; flex-direction: column; gap: 10px; }
 .dl-row {
   background: var(--glass-fill); border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  border-radius: 0 16px 16px 0;
-  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
-}
-.dl-icon-badge {
-  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  box-shadow: var(--shadow-sm);
+  border-radius: 14px;
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px;
 }
 .dl-main  { flex: 1; min-width: 0; }
 .dl-top   { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
@@ -976,8 +972,7 @@ async function loadTools() {
 // ── Downloads section ─────────────────────────────────────────────────────────
 const GITHUB_RAW = "https://raw.githubusercontent.com/jgdev-ch/it-tools/main/";
 
-const _DL_SCRIPT_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`;
-const _DL_BTN_ICON    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const _DL_BTN_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 
 async function downloadFile(path) {
   try {
@@ -1010,8 +1005,7 @@ function buildDownloadRow(script) {
     .join("");
 
   return `
-    <div class="dl-row" style="border-left:3px solid ${script.accent}">
-      <div class="dl-icon-badge" style="background:${script.iconBg}">${_DL_SCRIPT_ICON}</div>
+    <div class="dl-row">
       <div class="dl-main">
         <div class="dl-top">
           <span class="dl-name">${script.name}</span>
