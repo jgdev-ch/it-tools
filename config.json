@@ -9,7 +9,7 @@
       "status": "beta",
       "path": "tools/license-audit/",
       "permissions": ["User.Read.All", "AuditLog.Read.All"],
-      "accent": "var(--blue)",
+      "accent": "var(--accent-blue)",
       "iconBg": "#e8f0fe",
       "category": "reporting-audit",
       "reportingOnly": true
@@ -22,7 +22,7 @@
       "status": "live",
       "path": "tools/group-import/",
       "permissions": ["Group.ReadWrite.All", "GroupMember.ReadWrite.All"],
-      "accent": "var(--green)",
+      "accent": "var(--accent-green)",
       "iconBg": "#d1fae5",
       "category": "daily-ops"
     },
@@ -35,7 +35,7 @@
       "status": "beta",
       "path": "tools/name-resolver/",
       "permissions": ["User.Read.All", "Directory.Read.All"],
-      "accent": "var(--blue)",
+      "accent": "var(--accent-blue)",
       "iconBg": "#e8f0fe",
       "category": "daily-ops"
     },
@@ -48,7 +48,7 @@
       "status": "beta",
       "path": "tools/mfa-status/",
       "permissions": ["UserAuthMethod.Read.All"],
-      "accent": "var(--amber)",
+      "accent": "var(--accent-amber)",
       "iconBg": "#fef3c7",
       "category": "reporting-audit",
       "reportingOnly": true
@@ -62,7 +62,7 @@
       "status": "beta",
       "path": "tools/guest-audit/",
       "permissions": ["User.Read.All", "User.ReadWrite.All", "Directory.Read.All", "AuditLog.Read.All"],
-      "accent": "var(--purple)",
+      "accent": "var(--accent-purple)",
       "iconBg": "#ede9fe",
       "category": "reporting-audit",
       "reportingOnly": true
@@ -76,7 +76,7 @@
       "status": "beta",
       "path": "tools/finance-dashboard/",
       "permissions": ["User.Read.All", "AuditLog.Read.All", "Directory.Read.All"],
-      "accent": "var(--amber)",
+      "accent": "var(--accent-amber)",
       "iconBg": "#fef3c7",
       "financeOnly": true,
       "category": "reporting-audit"
@@ -89,7 +89,7 @@
       "status": "live",
       "path": "tools/adobe-license-monitor/",
       "permissions": ["User.Read", "GroupMember.Read.All"],
-      "accent": "var(--red)",
+      "accent": "var(--accent-red)",
       "iconBg": "#fee2e2",
       "category": "reporting-audit"
     }
