@@ -272,14 +272,26 @@ body::before {
 }
 .tool-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-mid);
+  background: rgba(255,255,255,.56);
+  border-color: rgba(255,255,255,.90);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.12),
+    0 2px 6px rgba(0,0,0,.06),
+    inset 0 1px 0 rgba(255,255,255,.70);
   text-decoration: none;
 }
+[data-theme="dark"] .tool-card:hover {
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.28);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.10),
+    0 8px 32px rgba(0,0,0,.55),
+    inset 0 1px 0 rgba(255,255,255,.16);
+}
 .tool-card.no-hover { cursor: default; }
-.tool-card.no-hover:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--glass-border); }
+.tool-card.no-hover:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); }
 .tool-card.locked { opacity: .72; cursor: default; }
-.tool-card.locked:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--glass-border); opacity: .72; }
+.tool-card.locked:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); opacity: .72; }
 
 /* ── Icon square ── */
 .tool-icon-sq {
