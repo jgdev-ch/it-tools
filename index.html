@@ -8,29 +8,131 @@
 <script src="shared/auth.js"></script>
 <link rel="stylesheet" href="shared/styles.css"/>
 <style>
-/* ── Hub topbar (unique: has sign-in btn + GitHub link) ── */
+/* ── Glass Control Center token overrides ── */
+:root {
+  --blue:         #1a56db;
+  --green:        #047857;
+  --purple:       #5b21b6;
+  --amber:        #92400e;
+  --red:          #9a0000;
+
+  --ink:          #1c1c1e;
+  --ink-dim:      #6e6e73;
+  --text:         #1c1c1e;
+  --muted:        #6e6e73;
+  --muted2:       #9a9a9f;
+
+  --page-1:       #eef0f4;
+  --page-2:       #dde1e8;
+  --bg:           #eef0f4;
+
+  --glass-fill:   rgba(255,255,255,.42);
+  --glass-border: rgba(255,255,255,.65);
+  --icon-text:    #ffffff;
+
+  --surface:      rgba(255,255,255,.55);
+  --surface2:     rgba(255,255,255,.30);
+  --border:       rgba(255,255,255,.50);
+  --border-mid:   rgba(255,255,255,.75);
+
+  --shadow-sm:    0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:    0 8px 32px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.06);
+}
+[data-theme="dark"] {
+  --blue:         #4c8dff;
+  --green:        #34c76f;
+  --purple:       #a878f0;
+  --amber:        #e2a13d;
+  --red:          #ea6a60;
+
+  --ink:          #f3f3f6;
+  --ink-dim:      #94969c;
+  --text:         #f3f3f6;
+  --muted:        #94969c;
+  --muted2:       #6e7077;
+
+  --page-1:       #0e0f13;
+  --page-2:       #17181d;
+  --bg:           #0e0f13;
+
+  --glass-fill:   rgba(255,255,255,.055);
+  --glass-border: rgba(255,255,255,.10);
+  --icon-text:    #0e0f13;
+
+  --surface:      rgba(255,255,255,.07);
+  --surface2:     rgba(255,255,255,.04);
+  --border:       rgba(255,255,255,.09);
+  --border-mid:   rgba(255,255,255,.15);
+
+  --shadow-sm:    0 2px 8px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.25);
+  --shadow-md:    0 8px 32px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.30);
+}
+
+/* ── Page background — accent color mesh ── */
+body {
+  background: linear-gradient(145deg, var(--page-1), var(--page-2));
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 65% 55% at 12% 18%,  rgba(26,86,219,.13)  0%, transparent 65%),
+    radial-gradient(ellipse 55% 50% at 88% 12%,  rgba(4,120,87,.11)   0%, transparent 65%),
+    radial-gradient(ellipse 50% 65% at 92% 82%,  rgba(91,33,182,.13)  0%, transparent 65%),
+    radial-gradient(ellipse 65% 40% at 8%  88%,  rgba(146,64,14,.11)  0%, transparent 65%),
+    radial-gradient(ellipse 75% 55% at 52% 52%,  rgba(154,0,0,.07)    0%, transparent 65%);
+}
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(ellipse 65% 55% at 12% 18%,  rgba(76,141,255,.11)  0%, transparent 65%),
+    radial-gradient(ellipse 55% 50% at 88% 12%,  rgba(52,199,111,.10)  0%, transparent 65%),
+    radial-gradient(ellipse 50% 65% at 92% 82%,  rgba(168,120,240,.11) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 40% at 8%  88%,  rgba(226,161,61,.10)  0%, transparent 65%),
+    radial-gradient(ellipse 75% 55% at 52% 52%,  rgba(234,106,96,.07)  0%, transparent 65%);
+}
+
+/* ── Hub topbar ── */
 .hub-topbar {
   height: var(--topbar-h);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass-fill);
+  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 1.75rem;
   position: sticky; top: 0; z-index: 100;
-  box-shadow: var(--shadow-sm);
 }
 .hub-brand { display: flex; align-items: center; gap: 10px; }
 .hub-brand-icon {
   width: 32px; height: 32px; border-radius: 9px;
-  background: var(--surface2); border: 1px solid var(--border);
+  background: var(--glass-fill); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
   display: flex; align-items: center; justify-content: center;
 }
-.hub-brand-name { font-size: 16px; font-weight: 800; letter-spacing: -.025em; }
+.hub-brand-name { font-size: 16px; font-weight: 800; letter-spacing: -.025em; color: var(--ink); }
 .hub-brand-tag {
-  font-size: 10px; font-weight: 600; color: var(--blue-mid);
-  background: var(--blue-light); border: 1px solid var(--blue-border);
+  font-size: 10px; font-weight: 600; color: var(--ink-dim);
+  background: var(--glass-fill); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
   padding: 2px 10px; border-radius: 20px; letter-spacing: .02em;
+  white-space: nowrap;
 }
 .hub-topbar-right { display: flex; align-items: center; gap: 8px; }
+
+/* btn-icon override for hub topbar */
+.hub-topbar .btn-icon {
+  border-color: var(--glass-border);
+  background: transparent;
+  color: var(--ink-dim);
+}
+.hub-topbar .btn-icon:hover {
+  background: rgba(255,255,255,.25);
+  color: var(--ink);
+}
+[data-theme="dark"] .hub-topbar .btn-icon:hover {
+  background: rgba(255,255,255,.10);
+}
 
 /* ── Account avatar button ── */
 .account-btn {
@@ -41,18 +143,21 @@
   transition: opacity .15s; flex-shrink: 0;
 }
 .account-btn:hover { opacity: .85; }
-.account-btn.open { box-shadow: 0 0 0 2px var(--surface2), 0 0 0 4px var(--blue); }
+.account-btn.open { box-shadow: 0 0 0 2px rgba(255,255,255,.3), 0 0 0 4px var(--blue); }
 
 /* ── Account dropdown panel ── */
 .account-dropdown {
   position: absolute; right: 0; top: calc(100% + 8px);
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; box-shadow: 0 8px 32px rgba(100,80,60,.25);
+  background: var(--glass-fill);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px; box-shadow: var(--shadow-md);
   min-width: 220px; max-width: 320px; z-index: 200; overflow: hidden;
 }
 .account-panel-head {
   display: flex; align-items: center; gap: 10px;
-  padding: 13px 14px 12px; border-bottom: 1px solid var(--border);
+  padding: 13px 14px 12px; border-bottom: 1px solid var(--glass-border);
 }
 .account-panel-avatar {
   width: 36px; height: 36px; border-radius: 50%;
@@ -60,12 +165,12 @@
   font-size: 13px; font-weight: 800; color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
-.account-panel-name  { font-size: 13px; font-weight: 700; color: var(--text); }
-.account-panel-email { font-size: 11px; color: var(--muted2); margin-top: 1px; }
+.account-panel-name  { font-size: 13px; font-weight: 700; color: var(--ink); }
+.account-panel-email { font-size: 11px; color: var(--ink-dim); margin-top: 1px; }
 .account-panel-access { padding: 10px 14px 8px; }
 .account-panel-access-label {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--muted2); margin-bottom: 7px;
+  letter-spacing: .06em; color: var(--ink-dim); margin-bottom: 7px;
 }
 .account-panel-pills { display: flex; flex-direction: column; gap: 5px; }
 .account-pill {
@@ -74,257 +179,272 @@
   font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   width: fit-content;
 }
-.account-pill--amber { background: var(--amber-light); border: 1px solid var(--amber-border); color: var(--amber); }
-.account-pill--blue  { background: var(--blue-light);  border: 1px solid var(--blue-border);  color: var(--blue-dark); }
-.account-panel-divider { height: 1px; background: var(--border); }
+.account-pill--amber { background: rgba(146,64,14,.12); border: 1px solid rgba(146,64,14,.25); color: var(--amber); }
+.account-pill--blue  { background: rgba(26,86,219,.10);  border: 1px solid rgba(26,86,219,.20);  color: var(--blue); }
+[data-theme="dark"] .account-pill--amber { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25); }
+[data-theme="dark"] .account-pill--blue  { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25); }
+.account-panel-divider { height: 1px; background: var(--glass-border); }
 .account-panel-signout {
   display: flex; align-items: center; gap: 8px;
   width: 100%; padding: 10px 14px;
   background: transparent; border: none;
-  font-size: 12px; color: var(--muted2); cursor: pointer;
-  text-align: left; font-family: inherit;
+  font-size: 12px; color: var(--ink-dim); cursor: pointer;
+  text-align: left; font-family: inherit; transition: all .15s;
 }
-.account-panel-signout:hover { color: var(--red); background: var(--red-light); }
+.account-panel-signout:hover { color: var(--red); background: rgba(154,0,0,.06); }
+[data-theme="dark"] .account-panel-signout:hover { background: rgba(234,106,96,.10); }
 
 .btn-signin {
   display: flex; align-items: center; gap: 7px;
-  padding: 7px 15px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); background: var(--surface);
-  font-size: 12px; font-weight: 600; color: var(--muted);
+  padding: 7px 15px; border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-fill);
+  backdrop-filter: blur(12px);
+  font-size: 12px; font-weight: 600; color: var(--ink);
   cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
-  letter-spacing: .01em;
 }
-.btn-signin:hover { background: var(--blue-light); color: var(--blue-dark); border-color: var(--blue-border); }
+.btn-signin:hover {
+  background: rgba(255,255,255,.65);
+  border-color: rgba(255,255,255,.85);
+}
+[data-theme="dark"] .btn-signin:hover {
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.18);
+}
 .btn-signin.loading { opacity: .55; pointer-events: none; }
 
 /* ── Page shell ── */
 .hub-shell { max-width: 880px; margin: 0 auto; padding: 2.25rem 1.5rem 5rem; position: relative; z-index: 1; }
 
-/* ── Slim title bar ── */
+/* ── Title bar ── */
 .hub-title-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 1.5rem;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 2rem; gap: 12px;
 }
-.hub-title-bar h1 { font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+.hub-title-bar h1 { font-size: 22px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.hub-subtitle { font-size: 12px; color: var(--ink-dim); margin-top: 5px; line-height: 1.5; }
 .hub-count-pill {
-  font-size: 12px; color: var(--muted);
-  background: var(--surface3); border: 1px solid var(--border);
-  border-radius: 20px; padding: 3px 12px;
+  font-size: 12px; color: var(--ink-dim);
+  background: var(--glass-fill); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  border-radius: 20px; padding: 3px 12px; white-space: nowrap; flex-shrink: 0;
+  margin-top: 3px;
 }
 
-/* ── Tools grid — 2 columns ── */
+/* ── Section label ── */
+.section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--ink-dim); margin-bottom: 13px; padding-left: 2px;
+}
+
+/* ── Tools grid ── */
 .tools-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px; margin-bottom: 2rem;
+  gap: 14px; margin-bottom: 2rem;
 }
 @media (max-width: 600px) { .tools-grid { grid-template-columns: 1fr; } }
 
-/* ── Tool card ── */
+/* ── Tool card — glass tile ── */
 .tool-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 1.25rem;
-  cursor: pointer; text-decoration: none; color: inherit;
-  display: block; position: relative; overflow: hidden;
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: 26px;
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
   box-shadow: var(--shadow-sm);
-  transition: border-color .2s, box-shadow .2s, transform .2s;
-  animation: cardIn .4s ease both;
+  padding: 1.25rem 1.25rem 2.75rem;
+  position: relative; overflow: hidden;
+  display: block; color: inherit; text-decoration: none; cursor: pointer;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+  animation: cardIn .45s ease both;
 }
 .tool-card:nth-child(1) { animation-delay: .04s; }
 .tool-card:nth-child(2) { animation-delay: .08s; }
 .tool-card:nth-child(3) { animation-delay: .12s; }
 .tool-card:nth-child(4) { animation-delay: .16s; }
+.tool-card:nth-child(5) { animation-delay: .20s; }
+.tool-card:nth-child(6) { animation-delay: .24s; }
+.tool-card:nth-child(7) { animation-delay: .28s; }
 @keyframes cardIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);   }
 }
-.tool-card:hover { border-color: var(--border-mid); box-shadow: var(--shadow-md); transform: translateY(-2px); text-decoration: none; }
+.tool-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-mid);
+  text-decoration: none;
+}
 .tool-card.no-hover { cursor: default; }
-.tool-card.no-hover:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--border); }
-.tool-card.no-hover:hover .tool-desc { opacity: 0; }
-.tool-card.locked { border-style: dashed; cursor: default; }
-.tool-card.locked:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--border); }
+.tool-card.no-hover:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--glass-border); }
+.tool-card.locked { opacity: .72; cursor: default; }
+.tool-card.locked:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--glass-border); opacity: .72; }
 
-/* ── Corner ribbon ── */
-.tool-ribbon {
-  position: absolute; top: 0; right: 0;
-  border-radius: 0 var(--radius) 0 9px;
-  padding: 4px 11px; font-size: 9px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .07em; white-space: nowrap;
-}
-.ribbon-live    { background: var(--green-light);  color: var(--green); }
-.ribbon-beta    { background: var(--blue-light);   color: var(--blue-dark); }
-.ribbon-soon    { background: var(--surface3);     color: var(--muted2); }
-.ribbon-finance { background: var(--amber-light);  color: var(--amber); }
-
-/* ── Status overlay (ribbon hover) — colored glass matching pill ── */
-.tool-card:has(.tool-status-overlay) .tool-ribbon { cursor: help; z-index: 2; }
-.tool-status-overlay {
-  position: absolute; inset: 0; border-radius: var(--radius);
-  backdrop-filter: blur(10px);
-  padding: 1rem; font-size: 12px; line-height: 1.6;
-  display: flex; align-items: center;
-  opacity: 0; transition: opacity .2s; pointer-events: none;
-  z-index: 1;
-}
-.tool-card:has(.tool-status-overlay):has(.tool-ribbon:hover) .tool-desc { opacity: 0; }
-.tool-card:has(.tool-status-overlay):has(.tool-ribbon:hover) .tool-status-overlay { opacity: 1; }
-
-.tool-status-overlay--beta    { background: rgba(219,234,254,.90); border: 1px solid var(--blue-border,  #bfdbfe); color: var(--blue-dark); }
-.tool-status-overlay--live    { background: rgba(209,250,229,.90); border: 1px solid var(--green-border, #a7f3d0); color: var(--green); }
-.tool-status-overlay--finance { background: rgba(254,243,199,.90); border: 1px solid var(--amber-border, #fde68a); color: var(--amber); }
-.tool-status-overlay--soon    { background: rgba(248,250,252,.82); border: 1px solid var(--border-mid);            color: var(--muted); }
-
-[data-theme="dark"] .tool-status-overlay--beta    { background: rgba(23,37,84,.88);  color: #93c5fd; }
-[data-theme="dark"] .tool-status-overlay--live    { background: rgba(6,50,40,.88);   color: #6ee7b7; }
-[data-theme="dark"] .tool-status-overlay--finance { background: rgba(78,45,8,.88);   color: #fcd34d; }
-[data-theme="dark"] .tool-status-overlay--soon    { background: rgba(22,25,35,.84);  color: var(--muted); }
-
-/* ── Card body ── */
-.tool-icon {
-  width: 38px; height: 38px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center; font-size: 18px;
-  background: var(--icon-bg, var(--blue-light));
-  margin-bottom: 13px;
-}
-.tool-name { font-size: 14px; font-weight: 700; }
-.tool-desc {
-  position: absolute; inset: 0; border-radius: var(--radius);
-  background: rgba(254,253,251,.93); backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border-mid);
-  padding: 1rem; font-size: 12px; color: var(--muted); line-height: 1.6;
-  display: flex; align-items: center;
-  opacity: 0; transition: opacity .2s; pointer-events: none;
-}
-[data-theme="dark"] .tool-desc { background: rgba(35,31,28,.94); }
-.tool-card:hover .tool-desc { opacity: 1; }
-.tool-name-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-}
-.lock-hint {
-  font-size: 11px; color: var(--muted2);
-  display: flex; align-items: center; gap: 4px;
-  white-space: nowrap; flex-shrink: 0;
-}
-.tool-card.locked .lock-hint {
-  color: var(--amber);
-}
-
-/* ── Coming-soon frosted overlay ── */
-.tool-overlay {
-  position: absolute; inset: 0; border-radius: var(--radius);
-  background: rgba(245,242,238,.55);
-  backdrop-filter: blur(1.5px);
+/* ── Icon square ── */
+.tool-icon-sq {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--tool-accent, var(--blue));
   display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px; flex-shrink: 0;
+}
+.tool-icon-sq svg { width: 20px; height: 20px; }
+.tool-icon-sq svg, .tool-icon-sq svg * { stroke: var(--icon-text) !important; fill: none !important; }
+
+/* ── Tool name ── */
+.tool-name { font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+
+/* ── Hover description overlay ── */
+.tool-desc {
+  position: absolute; inset: 0; border-radius: 26px;
+  background: rgba(238,240,244,.93);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  padding: 1.25rem; font-size: 12px; color: var(--ink-dim); line-height: 1.6;
+  display: flex; align-items: center;
+  opacity: 0; transition: opacity .18s; pointer-events: none;
+}
+[data-theme="dark"] .tool-desc {
+  background: rgba(14,15,19,.90);
+}
+.tool-card:hover .tool-desc { opacity: 1; }
+.tool-card.no-hover:hover .tool-desc { opacity: 1; }
+.tool-card.locked:hover .tool-desc { opacity: 1; }
+
+/* ── Status dot — bottom-right corner ── */
+.tool-status-dot {
+  position: absolute; bottom: 14px; right: 16px;
+  display: flex; align-items: center; gap: 5px;
   pointer-events: none;
 }
-[data-theme="dark"] .tool-overlay { background: rgba(26,23,20,.55); }
-.tool-overlay-pill {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 20px; padding: 5px 14px;
-  font-size: 11px; font-weight: 700; color: var(--muted);
+.dot-pip {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.dot-label {
+  font-size: 10px; font-weight: 600; color: var(--ink-dim); line-height: 1;
+}
+
+.dot-live             .dot-pip { background: #047857; }
+.dot-beta             .dot-pip { background: #92400e; }
+.dot-coming-soon      .dot-pip,
+.dot-in-development   .dot-pip { background: #9a0000; }
+.dot-deprecated       .dot-pip { background: var(--ink-dim); }
+
+[data-theme="dark"] .dot-live             .dot-pip { background: #34c76f; }
+[data-theme="dark"] .dot-beta             .dot-pip { background: #e2a13d; }
+[data-theme="dark"] .dot-coming-soon      .dot-pip,
+[data-theme="dark"] .dot-in-development   .dot-pip { background: #ea6a60; }
+
+/* ── Lock badge — bottom-left of locked tiles ── */
+.tool-lock-badge {
+  position: absolute; bottom: 14px; left: 16px;
+  color: var(--ink-dim); display: flex; align-items: center;
   pointer-events: none;
 }
 
 /* ── Skeleton ── */
 .skeleton-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); height: 116px;
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: 26px; height: 116px;
+  backdrop-filter: blur(12px);
   animation: hub-shimmer 1.5s infinite;
 }
-@keyframes hub-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-
-/* ── Section label ── */
-.section-label {
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;
-  color: var(--muted2); margin-bottom: 13px; padding-left: 2px;
-}
+@keyframes hub-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 
 /* ── Setup card ── */
-.setup-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 1.25rem;
-  font-size: 13px; line-height: 1.7; color: var(--muted);
-}
-.setup-card strong { color: var(--text); }
-
-/* ── Setup toggle (collapsible pill) ── */
 .setup-toggle {
   display: inline-flex; align-items: center; gap: 7px;
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--glass-fill); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
   border-radius: 20px; padding: 6px 16px 6px 12px;
-  font-size: 12px; font-weight: 600; color: var(--muted);
-  cursor: pointer; font-family: inherit; box-shadow: var(--shadow-sm);
+  font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  cursor: pointer; font-family: inherit;
   transition: border-color .15s, color .15s, background .15s;
 }
-.setup-toggle:hover { border-color: var(--border-mid); color: var(--text); background: var(--surface2); }
+.setup-toggle:hover { border-color: var(--border-mid); color: var(--ink); background: rgba(255,255,255,.55); }
+[data-theme="dark"] .setup-toggle:hover { background: rgba(255,255,255,.10); }
 .setup-toggle.open {
-  border-radius: 8px 8px 0 0; width: 100%;
+  border-radius: 12px 12px 0 0; width: 100%;
   justify-content: flex-start; border-bottom-color: transparent;
 }
-.setup-toggle.open + .setup-card { border-radius: 0 0 var(--radius) var(--radius); border-top: none; }
-.setup-chevron { font-size: 10px; color: var(--muted2); margin-left: auto; }
+.setup-toggle.open + .setup-card { border-radius: 0 0 14px 14px; border-top: none; }
+.setup-chevron { font-size: 10px; color: var(--ink-dim); margin-left: auto; }
+.setup-card {
+  background: var(--glass-fill); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(22px);
+  border-radius: 14px; padding: 1.25rem;
+  font-size: 13px; line-height: 1.7; color: var(--ink-dim);
+}
+.setup-card strong { color: var(--ink); }
 .setup-uri {
   font-family: 'Cascadia Code','Consolas',monospace; font-size: 12px;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 8px 12px; color: var(--text);
+  background: rgba(255,255,255,.35); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm); padding: 8px 12px; color: var(--ink);
   word-break: break-all; margin: .75rem 0;
 }
+[data-theme="dark"] .setup-uri { background: rgba(255,255,255,.05); }
 
 /* ── Footer ── */
 .hub-footer {
-  border-top: 1px solid var(--border); padding: 1.5rem 1.75rem;
+  border-top: 1px solid var(--glass-border); padding: 1.5rem 1.75rem;
   display: flex; align-items: center; justify-content: space-between;
   max-width: 880px; margin: 0 auto;
-  font-size: 12px; color: var(--muted2); flex-wrap: wrap; gap: 10px;
+  font-size: 12px; color: var(--ink-dim); flex-wrap: wrap; gap: 10px;
+  position: relative; z-index: 1;
 }
 .footer-links { display: flex; gap: 16px; }
-.footer-links a { color: var(--muted2); text-decoration: none; }
-.footer-links a:hover { color: var(--blue-mid); }
+.footer-links a { color: var(--ink-dim); text-decoration: none; }
+.footer-links a:hover { color: var(--blue); }
 
 /* ── Downloads section ── */
 .downloads-grid { display: flex; flex-direction: column; gap: 10px; }
-
 .dl-row {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 0 10px 10px 0;
+  background: var(--glass-fill); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  border-radius: 0 16px 16px 0;
   display: flex; align-items: center; gap: 14px; padding: 14px 16px;
 }
 .dl-icon-badge {
-  width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
 .dl-main  { flex: 1; min-width: 0; }
 .dl-top   { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-.dl-name  { font-size: 14px; font-weight: 700; color: var(--text); }
-.dl-version { font-size: 10px; color: var(--muted2); }
-.dl-desc  { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 8px; }
+.dl-name  { font-size: 14px; font-weight: 700; color: var(--ink); }
+.dl-version { font-size: 10px; color: var(--ink-dim); }
+.dl-desc  { font-size: 12px; color: var(--ink-dim); line-height: 1.4; margin-bottom: 8px; }
 .dl-meta  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .dl-type-pill {
   font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
-  background: var(--blue-light); color: var(--blue-dark);
-  border: 1px solid var(--blue-border); white-space: nowrap;
+  background: rgba(26,86,219,.10); color: var(--blue);
+  border: 1px solid rgba(26,86,219,.20); white-space: nowrap;
 }
 .dl-role-pill {
   font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
-  background: var(--green-light); color: var(--green);
-  border: 1px solid var(--green-border); white-space: nowrap;
+  background: rgba(4,120,87,.10); color: var(--green);
+  border: 1px solid rgba(4,120,87,.20); white-space: nowrap;
 }
-.dl-requires { font-size: 10px; color: var(--muted2); font-style: italic; }
+[data-theme="dark"] .dl-type-pill { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25); }
+[data-theme="dark"] .dl-role-pill { background: rgba(52,199,111,.12); border-color: rgba(52,199,111,.25); }
+.dl-requires { font-size: 10px; color: var(--ink-dim); font-style: italic; }
 .dl-btns { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; margin-left: 16px; flex-shrink: 0; }
 .btn-dl-primary {
   display: flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
   background: var(--blue); color: #fff; border: none; cursor: pointer; white-space: nowrap;
+  transition: opacity .15s;
 }
 .btn-dl-primary:hover { opacity: .88; }
 .btn-dl-ghost {
   display: flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 7px; font-size: 11px; font-weight: 600;
-  background: transparent; color: var(--blue-mid);
-  border: 1px solid var(--blue-border); cursor: pointer; white-space: nowrap;
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  background: var(--glass-fill); color: var(--blue);
+  border: 1px solid rgba(26,86,219,.25); cursor: pointer; white-space: nowrap;
+  backdrop-filter: blur(8px); transition: background .15s;
 }
-.btn-dl-ghost:hover { background: var(--blue-light); }
+.btn-dl-ghost:hover { background: rgba(26,86,219,.10); }
 </style>
 </head>
 <body>
@@ -353,7 +473,6 @@
       </svg>
     </a>
 
-    <!-- Account button + dropdown — visible after sign-in -->
     <div style="position:relative">
       <button type="button" class="account-btn" id="accountBtn" onclick="toggleAccountDropdown()" style="display:none" aria-label="Account menu" aria-expanded="false" aria-controls="accountDropdown">
         <span id="accountInitials"></span>
@@ -378,7 +497,6 @@
       </div>
     </div>
 
-    <!-- Sign in — visible when signed out -->
     <button class="btn-signin" id="signInBtn" onclick="hubSignIn()">
       <svg viewBox="0 0 21 21" width="13" height="13" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
@@ -393,7 +511,10 @@
 
 <div class="hub-shell">
   <div class="hub-title-bar">
-    <h1>IT Tools Hub</h1>
+    <div>
+      <h1>IT Tools Hub</h1>
+      <p class="hub-subtitle">Browser-based Microsoft 365 tenant utilities, authenticated with your work account via MSAL</p>
+    </div>
     <span class="hub-count-pill" id="toolCountPill">Loading…</span>
   </div>
 
@@ -407,7 +528,7 @@
   <div id="downloadsSection" style="display:none;margin-top:1.5rem;margin-bottom:1.5rem">
     <div class="section-label" id="downloadsToggle" onclick="toggleDownloads()" style="cursor:pointer;display:flex;align-items:center;user-select:none">
       Scripts &amp; Downloads
-      <span id="downloadsChevron" style="font-size:14px;color:var(--muted);margin-left:auto;line-height:1">▾</span>
+      <span id="downloadsChevron" style="font-size:14px;color:var(--ink-dim);margin-left:auto;line-height:1">▾</span>
     </div>
     <div id="downloadsGrid" class="downloads-grid"></div>
   </div>
@@ -418,14 +539,14 @@
     <span class="setup-chevron" id="setupChevron">▾</span>
   </button>
   <div class="setup-card" id="setupCard" hidden>
-    <p>All tools share a single <strong>Entra ID app registration</strong>. Add the following redirect URI to your app under <em>Authentication → Single-page application</em>:</p>
+    <p>All tools share a single <strong>Entra ID app registration</strong>. Add the following redirect URI to your app under <em>Authentication &rarr; Single-page application</em>:</p>
     <div class="setup-uri" id="baseUri"></div>
     <p>Each tool will automatically use its own sub-path as the redirect URI. You only need one registration for the whole hub.</p>
   </div>
 </div>
 
 <footer class="hub-footer">
-  <span>Built by Josh Garrett · <a href="https://github.com/jgdev-ch/it-tools" style="color:var(--muted2)">github.com/jgdev-ch/it-tools</a> · <span style="color:var(--muted2)">v2.0.0</span></span>
+  <span>Built by Josh Garrett &middot; <a href="https://github.com/jgdev-ch/it-tools">github.com/jgdev-ch/it-tools</a> &middot; v2.0.0</span>
   <div class="footer-links">
     <a href="https://learn.microsoft.com/en-us/graph/overview" target="_blank">Graph API docs</a>
     <a href="https://portal.azure.com" target="_blank">Entra admin</a>
@@ -435,15 +556,8 @@
 
 <script>
 // ── Constants ─────────────────────────────────────────────────────────────────
-// Auth handled by shared/auth.js (ITTools.auth) — same MSAL config as all tool pages.
-
-// Scopes needed by any tool reachable from the hub.
-// Requesting them here means the finance dashboard can acquire tokens silently
-// (no second sign-in popup) because the access token is already cached.
 const HUB_TOOL_SCOPES = ["User.Read.All", "AuditLog.Read.All", "Directory.Read.All"];
 
-// Group gates — keyed by the config `financeOnly` / `requiredGroup` field.
-// Add new group Object IDs here as more gated tools are built.
 const GROUP_GATES = {
   "finance": {
     id:       "ff9c3232-251f-4570-9564-340039d17aa9",
@@ -484,7 +598,7 @@ function syncThemeIcon(t) {
     : `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
 }
 
-let _accountData = null; // { initials, name, email } — set on sign-in, cleared on sign-out
+let _accountData = null;
 
 // ── Topbar state ──────────────────────────────────────────────────────────────
 function showSignedIn(account) {
@@ -514,57 +628,51 @@ function showSignedOut() {
 
 // ── Card HTML builders ────────────────────────────────────────────────────────
 
-const RIBBON_LABELS = { "live":"Live", "beta":"Beta", "coming-soon":"Soon", "in-development":"Dev", "deprecated":"Depr." };
-const RIBBON_CLASS  = { "live":"ribbon-live", "beta":"ribbon-beta", "coming-soon":"ribbon-soon", "in-development":"ribbon-soon", "deprecated":"ribbon-soon" };
-
-const STATUS_OVERLAY_CLASS = {
-  "beta":           "tool-status-overlay--beta",
-  "live":           "tool-status-overlay--live",
-  "coming-soon":    "tool-status-overlay--soon",
-  "in-development": "tool-status-overlay--soon",
-  "deprecated":     "tool-status-overlay--soon",
+const STATUS_DOT_LABELS = {
+  live:             "live",
+  beta:             "beta",
+  "coming-soon":    "coming soon",
+  "in-development": "coming soon",
+  deprecated:       "deprecated",
 };
 
-function ribbonHtml(status) {
-  const cls   = RIBBON_CLASS[status]  || "ribbon-soon";
-  const label = RIBBON_LABELS[status] || status;
-  return `<div class="tool-ribbon ${cls}">${label}</div>`;
-}
-
-function buildLockedCard({ gateKey, path, iconBg, icon, status, name, desc, perms, betaNote }) {
-  const permsStr  = (perms || []).join("|");
-  const lockClass = gateKey === "reporting" ? " locked--reporting" : "";
-  const lockTitle = gateKey === "reporting"
-    ? "Requires reporting access — contact your IT administrator"
-    : "Permissions required — sign in with an authorized account to unlock this tool.";
-  return `<div class="tool-card locked${lockClass}" data-gate="${gateKey}"
-      data-path="${path}" data-iconbg="${iconBg}"
-      data-icon="${icon}" data-status="${status}"
-      data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
-      data-betanote="${betaNote || ""}"
-      style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status)}
-    <div class="tool-icon">${icon}</div>
-    <div class="tool-name-row">
-      <div class="tool-name">${name}</div>
-      <div class="lock-hint" title="${lockTitle}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-    </div>
-    <div class="tool-desc">${lockTitle}</div>
+function statusDotHtml(status) {
+  const label = STATUS_DOT_LABELS[status] || status;
+  return `<div class="tool-status-dot dot-${status}">
+    <span class="dot-pip"></span>
+    <span class="dot-label">${label}</span>
   </div>`;
 }
 
-function buildLiveCard({ path, accent, iconBg, icon, status, name, desc, betaNote }) {
-  const oClass  = STATUS_OVERLAY_CLASS[status] || "tool-status-overlay--soon";
-  const overlay = betaNote
-    ? `<div class="tool-status-overlay ${oClass}">${betaNote}</div>`
-    : "";
-  return `<a class="tool-card" href="${path}" style="--icon-bg:${iconBg}">
-    ${ribbonHtml(status)}
-    <div class="tool-icon">${icon}</div>
+function buildLiveCard({ path, accent, icon, status, name, desc, betaNote }) {
+  const descText = betaNote ? `${desc}<br><br>${betaNote}` : desc;
+  return `<a class="tool-card" href="${path}" style="--tool-accent:${accent}">
+    <div class="tool-icon-sq">${icon}</div>
     <div class="tool-name">${name}</div>
-    <div class="tool-desc">${desc}</div>
-    ${overlay}
+    <div class="tool-desc">${descText}</div>
+    ${statusDotHtml(status)}
   </a>`;
+}
+
+function buildLockedCard({ gateKey, path, accent, iconBg, icon, status, name, desc, perms, betaNote }) {
+  const permsStr = (perms || []).join("|");
+  const lockMsg  = gateKey === "reporting"
+    ? "Requires reporting access. Contact your IT administrator."
+    : "Sign in with an authorized account to unlock this tool.";
+  return `<div class="tool-card locked" data-gate="${gateKey}"
+      data-path="${path}" data-accent="${accent}" data-iconbg="${iconBg}"
+      data-icon="${icon}" data-status="${status}"
+      data-name="${name}" data-desc="${desc}" data-perms="${permsStr}"
+      data-betanote="${betaNote || ""}"
+      style="--tool-accent:${accent}">
+    <div class="tool-icon-sq">${icon}</div>
+    <div class="tool-name">${name}</div>
+    <div class="tool-desc">${lockMsg}</div>
+    ${statusDotHtml(status)}
+    <div class="tool-lock-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+  </div>`;
 }
 
 // ── Card lock / unlock ────────────────────────────────────────────────────────
@@ -572,7 +680,7 @@ function unlockCard(gateKey) {
   document.querySelectorAll(`[data-gate="${gateKey}"]`).forEach(locked => {
     locked.outerHTML = buildLiveCard({
       path:     locked.dataset.path,
-      iconBg:   locked.dataset.iconbg,
+      accent:   locked.dataset.accent || locked.dataset.iconbg,
       icon:     locked.dataset.icon,
       status:   locked.dataset.status,
       name:     locked.dataset.name,
@@ -591,6 +699,7 @@ function lockCard(gateKey) {
     live.outerHTML = buildLockedCard({
       gateKey,
       path:     meta.path,
+      accent:   meta.accent,
       iconBg:   meta.iconBg,
       icon:     meta.icon,
       status:   meta.status,
@@ -602,10 +711,9 @@ function lockCard(gateKey) {
   }
 }
 
-// Populated during loadTools() so lockCard() has the data it needs on sign-out
 const _gateCardMeta = {};
 
-// ── Group membership check (checkMemberObjects — one call, no pagination) ─────
+// ── Group membership check ────────────────────────────────────────────────────
 async function checkMembership(token, groupId) {
   try {
     const res = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
@@ -668,7 +776,7 @@ async function runGateChecks(token) {
   renderAccountDropdown(unlocked);
 }
 
-// ── Restore locks from localStorage (instant, no network) ────────────────────
+// ── Restore locks from localStorage ──────────────────────────────────────────
 function restoreFromLocalStorage() {
   const unlocked = [];
   for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
@@ -701,7 +809,6 @@ async function hubSignIn() {
     await runGateChecks(token);
     await loadDownloads();
   } catch(_) {
-    // User cancelled or popup blocked — silent fail
   } finally {
     btn.classList.remove("loading");
     btn.innerHTML = `
@@ -720,7 +827,6 @@ async function hubSignOut() {
   try {
     await ITTools.auth.signOut();
   } catch(_) {
-    // signOut callback still fires; clear gates regardless
     clearAllGates();
     showSignedOut();
     hideDownloads();
@@ -729,8 +835,6 @@ async function hubSignOut() {
 
 // ── Silent session restore on load ────────────────────────────────────────────
 async function trySilentRestore() {
-  // Uses shared/auth.js so hub and tool pages share the same MSAL cache —
-  // signing in here means tool pages (e.g. Finance Dashboard) won't ask again.
   let sessionFound = false;
   await ITTools.auth.init({
     scopes: HUB_TOOL_SCOPES,
@@ -749,7 +853,6 @@ async function trySilentRestore() {
       hideDownloads();
     }
   });
-  // No active session — clear any stale localStorage unlock flags and re-lock cards
   if (!sessionFound) {
     clearAllGates();
   }
@@ -768,13 +871,12 @@ async function loadTools() {
     const data = await res.json();
     const clickable = ["live", "beta"];
 
-    // Build card HTML for one tool
     function cardHtml(tool) {
       const perms = tool.permissions || [];
 
       if (tool.financeOnly) {
         const meta = {
-          path: tool.path, iconBg: tool.iconBg, icon: tool.icon,
+          path: tool.path, accent: tool.accent, iconBg: tool.iconBg, icon: tool.icon,
           status: tool.status, name: tool.name, desc: tool.description,
           perms, betaNote: tool.betaNote || "",
         };
@@ -785,7 +887,7 @@ async function loadTools() {
 
       if (tool.reportingOnly) {
         const meta = {
-          path: tool.path, iconBg: tool.iconBg, icon: tool.icon,
+          path: tool.path, accent: tool.accent, iconBg: tool.iconBg, icon: tool.icon,
           status: tool.status, name: tool.name, desc: tool.description,
           perms, betaNote: tool.betaNote || "",
         };
@@ -796,27 +898,20 @@ async function loadTools() {
 
       if (clickable.includes(tool.status) && tool.path) {
         return buildLiveCard({
-          path: tool.path, accent: tool.accent, iconBg: tool.iconBg,
+          path: tool.path, accent: tool.accent,
           icon: tool.icon, status: tool.status, name: tool.name,
           desc: tool.description, betaNote: tool.betaNote || "",
         });
       }
 
-      const overlayLabel = tool.status === "deprecated" ? "Deprecated"
-        : tool.status === "in-development" ? "In Development"
-        : "Coming Soon";
-      return `<div class="tool-card no-hover" style="--icon-bg:${tool.iconBg}">
-        ${ribbonHtml(tool.status)}
-        <div class="tool-icon">${tool.icon}</div>
+      return `<div class="tool-card no-hover" style="--tool-accent:${tool.accent}">
+        <div class="tool-icon-sq">${tool.icon}</div>
         <div class="tool-name">${tool.name}</div>
         <div class="tool-desc">${tool.description}</div>
-        <div class="tool-overlay">
-          <div class="tool-overlay-pill">${overlayLabel}</div>
-        </div>
+        ${statusDotHtml(tool.status)}
       </div>`;
     }
 
-    // Group tools by category; tools with no category go to "other"
     const grouped = {};
     for (const tool of data.tools) {
       const key = tool.category || "other";
@@ -824,7 +919,6 @@ async function loadTools() {
       grouped[key].push(tool);
     }
 
-    // Render defined sections first, then any keys not covered by SECTIONS at the end
     const renderedKeys = new Set(SECTIONS.map(s => s.key));
     const allSections = [...SECTIONS];
     for (const key of Object.keys(grouped)) {
@@ -842,21 +936,16 @@ async function loadTools() {
         </div>
       `).join("");
 
-    // 1 — Instant unlock from localStorage (no network)
     restoreFromLocalStorage();
-
-    // 2 — Silent MSAL restore in background
-    //     Updates topbar user chip and re-validates all gates
     trySilentRestore();
 
-    // Update title bar count pill
     const total  = data.tools.length;
     const active = data.tools.filter(t => t.status === "live" || t.status === "beta").length;
     const pill   = document.getElementById("toolCountPill");
     if (pill) pill.textContent = `${total} tools · ${active} active`;
 
   } catch(e) {
-    grid.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--muted);font-size:13px">
+    grid.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--ink-dim);font-size:13px">
       Could not load tools config. Make sure config.json is in the repo root.
     </div>`;
     const pill = document.getElementById("toolCountPill");
@@ -891,7 +980,7 @@ function buildDownloadRow(script) {
     .map(r => `<span class="dl-role-pill">${r}</span>`)
     .join("");
   const requires = script.requires
-    ? `<span class="dl-requires">· Requires ${script.requires}</span>`
+    ? `<span class="dl-requires">Requires ${script.requires}</span>`
     : "";
   const btns = script.files
     .map(f => {
@@ -937,7 +1026,6 @@ function hideDownloads() {
   document.getElementById("downloadsGrid").innerHTML = "";
 }
 
-// ── Downloads collapse ────────────────────────────────────────────────────────
 function toggleDownloads() {
   const open = localStorage.getItem('it-tools-downloads-open') !== 'false';
   const next = !open;
