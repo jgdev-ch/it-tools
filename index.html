@@ -434,13 +434,15 @@ body::before {
 
 /* ── Downloads section ── */
 .dl-row {
-  background: var(--glass-fill); border: 1px solid var(--glass-border);
+  background: var(--glass-fill); border: 1px solid rgba(0,0,0,.14);
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
   box-shadow: var(--shadow-sm);
   border-radius: 14px;
   display: flex; align-items: center; gap: 14px; padding: 12px 14px;
 }
+/* Dark mode: keep the light glass hairline (ink border is invisible on dark) */
+[data-theme="dark"] .dl-row { border-color: var(--glass-border); }
 .dl-main  { flex: 1; min-width: 0; }
 .dl-top   { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .dl-name  { font-size: 14px; font-weight: 700; color: var(--ink); }
@@ -574,7 +576,7 @@ body::before {
 </div>
 
 <footer class="hub-footer">
-  <span>Built by Josh Garrett &middot; v2.0.0</span>
+  <span>Built by Josh Garrett &middot; v2.1.0</span>
   <div class="footer-links">
     <a href="https://learn.microsoft.com/en-us/graph/overview" target="_blank">Graph API docs</a>
     <a href="https://portal.azure.com" target="_blank">Entra admin</a>
