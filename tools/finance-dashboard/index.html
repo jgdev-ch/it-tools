@@ -42,12 +42,8 @@
     cursor: pointer; font-family: inherit; transition: all .12s;
   }
   .action-row .btn-print:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
-  .finance-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: var(--amber-light); color: var(--amber);
-    border-radius: 20px; padding: 3px 10px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-  }
+  /* ── Access badge (color + geometry in shared/styles.css) ── */
+  .finance-badge { display: inline-flex; }
 
   /* ── Dashboard grid layouts ── */
   .dash-grid-2 {
@@ -460,12 +456,11 @@
   .card tr:hover td      { background: rgba(226,161,61,.07); }
   [data-theme="dark"] .card tr:hover td  { background: rgba(226,161,61,.09); }
 
-  /* Sticky headers in inactive/active tables */
+  /* Sticky headers in inactive/active tables — solid fill so scrolled rows
+     disappear cleanly beneath them (was transparent + blur, let content show through) */
   #inactiveTableWrap thead th,
   #activeTableWrap thead th {
-    background: transparent;
-    backdrop-filter: blur(14px) saturate(160%);
-    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    background: var(--surface);
   }
 
   /* Proj table border */

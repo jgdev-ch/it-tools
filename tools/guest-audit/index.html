@@ -30,7 +30,12 @@
 
   /* ── Table column widths ── */
   table { table-layout: fixed; width: 100%; }
-  thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  /* Opaque sticky header so rows disappear cleanly beneath it while scrolling.
+     Must beat the shared `.card th` rule in BOTH themes — the dark variant
+     `[data-theme="dark"] .card th` carries extra specificity, so a matching
+     dark override is required or the header goes translucent again in dark mode. */
+  .card thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  [data-theme="dark"] .card thead th { background: var(--surface); }
   table th:nth-child(1), table td:nth-child(1) { width: 200px; }      /* Guest */
   table th:nth-child(2), table td:nth-child(2) { width: 110px; }      /* Company */
   table th:nth-child(3), table td:nth-child(3) { width: 108px; }      /* Last Sign-In */
@@ -187,20 +192,8 @@
   .btn-confirm-ok.danger { background: var(--red); }
   .btn-confirm-ok.ok     { background: var(--green); }
 
-  .reporting-badge {
-    display: none; align-items: center; gap: 5px;
-    background: var(--blue-light); border: 1px solid var(--blue-border);
-    color: var(--blue-dark); border-radius: 20px;
-    padding: 3px 10px; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .04em;
-  }
-  .gsd-badge {
-    display: none; align-items: center; gap: 5px;
-    background: var(--blue-light); border: 1px solid var(--blue-border);
-    color: var(--blue-dark); border-radius: 20px;
-    padding: 3px 10px; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .04em;
-  }
+  /* ── Access badges (color + geometry in shared/styles.css) ── */
+  .reporting-badge, .gsd-badge { display: none; }
 </style>
 </head>
 <body>
@@ -235,7 +228,7 @@
   </div>
 </div>
 
-<div id="appScreen" style="display:none">
+<div id="appScreen" class="locked-view" style="display:none">
   <div class="shell">
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
@@ -829,7 +822,7 @@ function renderTable(guests) {
         <button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="exportCsv()">Export CSV</button>
       </div>
     </div>
-    <div style="overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
+    <div class="table-scroll">
       <table>
         <thead>
           <tr>
