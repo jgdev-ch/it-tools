@@ -251,7 +251,7 @@
   </div>
 </div>
 
-<div id="appScreen" style="display:none">
+<div id="appScreen" class="locked-view" style="display:none">
   <div class="shell">
 
     <div class="page-header">
@@ -1332,7 +1332,7 @@ function renderMultiTable(users) {
           <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportMultiCsv()">Export CSV</button>
         </div>
       </div>
-      <div class="multi-tbl-scroll">
+      <div class="multi-tbl-scroll table-scroll">
         <table>
           <thead><tr>
             ${mth("User","displayName","200px")}

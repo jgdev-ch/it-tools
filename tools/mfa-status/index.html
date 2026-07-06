@@ -146,7 +146,7 @@
   </div>
 </div>
 
-<div id="appScreen" style="display:none">
+<div id="appScreen" class="locked-view" style="display:none">
   <div class="shell">
 
     <div class="page-header">
@@ -1101,7 +1101,7 @@ function renderTable(users, isDisabled) {
           <button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="exportCsv()">Export CSV</button>
         </div>
       </div>
-      <div style="overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
+      <div class="table-scroll">
         <table>
           <thead><tr>
             ${th("User","displayName","210px")}
