@@ -30,9 +30,12 @@
 
   /* ── Table column widths ── */
   table { table-layout: fixed; width: 100%; }
-  /* .card thead th beats shared `.card th` translucent rule so the sticky
-     header is fully opaque and rows disappear cleanly beneath it while scrolling */
+  /* Opaque sticky header so rows disappear cleanly beneath it while scrolling.
+     Must beat the shared `.card th` rule in BOTH themes — the dark variant
+     `[data-theme="dark"] .card th` carries extra specificity, so a matching
+     dark override is required or the header goes translucent again in dark mode. */
   .card thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  [data-theme="dark"] .card thead th { background: var(--surface); }
   table th:nth-child(1), table td:nth-child(1) { width: 200px; }      /* Guest */
   table th:nth-child(2), table td:nth-child(2) { width: 110px; }      /* Company */
   table th:nth-child(3), table td:nth-child(3) { width: 108px; }      /* Last Sign-In */
