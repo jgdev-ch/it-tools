@@ -12,6 +12,27 @@
   .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-header p  { font-size: 13px; color: var(--muted); }
 
+  /* ── Results scroll area ──
+     Default (short/narrow screens): normal page flow, table capped by height. */
+  .guest-scroll { overflow-y: auto; max-height: calc(100vh - 340px); min-height: 200px; }
+
+  /* Viewport lock (roomy screens): the page itself never scrolls — only the
+     table body does — so the title, filters, stats and column headers stay put
+     while paging through data. */
+  @media (min-width: 641px) and (min-height: 560px) {
+    body { overflow: hidden; }
+    #appScreen { height: calc(100vh - var(--topbar-h)); }
+    #appScreen .shell { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+    #appScreen .shell > .page-header,
+    #appScreen .shell > .banner,
+    #appScreen .shell > .card,
+    #appScreen .shell > .stats-row { flex: 0 0 auto; }
+    #appScreen .shell > #tableSection { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    #tableSection > .results-card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .results-card > div:first-child { flex: 0 0 auto; }   /* toolbar row stays put */
+    .guest-scroll { flex: 1 1 auto; max-height: none; min-height: 0; }
+  }
+
   #authScreen { display:none; }
 
   /* ── Controls ── */
@@ -812,7 +833,7 @@ function renderTable(guests) {
   }).join("");
 
   sec.innerHTML = `
-  <div class="card" style="padding:0;overflow:hidden">
+  <div class="card results-card" style="padding:0;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px">
       <div class="card-title" style="margin-bottom:0">
         ${guests.length} guest account${guests.length !== 1 ? "s" : ""}
@@ -822,7 +843,7 @@ function renderTable(guests) {
         <button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="exportCsv()">Export CSV</button>
       </div>
     </div>
-    <div style="overflow-y:auto;max-height:calc(100vh - 340px);min-height:200px">
+    <div class="guest-scroll">
       <table>
         <thead>
           <tr>
