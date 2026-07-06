@@ -30,7 +30,9 @@
 
   /* ── Table column widths ── */
   table { table-layout: fixed; width: 100%; }
-  thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  /* .card thead th beats shared `.card th` translucent rule so the sticky
+     header is fully opaque and rows disappear cleanly beneath it while scrolling */
+  .card thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
   table th:nth-child(1), table td:nth-child(1) { width: 200px; }      /* Guest */
   table th:nth-child(2), table td:nth-child(2) { width: 110px; }      /* Company */
   table th:nth-child(3), table td:nth-child(3) { width: 108px; }      /* Last Sign-In */
@@ -187,20 +189,8 @@
   .btn-confirm-ok.danger { background: var(--red); }
   .btn-confirm-ok.ok     { background: var(--green); }
 
-  .reporting-badge {
-    display: none; align-items: center; gap: 5px;
-    background: var(--blue-light); border: 1px solid var(--blue-border);
-    color: var(--blue-dark); border-radius: 20px;
-    padding: 3px 10px; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .04em;
-  }
-  .gsd-badge {
-    display: none; align-items: center; gap: 5px;
-    background: var(--blue-light); border: 1px solid var(--blue-border);
-    color: var(--blue-dark); border-radius: 20px;
-    padding: 3px 10px; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .04em;
-  }
+  /* ── Access badges (color + geometry in shared/styles.css) ── */
+  .reporting-badge, .gsd-badge { display: none; }
 </style>
 </head>
 <body>

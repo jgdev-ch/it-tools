@@ -258,6 +258,26 @@ a:hover { text-decoration: underline; }
 [data-theme="dark"] .account-pill--amber { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25);  }
 [data-theme="dark"] .account-pill--blue  { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25);  }
 
+/* ── Tool-title access badges ──
+   Sit next to the tool name in the topbar. Palette mirrors the account
+   dropdown pills exactly (see .account-pill--* above) so the same access
+   grant reads the same color in both places. Each tool keeps its own
+   `display` rule (some default hidden + shown by JS, some shown by a
+   toggled parent) — only color + geometry live here. */
+.finance-badge, .license-admin-badge, .reporting-badge, .gsd-badge {
+  align-items: center; gap: 5px;
+  border: 1px solid transparent; border-radius: 20px; padding: 3px 10px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.finance-badge       { background: rgba(4,120,87,.10);  border-color: rgba(4,120,87,.22);  color: var(--green); }
+.license-admin-badge { background: rgba(146,64,14,.10); border-color: rgba(146,64,14,.22); color: var(--amber); }
+.reporting-badge     { background: rgba(26,86,219,.10); border-color: rgba(26,86,219,.20); color: var(--blue);  }
+.gsd-badge           { background: rgba(26,86,219,.10); border-color: rgba(26,86,219,.20); color: var(--blue);  }
+[data-theme="dark"] .finance-badge       { background: rgba(52,199,111,.12); border-color: rgba(52,199,111,.25); }
+[data-theme="dark"] .license-admin-badge { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25); }
+[data-theme="dark"] .reporting-badge,
+[data-theme="dark"] .gsd-badge           { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25); }
+
 /* Divider */
 .account-panel-divider { height: 1px; background: var(--glass-border); }
 
