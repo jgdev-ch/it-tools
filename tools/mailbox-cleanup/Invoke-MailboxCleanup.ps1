@@ -3,23 +3,44 @@ param(
     [string]$Mailbox
 )
 
-# --- Module install/update (requires v3.9.0+ for EnableSearchOnlySession) ---
+# --- Module install/update (requires v3.9.0+) ---
+# New-ComplianceSearchAction -Purge is only exposed on the S&C REST proxy from
+# v3.9.0 onward (with -EnableSearchOnlySession). Older versions silently omit the
+# -Purge parameter, so the version floor is enforced hard — not best-effort.
 $minVersion = [Version]"3.9.0"
 $installed = Get-Module -ListAvailable -Name ExchangeOnlineManagement |
     Sort-Object Version -Descending | Select-Object -First 1
 if ($null -eq $installed -or $installed.Version -lt $minVersion) {
-    Write-Host "Installing/updating ExchangeOnlineManagement to v3.9.0+..." -ForegroundColor Yellow
-    Install-Module ExchangeOnlineManagement -Force -AllowClobber -Scope CurrentUser
+    Write-Host "Installing/updating ExchangeOnlineManagement to v$minVersion+..." -ForegroundColor Yellow
+    try {
+        Install-Module ExchangeOnlineManagement -MinimumVersion $minVersion `
+            -Force -AllowClobber -Scope CurrentUser -ErrorAction Stop
+    } catch {
+        Write-Host "ERROR: Could not install ExchangeOnlineManagement v$minVersion+. $_" -ForegroundColor Red
+        Write-Host "       Install it manually, then re-run:" -ForegroundColor Yellow
+        Write-Host "       Install-Module ExchangeOnlineManagement -MinimumVersion $minVersion -Scope CurrentUser -Force" -ForegroundColor Gray
+        exit 1
+    }
 }
+# Import the newest installed version explicitly. A bare Import-Module can bind an
+# older version already loaded in the session (e.g. a side-by-side 3.7.x), which
+# would omit -Purge and fail the HardDelete step with a cryptic binding error.
 try {
-    Import-Module ExchangeOnlineManagement -ErrorAction Stop
+    Import-Module ExchangeOnlineManagement -MinimumVersion $minVersion -ErrorAction Stop
 } catch {
-    Write-Host "ERROR: Failed to load ExchangeOnlineManagement module. $_" -ForegroundColor Red
+    Write-Host "ERROR: Failed to load ExchangeOnlineManagement v$minVersion+. $_" -ForegroundColor Red
+    Write-Host "       An older version may already be loaded here — close other PowerShell windows and re-run." -ForegroundColor Yellow
+    exit 1
+}
+$loaded = Get-Module ExchangeOnlineManagement | Sort-Object Version -Descending | Select-Object -First 1
+if ($null -eq $loaded -or $loaded.Version -lt $minVersion) {
+    Write-Host "ERROR: ExchangeOnlineManagement v$minVersion+ is required for HardDelete purge, but v$($loaded.Version) is loaded." -ForegroundColor Red
+    Write-Host "       Close other PowerShell windows with an older module loaded, then re-run." -ForegroundColor Yellow
     exit 1
 }
 
 # --- Constants ---
-$SCRIPT_VERSION                = "2.0"
+$SCRIPT_VERSION                = "2.1"
 $RETENTION_POLICY_NAME         = "3 Year Email Retention Policy"
 $PROPAGATION_WAIT_SECONDS      = 120
 $POLL_INTERVAL_SECONDS         = 30
@@ -59,6 +80,8 @@ $archiveCleanupMode      = $false
 $archiveCleanupResults   = @()
 $mfaWait                 = ""
 $purviewExceptionActive  = $false
+$canPurge                = $true    # set by preflight — false when the account lacks the Search And Purge role
+$purgeCompleted          = $false   # true only after a HardDelete purge action actually completes
 $reportTime              = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $reportTimestamp         = Get-Date -Format 'yyyyMMdd-HHmmss'
 
@@ -117,6 +140,25 @@ function Confirm-Continue {
         Write-Host "      Aborted. Cleaning up..." -ForegroundColor Yellow
         throw "Aborted by user."
     }
+}
+
+function Test-PurgeCapability {
+    # RBAC governs which parameters the S&C REST proxy exposes. Without the
+    # "Search And Purge" role, New-ComplianceSearchAction has no -Purge parameter,
+    # and the purge fails with "A parameter cannot be found that matches ... 'Purge'".
+    # Check up front so we can fail with a clear message before touching mailbox state.
+    $cmd = Get-Command New-ComplianceSearchAction -ErrorAction SilentlyContinue
+    if ($null -eq $cmd) { return $false }
+    return $cmd.Parameters.ContainsKey('Purge')
+}
+
+function Write-PurgePermissionError {
+    Write-Detail "Your account cannot run HardDelete purges." Red
+    Write-Detail "New-ComplianceSearchAction has no -Purge parameter in this session, which means the" Yellow
+    Write-Detail "'Search And Purge' role is not assigned to your account in Microsoft Purview." Yellow
+    Write-Detail "Add your account to a role group that includes 'Search And Purge' (e.g. Organization" Gray
+    Write-Detail "Management, or a dedicated eDiscovery group) in the Purview portal under" Gray
+    Write-Detail "Roles & scopes > Permissions, then reconnect and re-run." Gray
 }
 
 function Get-BlobKey {
@@ -223,7 +265,7 @@ function Write-TicketReport {
         $dash
         (" Before : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct)
     )
-    if ($search -and $search.Items -gt 0) {
+    if ($purgeCompleted -and $search -and $search.Items -gt 0) {
         $report += (" Purged : {0:N0} items  ({1} compliance-hold storage freed)" -f $search.Items, (Format-Size $search.Size))
     }
     if ($null -ne $afterBytes) {
@@ -255,7 +297,9 @@ function Write-TicketReport {
         } elseif ($folderCleanupMode -or $archiveCleanupMode) {
             $report += " Cleanup complete. See folder/archive sections above for details."
         } else {
-            $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered." } else { "Purge complete. MFA triggered." }
+            $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered." }
+                           elseif (-not $canPurge) { "MFA reclamation triggered — compliance purge skipped (no Search And Purge role)." }
+                           else { "Purge complete. MFA triggered." }
             $waitStr     = if ($mfaWait)     { " Space reclaims within $mfaWait." } else { "" }
             $report += " $actionLabel$waitStr"
             if ($sirWasDisabledByScript) {
@@ -636,10 +680,18 @@ if ($folderCleanupMode) {
     Write-Host ""
     Write-Detail "Connecting to Security & Compliance..." Cyan
     try {
-        Connect-IPPSSession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+        Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
         Write-Detail "Security & Compliance: connected" Green
     } catch {
         Write-Detail "ERROR: Could not connect to Security & Compliance. $_" Red
+        continue
+    }
+
+    # Preflight: folder purge needs the Search And Purge role — there is no MFA fallback here.
+    if (-not (Test-PurgeCapability)) {
+        Write-Host ""
+        Write-PurgePermissionError
+        Write-Host ""
         continue
     }
 
@@ -892,10 +944,19 @@ if ($archiveCleanupMode) {
 
     Write-Detail "Connecting to Security & Compliance..." Cyan
     try {
-        Connect-IPPSSession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
+        Connect-IPPSSession -EnableSearchOnlySession -ErrorAction Stop -WarningAction SilentlyContinue 6>$null
         Write-Detail "Security & Compliance: connected" Green
     } catch {
         Write-Detail "ERROR: Could not connect to Security & Compliance. $_" Red
+        $modeLoopActive = $true
+        continue
+    }
+
+    # Preflight: archive purge needs the Search And Purge role — there is no MFA fallback here.
+    if (-not (Test-PurgeCapability)) {
+        Write-Host ""
+        Write-PurgePermissionError
+        Write-Host ""
         $modeLoopActive = $true
         continue
     }
@@ -1170,6 +1231,20 @@ try {
             throw "Could not connect to Security & Compliance (IPPSSession). $_"
         }
 
+        # --- Preflight: confirm this account can actually purge, before changing any state ---
+        $canPurge = Test-PurgeCapability
+        if (-not $canPurge) {
+            Write-Host ""
+            Write-PurgePermissionError
+            Write-Host ""
+            Write-Detail "The MFA reclamation path (Purview exception + SIR off + Managed Folder" Gray
+            Write-Detail "Assistant) can still free DiscoveryHolds over 24-72h without the compliance purge." Gray
+            $mfaFallback = Read-Host "      Continue with MFA-only reclamation? [Y/N]"
+            Write-Host ""
+            if ($mfaFallback -notmatch '^[Yy]') { throw "Aborted by user." }
+            Write-Detail "Proceeding without compliance purge — relying on MFA reclamation." Yellow
+        }
+
         # --- Phase 4: Purview policy exclusion ---
         Write-Step 4 "Adding Purview policy exclusion..."
         try {
@@ -1195,66 +1270,69 @@ try {
         }
         Write-Host "`r      [$('#' * $barWidth)] propagation complete      " -ForegroundColor Green
 
-        Confirm-Continue "Propagation complete. Proceed with compliance search?"
+        if ($canPurge) {
+            Confirm-Continue "Propagation complete. Proceed with compliance search?"
 
-        # --- Phase 5: Compliance search + purge ---
-        $alias      = ($Mailbox -split '@')[0]
-        $timestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
-        $searchName = "RecovItems-$alias-$timestamp"
+            # --- Phase 5: Compliance search + purge ---
+            $alias      = ($Mailbox -split '@')[0]
+            $timestamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
+            $searchName = "RecovItems-$alias-$timestamp"
 
-        Write-Step 5 "Compliance search: $searchName"
+            Write-Step 5 "Compliance search: $searchName"
 
-        New-ComplianceSearch -Name $searchName `
-            -ExchangeLocation $Mailbox `
-            -ContentMatchQuery 'folderpath:"recoverable items"' `
-            -ErrorAction Stop | Out-Null
+            New-ComplianceSearch -Name $searchName `
+                -ExchangeLocation $Mailbox `
+                -ContentMatchQuery 'folderpath:"recoverable items"' `
+                -ErrorAction Stop | Out-Null
 
-        Start-ComplianceSearch -Identity $searchName -ErrorAction Stop
+            Start-ComplianceSearch -Identity $searchName -ErrorAction Stop
 
-        $elapsed = 0
-        do {
-            Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
-            $elapsed += $POLL_INTERVAL_SECONDS
-            $search = Get-ComplianceSearch -Identity $searchName
-            Write-Detail "Searching... (${elapsed}s) - $($search.Status)"
-        } while ($search.Status -notin @('Completed', 'Failed'))
+            $elapsed = 0
+            do {
+                Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+                $elapsed += $POLL_INTERVAL_SECONDS
+                $search = Get-ComplianceSearch -Identity $searchName
+                Write-Detail "Searching... (${elapsed}s) - $($search.Status)"
+            } while ($search.Status -notin @('Completed', 'Failed'))
 
-        if ($search.Status -eq 'Failed') {
-            throw "Compliance search '$searchName' failed. Check the Security & Compliance portal for details."
+            if ($search.Status -eq 'Failed') {
+                throw "Compliance search '$searchName' failed. Check the Security & Compliance portal for details."
+            }
+
+            Write-Detail ("Search complete - {0:N0} items found ({1} compliance-hold storage)" -f `
+                $search.Items, (Format-Size ($search.Size))) Green
+
+            if ($search.Items -eq 0 -and $usedBytes -gt 5GB) {
+                Write-Host ""
+                Write-Detail "NOTE: 0 items found, but Recoverable Items is $(Format-Size $usedBytes)." Yellow
+                Write-Detail "Items in DiscoveryHolds may have been released by a previous cleanup run but" Gray
+                Write-Detail "not yet reclaimed by Exchange. MFA (triggered at end) is the cleanup path." Gray
+                Write-Detail "Use [M] MFA only on re-runs while waiting for space reclamation." Gray
+            }
+
+            Confirm-Continue ("Proceed with HardDelete purge of {0:N0} items ({1})?" -f $search.Items, (Format-Size $search.Size))
+
+            Write-Detail "Running purge (HardDelete)..." Yellow
+
+            New-ComplianceSearchAction -SearchName $searchName `
+                -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
+
+            $actionName = "$searchName`_Purge"
+            $elapsed    = 0
+            do {
+                Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
+                $elapsed += $POLL_INTERVAL_SECONDS
+                $action = Get-ComplianceSearchAction -Identity $actionName
+                Write-Detail "Purging... (${elapsed}s) - $($action.Status)"
+            } while ($action.Status -notin @('Completed', 'Failed'))
+
+            if ($action.Status -eq 'Failed') {
+                throw "Compliance purge action '$actionName' failed. Check the Security & Compliance portal for details."
+            }
+
+            Write-Detail "Purge complete." Green
+            $purgeCompleted = $true
         }
-
-        Write-Detail ("Search complete - {0:N0} items found ({1} compliance-hold storage)" -f `
-            $search.Items, (Format-Size ($search.Size))) Green
-
-        if ($search.Items -eq 0 -and $usedBytes -gt 5GB) {
-            Write-Host ""
-            Write-Detail "NOTE: 0 items found, but Recoverable Items is $(Format-Size $usedBytes)." Yellow
-            Write-Detail "Items in DiscoveryHolds may have been released by a previous cleanup run but" Gray
-            Write-Detail "not yet reclaimed by Exchange. MFA (triggered at end) is the cleanup path." Gray
-            Write-Detail "Use [M] MFA only on re-runs while waiting for space reclamation." Gray
-        }
-
-        Confirm-Continue ("Proceed with HardDelete purge of {0:N0} items ({1})?" -f $search.Items, (Format-Size $search.Size))
-
-        Write-Detail "Running purge (HardDelete)..." Yellow
-
-        New-ComplianceSearchAction -SearchName $searchName `
-            -Purge -PurgeType HardDelete -Confirm:$false -ErrorAction Stop | Out-Null
-
-        $actionName = "$searchName`_Purge"
-        $elapsed    = 0
-        do {
-            Start-Sleep -Seconds $POLL_INTERVAL_SECONDS
-            $elapsed += $POLL_INTERVAL_SECONDS
-            $action = Get-ComplianceSearchAction -Identity $actionName
-            Write-Detail "Purging... (${elapsed}s) - $($action.Status)"
-        } while ($action.Status -notin @('Completed', 'Failed'))
-
-        if ($action.Status -eq 'Failed') {
-            throw "Compliance purge action '$actionName' failed. Check the Security & Compliance portal for details."
-        }
-
-        Write-Detail "Purge complete." Green
     }
 
 } catch {
@@ -1277,7 +1355,7 @@ try {
         Write-Host "      ================================================" -ForegroundColor DarkCyan
         Write-Host "       Results" -ForegroundColor White
         Write-Detail ("  Before : {0} / {1} ({2}% full)" -f (Format-Size $usedBytes), (Format-Size $limitBytes), $pct) White
-        if ($search -and $search.Items -gt 0) {
+        if ($purgeCompleted -and $search -and $search.Items -gt 0) {
             Write-Detail ("  Purged : {0:N0} items  ({1} compliance-hold storage freed)" -f $search.Items, (Format-Size $search.Size)) Green
         }
         $afterLabel = if ($afterPct -ge 70) { 'Yellow' } else { 'Green' }
@@ -1427,7 +1505,9 @@ $sirDisabledForMfa = $sirWasDisabledByScript -or (-not $sirEnabledOriginal -and 
 $mfaWait           = Get-MfaWaitEstimate -SirDisabled $sirDisabledForMfa -DiscHoldsBytes $discoveryHoldsBytes
 
 if (-not $aborted -and -not $errorOccurred) {
-    $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered" } else { "Purge complete" }
+    $actionLabel = if ($mfaOnlyMode) { "MFA re-triggered" }
+                   elseif (-not $canPurge) { "MFA reclamation triggered (compliance purge skipped — no Search And Purge role)" }
+                   else { "Purge complete" }
     Write-Host "`nDone. $actionLabel for $Mailbox." -ForegroundColor Green
     Write-Host "      Managed Folder Assistant has been triggered. The user can send and receive once Exchange reclaims the purged space ($mfaWait).`n" -ForegroundColor Gray
 } elseif ($aborted) {
