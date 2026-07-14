@@ -93,6 +93,12 @@ Each generated `.ps1`:
   - Shared mailbox Send on Behalf: `Set-Mailbox -GrantSendOnBehalfTo @{Add=…}` / `@{Remove=…}`.
   - Shared mailbox export: `Get-MailboxPermission` + `Get-RecipientPermission`.
 
+### Delivery — script + self-running launcher
+
+Every Exchange-type "Generate" produces **both** the `.ps1` **and** a self-running `Run-<operation>.bat` launcher (same pattern as `Run-MailboxCleanup.bat`), so the tech can double-click to execute immediately after building it in the wizard — no manual PowerShell invocation. The batch runs the co-located script, e.g. `pwsh -ExecutionPolicy Bypass -File "%~dp0<script>.ps1"`.
+
+Delivery mechanism (to finalize in the plan): a **single downloadable `.zip` bundling the `.ps1` + `.bat`** is preferred so the two stay co-located and the batch's `%~dp0` reference resolves; fall back to paired downloads with fixed filenames if in-browser zipping is undesirable.
+
 ## Data flow
 
 - **Graph (live):** CSV → resolve identities via Graph (UPN/mail) → pre-check existing membership → dry-run preview → live add/remove via Graph `$ref` endpoints → in-browser result log → CSV export.
@@ -135,3 +141,4 @@ The current `tools/group-import/index.html` becomes the Security Group / M365 Gr
 3. Navigation = **card launcher → per-type wizard** hybrid (cards echo the Hub landing).
 4. Cards carry a functional **Live/Script** tag.
 5. Shared mailbox: **all three permission types** supported; **AutoMapping default ON**.
+6. Exchange "Generate" ships a **self-running `.bat` launcher** alongside the `.ps1` (double-click to run), preferably bundled in a single `.zip`.
