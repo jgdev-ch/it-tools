@@ -357,6 +357,27 @@ function toggleUri() {
 // ── State ────────────────────────────────────────────────────
 const st = { csvName:"", identifiers:[], groupId:"", groupName:"", dryDone:false, lastLog:[] };
 
+// ── Object-type registry ───────────────────────────────────────
+// backend: "graph" (live) | "exchange" (v2 script-gen, disabled in v1)
+// source:  "members" | "permissions"
+const OBJECT_TYPES = [
+  { id:"security-group", label:"Security Group", backend:"graph", source:"members",
+    icon:"🛡️", tag:"Live · Graph", enabled:true,
+    graphKind:"security", // used to filter lookup
+    ops:["add","remove","export"] },
+  { id:"m365-group", label:"Microsoft 365 Group", backend:"graph", source:"members",
+    icon:"📦", tag:"Live · Graph", enabled:true,
+    graphKind:"unified",
+    ops:["add","remove","export"] },
+  { id:"distribution-list", label:"Distribution List", backend:"exchange", source:"members",
+    icon:"📧", tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+  { id:"mail-security-group", label:"Mail-enabled Security Group", backend:"exchange", source:"members",
+    icon:"🔐", tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+  { id:"shared-mailbox", label:"Shared Mailbox", backend:"exchange", source:"permissions",
+    icon:"📬", tag:"Script · EXO", enabled:false, ops:["grant","remove","export"] },
+];
+function getType(id){ return OBJECT_TYPES.find(t => t.id === id) || null; }
+
 // ── Step navigation ───────────────────────────────────────────
 function gotoStep(n) {
   if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
