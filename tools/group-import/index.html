@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Group Import — IT Tools</title>
+<title>Group Administration — IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -64,6 +64,18 @@
 
   /* ── Access badge (color + geometry in shared/styles.css) ── */
   .gsd-badge { display: inline-flex; }
+
+  /* ── Launcher card grid ── */
+  .type-grid  { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; }
+  .type-card  { width:200px; padding:18px 16px; border:1px solid var(--glass-border); border-radius:12px; background:var(--glass-fill); cursor:pointer; transition:transform .12s, box-shadow .12s; }
+  .type-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.08); }
+  .type-card.disabled { opacity:.55; cursor:not-allowed; }
+  .type-card.disabled:hover { transform:none; box-shadow:none; }
+  .type-icon  { font-size:26px; }
+  .type-name  { font-size:15px; font-weight:700; margin-top:8px; }
+  .type-tag   { display:inline-block; margin-top:8px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
+  .type-tag.live   { background:var(--green-light); color:var(--green); }
+  .type-tag.script { background:var(--surface3); color:var(--muted); }
 </style>
 </head>
 <body>
@@ -76,8 +88,8 @@
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
     <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></div>
-    <h1>Group Import</h1>
-    <p>Sign in with your M365 admin account to bulk-add users to an Entra ID security group from a CSV.</p>
+    <h1>Group Administration</h1>
+    <p>Sign in with your M365 admin account to add, remove, or export group members.</p>
     <button class="btn-ms" onclick="doSignIn()">
       <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
@@ -98,180 +110,38 @@
   <div class="app-body">
 
     <nav class="sidebar">
-      <div class="sidebar-lbl">Import Steps</div>
-      <div class="step-item active" id="nav1" onclick="gotoStep(1)">
-        <div class="step-bullet" id="bul1">1</div>
-        <div><div class="step-title">Upload CSV</div><div class="step-sub" id="sub1">Choose file &amp; column</div></div>
-      </div>
-      <div class="step-item" id="nav2" onclick="gotoStep(2)">
-        <div class="step-bullet" id="bul2">2</div>
-        <div><div class="step-title">Target Group</div><div class="step-sub" id="sub2">Find the Entra group</div></div>
-      </div>
-      <div class="step-item" id="nav3" onclick="gotoStep(3)">
-        <div class="step-bullet" id="bul3">3</div>
-        <div><div class="step-title">Run Import</div><div class="step-sub" id="sub3">Dry run, then go live</div></div>
+      <div class="sidebar-lbl">About</div>
+      <div class="sidebar-tip">
+        <strong>Group Administration</strong>
+        Add, remove, or export members of Entra security groups and Microsoft 365 groups — live via Microsoft Graph. Distribution lists, mail-enabled security groups, and shared mailboxes generate a PowerShell script (coming soon).
       </div>
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
         <strong>How it works</strong>
-        Upload a CSV of email addresses or UPNs. The tool resolves each user via Microsoft Graph, checks existing membership, then adds them with a full audit log.
+        Pick an object type, choose add / remove / export, target the group, and (for add/remove) upload a CSV of email addresses or UPNs. Every change previews as a dry run before you go live, with a full audit log.
       </div>
     </nav>
 
-    <main class="main-content">
+    <main class="main-content" style="max-width:900px">
 
-      <!-- STEP 1 -->
-      <div class="section active" id="step1">
+      <!-- LAUNCHER -->
+      <div id="launcher">
         <div class="section-hdr">
-          <h2>Upload your CSV</h2>
-          <p>Drop a CSV containing the users you want to import. Identifiers are normalised and deduplicated automatically.</p>
+          <h2>Group Administration</h2>
+          <p>Pick what you're working with. Security and Microsoft 365 groups run live here; the Exchange types generate a PowerShell script (coming soon).</p>
         </div>
-        <div class="banner error" id="s1Err"></div>
-        <div class="card">
-          <div class="card-title">Source file</div>
-          <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
-            <div class="file-drop-idle">
-              <div style="font-size:28px;margin-bottom:8px">📄</div>
-              <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p>
-              <p style="font-size:11px;color:var(--muted2);margin-top:4px">.csv files only</p>
-            </div>
-            <div class="file-drop-busy"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Reading file…</div>
-            <input type="file" id="fileIn" accept=".csv" onchange="handleFile(event)"/>
-          </div>
-          <div class="file-loaded" id="fileLoaded" style="display:none">
-            <span style="font-size:16px">✅</span>
-            <span class="file-loaded-name" id="fileName"></span>
-            <span class="file-loaded-count" id="fileCount"></span>
-            <button class="file-loaded-clear" onclick="clearFile()">✕</button>
-          </div>
-        </div>
-
-        <div class="card" id="colCard" style="display:none">
-          <div class="card-title">Identifier column</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Select the column with email addresses or UPNs. Auto-detected columns are marked ✦.</p>
-          <div class="col-pills" id="colPills"></div>
-          <div id="previewWrap" style="display:none;margin-top:12px">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Preview — first 5 values</div>
-            <div class="preview-list" id="previewList"></div>
-          </div>
-        </div>
-
-        <div class="card" id="optCard" style="display:none">
-          <div class="card-title">Normalisation options</div>
-          <div class="checkbox-group">
-            <label class="checkbox-label"><input type="checkbox" id="chkLower" checked/> Force identifiers to lowercase</label>
-            <label class="checkbox-label"><input type="checkbox" id="chkTrim"  checked/> Trim leading/trailing whitespace</label>
-            <label class="checkbox-label"><input type="checkbox" id="chkDedup" checked/> Remove duplicate identifiers</label>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-primary" id="s1Btn" onclick="s1Next()" disabled>Continue to Group →</button>
-          <span id="s1Msg" style="font-size:12px;color:var(--muted)"></span>
-        </div>
+        <div id="launcherLive"></div>
+        <div id="launcherScript" style="margin-top:1.25rem"></div>
       </div>
 
-      <!-- STEP 2 -->
-      <div class="section" id="step2">
+      <!-- WIZARD (hidden until a card is chosen) -->
+      <div id="wizard" style="display:none">
+        <button class="btn btn-ghost" style="margin-bottom:1rem" onclick="backToLauncher()">← All object types</button>
         <div class="section-hdr">
-          <h2>Target group</h2>
-          <p>Enter the display name or object ID of the Entra ID security group to add users to.</p>
+          <h2 id="wizTitle">—</h2>
+          <p id="wizSub"></p>
         </div>
-        <div class="banner error" id="s2Err"></div>
-        <div class="card">
-          <div class="card-title">Find group</div>
-          <div class="field">
-            <label class="field-label">Group name or GUID</label>
-            <div class="input-row">
-              <input type="text" id="groupIn" placeholder="e.g. IT-Security-Team or 00000000-0000-…" onkeydown="if(event.key==='Enter')lookupGroup()"/>
-              <button class="btn btn-secondary" onclick="lookupGroup()" id="lookupBtn" style="white-space:nowrap">Look up</button>
-            </div>
-          </div>
-          <div class="group-ok" id="groupOk">
-            <div class="group-ok-name" id="groupOkName"></div>
-            <div class="group-ok-id"   id="groupOkId"></div>
-          </div>
-          <div class="phase-line" id="lookupPhase"><span>Looking up…</span></div>
-        </div>
-
-        <div class="card" id="resolveCard" style="display:none">
-          <div class="card-title">Resolution settings</div>
-          <div class="field">
-            <label class="field-label">Resolve users by</label>
-            <select id="resolveBy">
-              <option value="Auto">Auto — try UPN first, then email</option>
-              <option value="UPN">UPN only</option>
-              <option value="Mail">Email (mail attribute) only</option>
-            </select>
-            <div class="field-hint">Auto works for most tenants. Use a specific mode if your CSV contains only one identifier type.</div>
-          </div>
-          <div class="checkbox-group" style="margin-top:12px">
-            <label class="checkbox-label"><input type="checkbox" id="chkGuests"/>   Include guest (B2B) accounts</label>
-            <label class="checkbox-label"><input type="checkbox" id="chkSkipEx"/>   Skip existing-membership pre-check (faster for large groups)</label>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-ghost" onclick="gotoStep(1)">← Back</button>
-          <button class="btn btn-primary" id="s2Btn" onclick="s2Next()" disabled>Continue to Run →</button>
-        </div>
-      </div>
-
-      <!-- STEP 3 -->
-      <div class="section" id="step3">
-        <div class="section-hdr">
-          <h2>Run import</h2>
-          <p>Dry run first to preview changes, then go live when you're confident.</p>
-        </div>
-
-        <div class="stats-row" id="runStats" style="display:none"></div>
-
-        <div class="card">
-          <div class="card-title">Import summary</div>
-          <div class="run-summary">
-            <div class="run-summary-item"><span>CSV file</span><span id="sumFile">—</span></div>
-            <div class="run-summary-item"><span>Identifiers</span><span id="sumCount">—</span></div>
-            <div class="run-summary-item"><span>Target group</span><span id="sumGroup" style="color:var(--blue-dark)">—</span></div>
-            <div class="run-summary-item"><span>Resolve by</span><span id="sumResolve">—</span></div>
-          </div>
-        </div>
-
-        <div class="banner error" id="s3Err"></div>
-
-        <div class="card" id="progCard" style="display:none">
-          <div class="progress-wrap">
-            <div class="progress-meta"><span id="progLabel">Processing…</span><span id="progPct">0%</span></div>
-            <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-ghost"    onclick="gotoStep(2)">← Back</button>
-          <button class="btn btn-secondary" id="btnDry"  onclick="runImport(true)" >▷ Dry Run</button>
-          <button class="btn btn-success"   id="btnLive" onclick="runImport(false)" disabled>▶ Live Run</button>
-        </div>
-
-        <div id="resultsWrap" style="display:none;margin-top:1.5rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div style="font-size:15px;font-weight:700" id="resTitle"></div>
-            <div style="display:flex;gap:8px">
-              <input type="search" id="resSearch" placeholder="Filter…" style="width:170px;font-size:12px;padding:5px 9px" oninput="filterRes(this.value)"/>
-              <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportLog()">Export CSV</button>
-            </div>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th>Status</th><th>Identifier</th><th>Display Name</th><th>Message</th><th>Time</th>
-              </tr></thead>
-              <tbody id="resBody"></tbody>
-            </table>
-          </div>
-          <div class="empty-state" id="resEmpty" style="display:none">
-            <div class="empty-icon">🔍</div>
-            <div class="empty-title">No matching results</div>
-          </div>
-        </div>
+        <div id="wizBody"></div>
       </div>
 
     </main>
@@ -303,7 +173,7 @@ async function checkGsdAccess() {
 
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "Group Import", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "Group Administration", hubRelPath: "../../" });
   ITTools.ui.syncThemeIcon();
 
   let _sessionFound = false;
@@ -314,6 +184,7 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
+      renderLauncher();
       await checkGsdAccess();
       if (_hasGsdAccess) {
         document.getElementById("gsdBadgeBar").style.display = "flex";
@@ -338,6 +209,7 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
+    renderLauncher();
     await checkGsdAccess();
     if (_hasGsdAccess) {
       document.getElementById("gsdBadgeBar").style.display = "flex";
@@ -377,6 +249,28 @@ const OBJECT_TYPES = [
     icon:"📬", tag:"Script · EXO", enabled:false, ops:["grant","remove","export"] },
 ];
 function getType(id){ return OBJECT_TYPES.find(t => t.id === id) || null; }
+
+// ── Launcher ────────────────────────────────────────────────────
+function renderLauncher() {
+  const card = t => `
+    <div class="type-card${t.enabled?"":" disabled"}" ${t.enabled?`onclick="openWizard('${t.id}')"`:""}>
+      <div class="type-icon">${t.icon}</div>
+      <div class="type-name">${t.label}</div>
+      <span class="type-tag ${t.backend==="graph"?"live":"script"}">${t.enabled?t.tag:"v2 — coming soon"}</span>
+    </div>`;
+  const live   = OBJECT_TYPES.filter(t => t.backend==="graph");
+  const script = OBJECT_TYPES.filter(t => t.backend==="exchange");
+  document.getElementById("launcher").style.display = "block";
+  document.getElementById("wizard").style.display   = "none";
+  document.getElementById("launcherLive").innerHTML =
+    `<div class="sidebar-lbl">Live in browser · Microsoft Graph</div><div class="type-grid">${live.map(card).join("")}</div>`;
+  document.getElementById("launcherScript").innerHTML =
+    `<div class="sidebar-lbl">Generates a PowerShell script · Exchange Online</div><div class="type-grid">${script.map(card).join("")}</div>`;
+}
+function backToLauncher() {
+  document.getElementById("wizard").style.display   = "none";
+  document.getElementById("launcher").style.display = "block";
+}
 
 // ── Step navigation ───────────────────────────────────────────
 function gotoStep(n) {
