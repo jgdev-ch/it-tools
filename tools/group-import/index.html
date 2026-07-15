@@ -308,13 +308,16 @@ function isUnified(group){ return (group.groupTypes || []).includes("Unified"); 
 
 function renderTargetStep() {
   const t = getType(wiz.typeId);
+  const wantUnified = t.graphKind === "unified";
+  const lbl = wantUnified ? "Group name, email, or GUID" : "Group name or GUID";
+  const ph  = wantUnified ? "e.g. Marketing Team, group@domain.com, or a GUID" : "e.g. IT-Security-Team or a GUID";
   document.getElementById("wizBody").innerHTML = `
     <div class="banner error" id="wErr" style="display:none"></div>
     <div class="card">
       <div class="card-title">Target ${t.label.toLowerCase()}</div>
-      <div class="field"><label class="field-label">Group name or GUID</label>
+      <div class="field"><label class="field-label">${lbl}</label>
         <div class="input-row">
-          <input type="text" id="wGroupIn" placeholder="e.g. IT-Security-Team or 00000000-…" onkeydown="if(event.key==='Enter')wizLookup()"/>
+          <input type="text" id="wGroupIn" placeholder="${ph}" onkeydown="if(event.key==='Enter')wizLookup()"/>
           <button class="btn btn-secondary" id="wLookupBtn" onclick="wizLookup()" style="white-space:nowrap">Look up</button>
         </div>
       </div>
@@ -329,7 +332,7 @@ function renderTargetStep() {
 async function wizLookup() {
   const input = document.getElementById("wGroupIn").value.trim();
   const err = document.getElementById("wErr");
-  if (!input) { err.textContent = "Enter a group name or GUID."; err.style.display="block"; return; }
+  if (!input) { err.textContent = "Enter a group name, email, or GUID."; err.style.display="block"; return; }
   err.style.display = "none";
   const t = getType(wiz.typeId);
   const wantUnified = t.graphKind === "unified";
@@ -342,9 +345,11 @@ async function wizLookup() {
           throw new Error(`That group is a ${isUnified(group) ? "Microsoft 365" : "security"} group, not a ${t.label}.`);
       } else {
         const esc = input.replace(/'/g, "''");
-        const res = await ITTools.graph.get(`/groups?$filter=displayName eq '${encodeURIComponent(esc)}'&$select=id,displayName,groupTypes&$count=true&$top=20`);
+        const byEmail = input.includes("@");
+        const field = byEmail ? "mail" : "displayName";
+        const res = await ITTools.graph.get(`/groups?$filter=${field} eq '${encodeURIComponent(esc)}'&$select=id,displayName,groupTypes&$count=true&$top=20`);
         const matches = (res.value || []).filter(g => isUnified(g) === wantUnified);
-        if (!matches.length) throw new Error(`No ${t.label} found named "${input}".`);
+        if (!matches.length) throw new Error(`No ${t.label} found ${byEmail ? `with email "${input}"` : `named "${input}"`}.`);
         group = matches[0];
       }
       wiz.groupId = group.id; wiz.groupName = group.displayName;
