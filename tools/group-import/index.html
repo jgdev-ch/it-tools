@@ -499,6 +499,24 @@ async function runOp(isDry) {
   renderRunStats(log, isDry); renderLog(log, isDry);
 }
 
+async function runExport() {
+  document.getElementById("s3Err").style.display = "none";
+  document.getElementById("progCard").style.display = "block";
+  setProgress(0, 1, "Loading members…");
+  try {
+    const members = await ITTools.graph.getAll(
+      `/groups/${wiz.groupId}/members?$select=id,displayName,userPrincipalName,mail,userType&$top=999`);
+    setProgress(1, 1, "Complete");
+    if (!members.length) { showErr("s3Err","This group has no members."); return; }
+    ITTools.csv.download(
+      `GroupExport_${wiz.groupName.replace(/[^A-Za-z0-9]/g,"")}_${new Date().toISOString().slice(0,10)}.csv`,
+      members.map(m => ({
+        DisplayName:m.displayName||"", UserPrincipalName:m.userPrincipalName||"",
+        Mail:m.mail||"", UserType:m.userType||"", Id:m.id
+      })));
+  } catch(e) { showErr("s3Err","Export failed: "+ITTools.graph.friendlyError(e)); }
+}
+
 // ── Step navigation ───────────────────────────────────────────
 function gotoStep(n) {
   if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
