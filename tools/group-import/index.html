@@ -396,6 +396,95 @@ function sourceNext() {
   renderRunStep();
 }
 
+// ── Run step + operations ───────────────────────────────────────
+function renderRunStep() {
+  const isExport = wiz.op === "export";
+  document.getElementById("wizBody").innerHTML = `
+    <div class="stats-row" id="runStats" style="display:none"></div>
+    <div class="card"><div class="card-title">Summary</div>
+      <div class="run-summary">
+        <div class="run-summary-item"><span>Action</span><span>${wiz.op}</span></div>
+        <div class="run-summary-item"><span>Group</span><span style="color:var(--blue-dark)">${wiz.groupName}</span></div>
+        ${isExport ? "" : `<div class="run-summary-item"><span>Identifiers</span><span>${wiz.identifiers.length}</span></div>`}
+      </div>
+    </div>
+    <div class="banner error" id="s3Err" style="display:none"></div>
+    <div class="card" id="progCard" style="display:none"><div class="progress-wrap">
+      <div class="progress-meta"><span id="progLabel">Processing…</span><span id="progPct">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progFill"></div></div></div></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="${isExport ? "renderTargetStep()" : "renderSourceStep()"}">← Back</button>
+      ${isExport
+        ? `<button class="btn btn-success" onclick="runExport()">⭳ Export members</button>`
+        : `<button class="btn btn-secondary" id="btnDry" onclick="runOp(true)">▷ Dry Run</button>
+           <button class="btn btn-success" id="btnLive" onclick="runOp(false)" disabled>▶ Live Run</button>`}
+    </div>
+    <div id="resultsWrap" style="display:none;margin-top:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:700" id="resTitle"></div>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportLog()">Export log CSV</button>
+      </div>
+      <div class="tbl-wrap"><table><thead><tr><th>Status</th><th>Identifier</th><th>Display Name</th><th>Message</th></tr></thead><tbody id="resBody"></tbody></table></div>
+    </div>`;
+}
+
+async function resolveUser(ident) {
+  try {
+    const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(ident)}?$select=id,displayName,userPrincipalName,userType`,
+      { headers: { Authorization: "Bearer " + (await ITTools.auth.getToken()) } });
+    if (r.ok) return await r.json();
+    const esc = ident.replace(/'/g,"''");
+    const res = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(esc)}'&$select=id,displayName,userPrincipalName,userType`);
+    return res.value?.length ? res.value[0] : null;
+  } catch(_) { return null; }
+}
+
+async function loadExistingMembers() {
+  const set = {};
+  const page = await ITTools.graph.getAll(`/groups/${wiz.groupId}/members?$select=id&$top=999`);
+  (page || []).forEach(m => set[m.id] = true);
+  return set;
+}
+
+async function opAdd(existing, user, isDry, entry) {
+  if (existing[user.id]) { entry.action="Skipped"; entry.message="Already a member"; return; }
+  if (isDry) { entry.action="WouldAdd"; entry.message="Dry run — no change"; return; }
+  try {
+    await ITTools.graph.post(`/groups/${wiz.groupId}/members/$ref`, { "@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${user.id}` });
+    existing[user.id]=true; entry.action="Added"; entry.message="Success";
+  } catch(e) { entry.action="Error"; entry.message=ITTools.graph.friendlyError(e); }
+}
+
+async function runOp(isDry) {
+  document.getElementById("s3Err").style.display = "none";
+  const btnDry=document.getElementById("btnDry"), btnLive=document.getElementById("btnLive");
+  if (btnDry) btnDry.disabled = true; if (btnLive) btnLive.disabled = true;
+  document.getElementById("resultsWrap").style.display = "none";
+  document.getElementById("progCard").style.display = "block";
+  setProgress(0, wiz.identifiers.length, "Loading existing members…");
+  let existing = {};
+  try { existing = await loadExistingMembers(); }
+  catch(e){ showErr("s3Err","Could not load members: "+ITTools.graph.friendlyError(e)); }
+  const log = [];
+  for (let i=0;i<wiz.identifiers.length;i++){
+    const ident = wiz.identifiers[i];
+    setProgress(i+1, wiz.identifiers.length, `(${i+1}/${wiz.identifiers.length}) ${ident}`);
+    const entry = { identifier:ident, displayName:"", action:"", message:"" };
+    const user = await resolveUser(ident);
+    if (!user) { entry.action="NotFound"; entry.message="Could not resolve via UPN or email"; log.push(entry); continue; }
+    entry.displayName = user.displayName||"";
+    if (wiz.op==="add")    await opAdd(existing, user, isDry, entry);
+    if (wiz.op==="remove") await opRemove(existing, user, isDry, entry);
+    if (!isDry) await new Promise(r=>setTimeout(r,150));
+    log.push(entry);
+  }
+  wiz.lastLog = log;
+  if (isDry && btnLive) { wiz.dryDone=true; btnLive.disabled=false; }
+  if (btnDry) btnDry.disabled=false;
+  setProgress(wiz.identifiers.length, wiz.identifiers.length, "Complete");
+  renderRunStats(log, isDry); renderLog(log, isDry);
+}
+
 // ── Step navigation ───────────────────────────────────────────
 function gotoStep(n) {
   if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
@@ -677,19 +766,17 @@ function renderRunStats(log, isDry) {
 function sc(c,l,v) { return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div></div>`; }
 
 function renderLog(log, isDry) {
-  document.getElementById("resTitle").textContent = isDry ? "Dry run preview" : "Import results";
-  const pillMap = { Added:"pill-added", WouldAdd:"pill-wouldadd", Skipped:"pill-skipped", Error:"pill-error", NotFound:"pill-notfound" };
+  document.getElementById("resTitle").textContent = isDry ? "Dry run preview" : "Results";
+  const pillMap = { Added:"pill-added", WouldAdd:"pill-wouldadd", Removed:"pill-added", WouldRemove:"pill-wouldadd", Skipped:"pill-skipped", Error:"pill-error", NotFound:"pill-notfound" };
   document.getElementById("resBody").innerHTML = log.map(r =>
-    `<tr data-search="${(r.identifier+" "+r.displayName).toLowerCase()}">
+    `<tr>
       <td><span class="status-pill ${pillMap[r.action]||""}">${r.action}</span></td>
       <td class="mono text-xs">${r.identifier}</td>
       <td>${r.displayName||"—"}</td>
       <td class="muted text-xs">${r.message}</td>
-      <td class="muted text-xs" style="white-space:nowrap">${r.timestamp}</td>
     </tr>`
   ).join("");
   document.getElementById("resultsWrap").style.display = "block";
-  document.getElementById("resEmpty").style.display    = "none";
 }
 
 function filterRes(q) {
@@ -699,9 +786,9 @@ function filterRes(q) {
 }
 
 function exportLog() {
-  if (!st.lastLog.length) return;
-  ITTools.csv.download("GroupImport_"+new Date().toISOString().slice(0,10)+".csv",
-    st.lastLog.map(r=>({ Status:r.action, Identifier:r.identifier, "Display Name":r.displayName, Message:r.message, Timestamp:r.timestamp }))
+  if (!wiz.lastLog.length) return;
+  ITTools.csv.download("GroupAdmin_"+wiz.op+"_"+new Date().toISOString().slice(0,10)+".csv",
+    wiz.lastLog.map(r=>({ Status:r.action, Identifier:r.identifier, "Display Name":r.displayName, Message:r.message }))
   );
 }
 
