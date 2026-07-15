@@ -460,6 +460,15 @@ async function opAdd(existing, user, isDry, entry) {
   } catch(e) { entry.action="Error"; entry.message=ITTools.graph.friendlyError(e); }
 }
 
+async function opRemove(existing, user, isDry, entry) {
+  if (!existing[user.id]) { entry.action="Skipped"; entry.message="Not a member"; return; }
+  if (isDry) { entry.action="WouldRemove"; entry.message="Dry run — no change"; return; }
+  try {
+    await ITTools.graph.del(`/groups/${wiz.groupId}/members/${user.id}/$ref`);
+    delete existing[user.id]; entry.action="Removed"; entry.message="Success";
+  } catch(e) { entry.action="Error"; entry.message=ITTools.graph.friendlyError(e); }
+}
+
 async function runOp(isDry) {
   document.getElementById("s3Err").style.display = "none";
   const btnDry=document.getElementById("btnDry"), btnLive=document.getElementById("btnLive");
@@ -755,15 +764,19 @@ async function runImport(isDry) {
 }
 
 function renderRunStats(log, isDry) {
-  const added    = log.filter(r=>r.action==="Added"||r.action==="WouldAdd").length;
+  const isRemove = wiz.op === "remove";
+  const changed  = log.filter(r => isRemove
+    ? (r.action==="Removed" || r.action==="WouldRemove")
+    : (r.action==="Added"   || r.action==="WouldAdd")).length;
   const skipped  = log.filter(r=>r.action==="Skipped").length;
   const notFound = log.filter(r=>r.action==="NotFound").length;
   const errors   = log.filter(r=>r.action==="Error").length;
+  const verb = isRemove ? (isDry ? "Would Remove" : "Removed") : (isDry ? "Would Add" : "Added");
   const row = document.getElementById("runStats");
   row.style.display = "flex";
   row.innerHTML =
     sc("blue","Total",log.length) +
-    sc(isDry?"blue":"green", isDry?"Would Add":"Added", added) +
+    sc(isDry?"blue":"green", verb, changed) +
     sc("amber","Skipped",skipped) +
     (notFound>0?sc("red","Not Found",notFound):"") +
     (errors>0?sc("red","Errors",errors):"");
