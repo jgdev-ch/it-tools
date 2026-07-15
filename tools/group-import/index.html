@@ -272,6 +272,20 @@ function backToLauncher() {
   document.getElementById("launcher").style.display = "block";
 }
 
+// ── Wizard ──────────────────────────────────────────────────────
+const wiz = { typeId:"", op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] };
+
+function openWizard(typeId) {
+  const t = getType(typeId);
+  if (!t || !t.enabled) return;
+  Object.assign(wiz, { typeId, op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] });
+  document.getElementById("launcher").style.display = "none";
+  document.getElementById("wizard").style.display   = "block";
+  document.getElementById("wizTitle").textContent = t.label;
+  document.getElementById("wizSub").textContent   = "Add, remove, or export members — live via Microsoft Graph.";
+  renderActionStep();
+}
+
 // ── Step navigation ───────────────────────────────────────────
 function gotoStep(n) {
   if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
