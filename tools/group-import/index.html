@@ -286,6 +286,23 @@ function openWizard(typeId) {
   renderActionStep();
 }
 
+function renderActionStep() {
+  wiz.op = "";
+  document.getElementById("wizBody").innerHTML = `
+    <div class="card">
+      <div class="card-title">What do you want to do?</div>
+      <div class="type-grid">
+        <div class="type-card" onclick="chooseOp('add')"><div class="type-name">Add members</div><p class="step-sub">Import a CSV into this group</p></div>
+        <div class="type-card" onclick="chooseOp('remove')"><div class="type-name">Remove members</div><p class="step-sub">Remove a CSV of users from this group</p></div>
+        <div class="type-card" onclick="chooseOp('export')"><div class="type-name">Export members</div><p class="step-sub">Download current membership as CSV</p></div>
+      </div>
+    </div>`;
+}
+function chooseOp(op) {
+  wiz.op = op;
+  renderTargetStep();
+}
+
 // ── Step navigation ───────────────────────────────────────────
 function gotoStep(n) {
   if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
