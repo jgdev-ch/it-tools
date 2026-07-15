@@ -71,7 +71,8 @@
   .type-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.08); }
   .type-card.disabled { opacity:.55; cursor:not-allowed; }
   .type-card.disabled:hover { transform:none; box-shadow:none; }
-  .type-icon  { font-size:26px; }
+  .type-icon  { font-size:26px; color:var(--accent-green); }
+  .type-card.disabled .type-icon { color:var(--muted); }
   .type-name  { font-size:15px; font-weight:700; margin-top:8px; }
   .type-tag   { display:inline-block; margin-top:8px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
   .type-tag.live   { background:var(--green-light); color:var(--green); }
@@ -226,27 +227,37 @@ function toggleUri() {
   b.style.display = b.style.display === "none" ? "block" : "none";
 }
 
-// ── State ────────────────────────────────────────────────────
-const st = { csvName:"", identifiers:[], groupId:"", groupName:"", dryDone:false, lastLog:[] };
+// ── Lucide icons (match hub visual design) ──────────────────────
+const _svg = p => `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ICONS = {
+  shield:      _svg(`<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>`),
+  package:     _svg(`<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>`),
+  mail:        _svg(`<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>`),
+  shieldCheck: _svg(`<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>`),
+  inbox:       _svg(`<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>`),
+  userPlus:    _svg(`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>`),
+  userMinus:   _svg(`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" x2="16" y1="11" y2="11"/>`),
+  download:    _svg(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`),
+};
 
 // ── Object-type registry ───────────────────────────────────────
 // backend: "graph" (live) | "exchange" (v2 script-gen, disabled in v1)
 // source:  "members" | "permissions"
 const OBJECT_TYPES = [
   { id:"security-group", label:"Security Group", backend:"graph", source:"members",
-    icon:"🛡️", tag:"Live · Graph", enabled:true,
+    icon:ICONS.shield, tag:"Live · Graph", enabled:true,
     graphKind:"security", // used to filter lookup
     ops:["add","remove","export"] },
   { id:"m365-group", label:"Microsoft 365 Group", backend:"graph", source:"members",
-    icon:"📦", tag:"Live · Graph", enabled:true,
+    icon:ICONS.package, tag:"Live · Graph", enabled:true,
     graphKind:"unified",
     ops:["add","remove","export"] },
   { id:"distribution-list", label:"Distribution List", backend:"exchange", source:"members",
-    icon:"📧", tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+    icon:ICONS.mail, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
   { id:"mail-security-group", label:"Mail-enabled Security Group", backend:"exchange", source:"members",
-    icon:"🔐", tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+    icon:ICONS.shieldCheck, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
   { id:"shared-mailbox", label:"Shared Mailbox", backend:"exchange", source:"permissions",
-    icon:"📬", tag:"Script · EXO", enabled:false, ops:["grant","remove","export"] },
+    icon:ICONS.inbox, tag:"Script · EXO", enabled:false, ops:["grant","remove","export"] },
 ];
 function getType(id){ return OBJECT_TYPES.find(t => t.id === id) || null; }
 
@@ -292,9 +303,9 @@ function renderActionStep() {
     <div class="card">
       <div class="card-title">What do you want to do?</div>
       <div class="type-grid">
-        <div class="type-card" onclick="chooseOp('add')"><div class="type-name">Add members</div><p class="step-sub">Import a CSV into this group</p></div>
-        <div class="type-card" onclick="chooseOp('remove')"><div class="type-name">Remove members</div><p class="step-sub">Remove a CSV of users from this group</p></div>
-        <div class="type-card" onclick="chooseOp('export')"><div class="type-name">Export members</div><p class="step-sub">Download current membership as CSV</p></div>
+        <div class="type-card" onclick="chooseOp('add')"><div class="type-icon">${ICONS.userPlus}</div><div class="type-name">Add members</div><p class="step-sub">Import a CSV into this group</p></div>
+        <div class="type-card" onclick="chooseOp('remove')"><div class="type-icon">${ICONS.userMinus}</div><div class="type-name">Remove members</div><p class="step-sub">Remove a CSV of users from this group</p></div>
+        <div class="type-card" onclick="chooseOp('export')"><div class="type-icon">${ICONS.download}</div><div class="type-name">Export members</div><p class="step-sub">Download current membership as CSV</p></div>
       </div>
     </div>`;
 }
@@ -471,6 +482,8 @@ async function opRemove(existing, user, isDry, entry) {
 
 async function runOp(isDry) {
   document.getElementById("s3Err").style.display = "none";
+  if (!isDry && wiz.op === "remove" &&
+      !confirm(`Remove ${wiz.identifiers.length} member(s) from "${wiz.groupName}"? This cannot be undone.`)) return;
   const btnDry=document.getElementById("btnDry"), btnLive=document.getElementById("btnLive");
   if (btnDry) btnDry.disabled = true; if (btnLive) btnLive.disabled = true;
   document.getElementById("resultsWrap").style.display = "none";
@@ -517,20 +530,7 @@ async function runExport() {
   } catch(e) { showErr("s3Err","Export failed: "+ITTools.graph.friendlyError(e)); }
 }
 
-// ── Step navigation ───────────────────────────────────────────
-function gotoStep(n) {
-  if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
-  if (n >= 3 && !st.groupId)            { showErr("s2Err","Look up a group first.");  return; }
-  [1,2,3].forEach(i => {
-    document.getElementById("step"+i).classList.toggle("active", i===n);
-    document.getElementById("nav"+i).classList.toggle("active", i===n);
-  });
-  if (n===3) updateSummary();
-}
-function markDone(n) {
-  document.getElementById("nav"+n).classList.remove("active");
-  document.getElementById("nav"+n).classList.add("done");
-}
+// ── Error banner ──────────────────────────────────────────────
 function showErr(id, msg) {
   const el = document.getElementById(id);
   el.textContent = msg; el.className = "banner error"; el.style.display = "block";
@@ -543,7 +543,7 @@ function dropFile(e)  { e.preventDefault(); dragLeave(); loadFile(e.dataTransfer
 function handleFile(e){ loadFile(e.target.files[0]); }
 
 function clearFile() {
-  st.csvName = ""; st.identifiers = []; wiz.csvName = "";
+  wiz.csvName = "";
   ["fileLoaded","colCard","optCard"].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = "none"; });
   const drop = document.getElementById("fileDrop");
   if (drop) { drop.classList.remove("file-reading"); drop.style.display = "block"; }
@@ -579,7 +579,7 @@ async function loadFile(file) {
 let _parsed = null;
 function parseAndRender(name, text) {
   try { _parsed = ITTools.csv.parse(text); } catch(e) { showErr("s1Err", e.message); return; }
-  st.csvName = name; wiz.csvName = name;
+  wiz.csvName = name;
   document.getElementById("s1Err").style.display = "none";
   document.getElementById("fileLoaded").style.display = "flex";
   document.getElementById("fileDrop").style.display   = "none";
@@ -628,157 +628,11 @@ function updateS1() {
   const msg = document.getElementById("s1Msg"); if (msg) msg.textContent = count > 0 ? count + " identifiers ready" : "";
 }
 
-function s1Next() {
-  st.identifiers = getPrimed();
-  if (!st.identifiers.length) { showErr("s1Err","No identifiers found."); return; }
-  markDone(1);
-  document.getElementById("sub1").textContent = st.identifiers.length + " identifiers ready";
-  gotoStep(2);
-}
-
-// ── Step 2: Group ──────────────────────────────────────────────
-async function lookupGroup() {
-  const input = document.getElementById("groupIn").value.trim();
-  if (!input) { showErr("s2Err", "Enter a group name or GUID."); return; }
-  document.getElementById("s2Err").style.display     = "none";
-  document.getElementById("groupOk").style.display    = "none";
-  document.getElementById("resolveCard").style.display = "none";
-  document.getElementById("s2Btn").disabled            = true;
-  document.getElementById("lookupPhase").classList.add("show");
-  try {
-    await ITTools.ui.withButtonSpinner(
-      document.getElementById("lookupBtn"),
-      async () => {
-        let group;
-        if (/^[0-9a-f-]{36}$/i.test(input)) {
-          group = await ITTools.graph.get(`/groups/${input}`);
-        } else {
-          const escaped = input.replace(/'/g, "''");
-          const res = await ITTools.graph.get(
-            `/groups?$filter=displayName eq '${encodeURIComponent(escaped)}'&$count=true&$top=5`
-          );
-          if (!res.value?.length) throw new Error(`No group found named "${input}".`);
-          group = res.value[0];
-        }
-        st.groupId   = group.id;
-        st.groupName = group.displayName;
-        document.getElementById("groupOkName").textContent   = group.displayName;
-        document.getElementById("groupOkId").textContent     = group.id;
-        document.getElementById("groupOk").style.display     = "block";
-        document.getElementById("resolveCard").style.display = "block";
-        document.getElementById("s2Btn").disabled            = false;
-      },
-      "Looking up…",
-      [document.getElementById("groupIn")]
-    );
-  } catch(e) {
-    showErr("s2Err", ITTools.graph.friendlyError(e));
-    st.groupId = "";
-  } finally {
-    document.getElementById("lookupPhase").classList.remove("show");
-  }
-}
-
-function s2Next() {
-  if (!st.groupId) { showErr("s2Err","Look up a group first."); return; }
-  markDone(2);
-  document.getElementById("sub2").textContent = st.groupName;
-  gotoStep(3);
-}
-
-// ── Step 3: Run ────────────────────────────────────────────────
-function updateSummary() {
-  document.getElementById("sumFile").textContent    = st.csvName || "—";
-  document.getElementById("sumCount").textContent   = st.identifiers.length + " users";
-  document.getElementById("sumGroup").textContent   = st.groupName || "—";
-  document.getElementById("sumResolve").textContent = document.getElementById("resolveBy")?.value || "Auto";
-}
-
 function setProgress(curr, total, label) {
   const pct = total > 0 ? Math.round((curr/total)*100) : 0;
   document.getElementById("progFill").style.width       = pct + "%";
   document.getElementById("progPct").textContent        = pct + "%";
   document.getElementById("progLabel").textContent      = label || `Processing ${curr} / ${total}`;
-}
-
-async function runImport(isDry) {
-  document.getElementById("s3Err").style.display = "none";
-  if (!st.identifiers.length) { showErr("s3Err","No identifiers — go back to Step 1."); return; }
-  if (!st.groupId)             { showErr("s3Err","No group — go back to Step 2.");       return; }
-  if (!isDry && !st.dryDone && !confirm("You haven't completed a dry run. Proceed with live import?")) return;
-
-  const btnDry  = document.getElementById("btnDry");
-  const btnLive = document.getElementById("btnLive");
-  btnDry.disabled = btnLive.disabled = true;
-  document.getElementById("progCard").style.display   = "block";
-  document.getElementById("progFill").className       = "progress-fill";
-  document.getElementById("resultsWrap").style.display = "none";
-  setProgress(0, st.identifiers.length, "Connecting…");
-
-  // Pre-load existing members
-  const existing = {};
-  if (!document.getElementById("chkSkipEx").checked) {
-    setProgress(0, st.identifiers.length, "Loading existing members…");
-    try {
-      let next = `/groups/${st.groupId}/members?$select=id&$top=999`;
-      while (next) {
-        const page = await ITTools.graph.get(next.startsWith("http") ? next : "https://graph.microsoft.com/v1.0"+next);
-        (page.value||[]).forEach(m => existing[m.id]=true);
-        next = page["@odata.nextLink"]||null;
-      }
-    } catch(e) { showErr("s3Err","Could not load existing members: "+ITTools.graph.friendlyError(e)); }
-  }
-
-  const resolveBy = document.getElementById("resolveBy").value;
-  const incGuests = document.getElementById("chkGuests").checked;
-  const log = [];
-
-  for (let i = 0; i < st.identifiers.length; i++) {
-    const ident = st.identifiers[i];
-    setProgress(i+1, st.identifiers.length, `(${i+1}/${st.identifiers.length}) ${ident}`);
-
-    let user = null;
-    try {
-      if (resolveBy==="UPN"||resolveBy==="Auto") {
-        const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(ident)}?$select=id,displayName,userPrincipalName,userType`,
-          { headers: { Authorization: "Bearer "+(await ITTools.auth.getToken()) } });
-        if (r.ok) user = await r.json();
-      }
-      if (!user&&(resolveBy==="Mail"||resolveBy==="Auto")) {
-        const escaped = ident.replace(/'/g,"''");
-        const r = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(escaped)}'&$select=id,displayName,userPrincipalName,userType`);
-        if (r.value?.length) user = r.value[0];
-      }
-    } catch(_) {}
-
-    const entry = { timestamp:new Date().toISOString().slice(0,19).replace("T"," "), identifier:ident, displayName:"", action:"", message:"" };
-
-    if (!user)                                    { entry.action="NotFound"; entry.message="Could not resolve via UPN or email"; log.push(entry); continue; }
-    entry.displayName = user.displayName||"";
-    if (!incGuests&&user.userType==="Guest")      { entry.action="Skipped"; entry.message="Guest account (enable 'Include guests' to allow)"; log.push(entry); continue; }
-    if (existing[user.id])                        { entry.action="Skipped"; entry.message="Already a member"; log.push(entry); continue; }
-
-    if (isDry) {
-      entry.action="WouldAdd"; entry.message="Dry run — no change made";
-    } else {
-      try {
-        await ITTools.graph.post(`/groups/${st.groupId}/members/$ref`, { "@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${user.id}` });
-        existing[user.id]=true; entry.action="Added"; entry.message="Success";
-      } catch(e) { entry.action="Error"; entry.message=e.message; }
-      await new Promise(r=>setTimeout(r,150));
-    }
-    log.push(entry);
-  }
-
-  st.lastLog = log;
-  if (isDry) { st.dryDone=true; btnLive.disabled=false; }
-  btnDry.disabled = false;
-
-  setProgress(st.identifiers.length, st.identifiers.length, "Complete");
-  document.getElementById("progFill").classList.add("done");
-  renderRunStats(log, isDry);
-  renderLog(log, isDry);
-  markDone(3);
 }
 
 function renderRunStats(log, isDry) {
@@ -813,12 +667,6 @@ function renderLog(log, isDry) {
     </tr>`
   ).join("");
   document.getElementById("resultsWrap").style.display = "block";
-}
-
-function filterRes(q) {
-  q = q.toLowerCase(); let vis = 0;
-  document.querySelectorAll("#resBody tr").forEach(tr => { const show=tr.dataset.search.includes(q); tr.style.display=show?"":"none"; if(show)vis++; });
-  document.getElementById("resEmpty").style.display = vis===0?"block":"none";
 }
 
 function exportLog() {
