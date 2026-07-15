@@ -303,6 +303,66 @@ function chooseOp(op) {
   renderTargetStep();
 }
 
+// ── Target lookup (Graph, kind-filtered) ────────────────────────
+function isUnified(group){ return (group.groupTypes || []).includes("Unified"); }
+
+function renderTargetStep() {
+  const t = getType(wiz.typeId);
+  document.getElementById("wizBody").innerHTML = `
+    <div class="banner error" id="wErr" style="display:none"></div>
+    <div class="card">
+      <div class="card-title">Target ${t.label.toLowerCase()}</div>
+      <div class="field"><label class="field-label">Group name or GUID</label>
+        <div class="input-row">
+          <input type="text" id="wGroupIn" placeholder="e.g. IT-Security-Team or 00000000-…" onkeydown="if(event.key==='Enter')wizLookup()"/>
+          <button class="btn btn-secondary" id="wLookupBtn" onclick="wizLookup()" style="white-space:nowrap">Look up</button>
+        </div>
+      </div>
+      <div class="group-ok" id="wGroupOk"><div class="group-ok-name" id="wGroupOkName"></div><div class="group-ok-id" id="wGroupOkId"></div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="renderActionStep()">← Back</button>
+      <button class="btn btn-primary" id="wTargetNext" onclick="afterTarget()" disabled>Continue →</button>
+    </div>`;
+}
+
+async function wizLookup() {
+  const input = document.getElementById("wGroupIn").value.trim();
+  const err = document.getElementById("wErr");
+  if (!input) { err.textContent = "Enter a group name or GUID."; err.style.display="block"; return; }
+  err.style.display = "none";
+  const t = getType(wiz.typeId);
+  const wantUnified = t.graphKind === "unified";
+  try {
+    await ITTools.ui.withButtonSpinner(document.getElementById("wLookupBtn"), async () => {
+      let group;
+      if (/^[0-9a-f-]{36}$/i.test(input)) {
+        group = await ITTools.graph.get(`/groups/${input}?$select=id,displayName,groupTypes`);
+        if (isUnified(group) !== wantUnified)
+          throw new Error(`That group is a ${isUnified(group) ? "Microsoft 365" : "security"} group, not a ${t.label}.`);
+      } else {
+        const esc = input.replace(/'/g, "''");
+        const res = await ITTools.graph.get(`/groups?$filter=displayName eq '${encodeURIComponent(esc)}'&$select=id,displayName,groupTypes&$count=true&$top=20`);
+        const matches = (res.value || []).filter(g => isUnified(g) === wantUnified);
+        if (!matches.length) throw new Error(`No ${t.label} found named "${input}".`);
+        group = matches[0];
+      }
+      wiz.groupId = group.id; wiz.groupName = group.displayName;
+      document.getElementById("wGroupOkName").textContent = group.displayName;
+      document.getElementById("wGroupOkId").textContent   = group.id;
+      document.getElementById("wGroupOk").style.display    = "block";
+      document.getElementById("wTargetNext").disabled      = false;
+    }, "Looking up…", [document.getElementById("wGroupIn")]);
+  } catch(e) {
+    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block"; wiz.groupId = "";
+  }
+}
+
+function afterTarget() {
+  if (!wiz.groupId) return;
+  if (wiz.op === "export") { renderRunStep(); } else { renderSourceStep(); }
+}
+
 // ── Step navigation ───────────────────────────────────────────
 function gotoStep(n) {
   if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
