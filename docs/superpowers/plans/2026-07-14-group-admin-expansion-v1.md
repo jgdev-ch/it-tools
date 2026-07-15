@@ -654,7 +654,24 @@ Set the auth-screen `<h1>` to "Group Administration" and `<p>` to "Sign in with 
 
 In `runOp`, before a non-dry Remove run, require the dry run first (mirror the Add guard): if `!isDry && !wiz.dryDone` show a `confirm()` prompt. (Add already gated via disabled Live button; keep that pattern.)
 
-- [ ] **Step 3: Full manual matrix**
+- [ ] **Step 3: Replace emoji icons with Lucide SVGs** *(added 2026-07-15)*
+
+The launcher cards and action step currently use emoji (🛡️📦📧🔐📬) placeholders. Swap them for inline Lucide SVGs matching the hub's visual design (stroke-based, `viewBox="0 0 24 24"`, `stroke-width="2"`, accent stroke color) — same style as the `config.json` tool icons. Update the `icon` field in `OBJECT_TYPES` and the action-step markup. Proposed mapping:
+
+| Element | Emoji | Lucide |
+|---|---|---|
+| Security Group | 🛡️ | `shield` |
+| Microsoft 365 Group | 📦 | `package` |
+| Distribution List | 📧 | `mail` |
+| Mail-enabled Security Group | 🔐 | `shield-check` |
+| Shared Mailbox | 📬 | `inbox` |
+| Add members | — | `user-plus` |
+| Remove members | — | `user-minus` |
+| Export members | — | `download` |
+
+Part of the hub-wide Lucide adoption already tracked in the design system; keep sizing/stroke consistent with the hub landing cards.
+
+- [ ] **Step 4: Full manual matrix**
 
 | Type | Add | Remove | Export |
 |------|-----|--------|--------|
@@ -663,7 +680,7 @@ In `runOp`, before a non-dry Remove run, require the dry run first (mirror the A
 
 Also verify: disabled Exchange cards inert; "← All object types" resets wizard state (start Add, go back, start Export — no stale identifiers).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add tools/group-import/index.html
