@@ -1,0 +1,5 @@
+EID,Firstname,Lastname,UserPrincipalName,RequiredMailboxSize,InternalEmailOnly,EntApps,Designation,City,Province,Country,Office,SubContractor
+10001,Reddy,Teja,Reddy.Teja@corrohealth.com,50 GB,Y,N,Medical Coder,Hyderabad,Telangana,India,HYD,N
+10002,Priya,Sharma,Priya.Sharma@corrohealth.com,2 GB,Y,N,Data Analyst,Chennai,Tamil Nadu,India,MAA,N
+10003,Arjun,Nair,Arjun.Nair@corrohealth.com,E3,N,Y,Team Lead,Bengaluru,Karnataka,India,BLR,N
+10004,Sanjay,Kumar,Sanjay.Kumar@corrohealth.com,50 GB,Y,N,QA Specialist,Mumbai,Maharashtra,India,BOM,Y
