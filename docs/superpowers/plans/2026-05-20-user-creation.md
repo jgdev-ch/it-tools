@@ -1013,15 +1013,24 @@ async function fetchSkus() {
   }
 }
 
+// Only the pure security groups (subContractor / teamMember) are managed via Graph.
+// Mail-enabled groups and distribution lists — "internal email only", "Disable Outlook
+// Access", "India O365 Login Access" — CANNOT take members via Graph (it returns
+// "Cannot update a mail-enabled security group and/or distribution list"). Those are
+// handled in the Exchange setup step via Add-DistributionGroupMember.
+const GRAPH_SECURITY_GROUP_KEYS = ["subContractor", "teamMember"];
+
 async function resolveGroups() {
   const groupNames = st.region === "India" ? INDIA_GROUPS : US_GROUPS;
-  for (const [key, name] of Object.entries(groupNames)) {
-    if (name.startsWith("TBD_")) { st.groups[key] = null; continue; }
+  st.groups = {};
+  for (const key of GRAPH_SECURITY_GROUP_KEYS) {
+    const name = groupNames[key];
+    if (!name || name.startsWith("TBD_")) { st.groups[key] = null; continue; }
     const res = await ITTools.graph.get(
       `/groups?$filter=displayName eq '${encodeURIComponent(name)}'&$select=id,displayName&$top=1`
     );
     const grp = res && res.value && res.value[0];
-    if (!grp) throw new Error(`Group not found: "${name}"`);
+    if (!grp) throw new Error(`Security group not found: "${name}"`);
     st.groups[key] = grp.id;
   }
 }
@@ -1138,21 +1147,39 @@ async function createUser(row, password) {
     removeLicenses: []
   });
 
-  // 3. Add to security groups
-  setProgStatus(row.num, "⏳ Adding to groups…", "var(--muted)");
-  const groupsToAdd = [];
-  groupsToAdd.push(row.subContractor ? st.groups.subContractor : st.groups.teamMember);
-  if (st.region === "India") {
-    if (row.size === "E3" && st.groups.o365Login)      groupsToAdd.push(st.groups.o365Login);
-    if (row.size !== "E3"  && st.groups.internalEmail)  groupsToAdd.push(st.groups.internalEmail);
-    if (row.size !== "E3"  && st.groups.disableOutlook) groupsToAdd.push(st.groups.disableOutlook);
+  // 3. Add to the Graph-managed security group ONLY (subContractor OR teamMember).
+  //    Mail-enabled groups / DLs (internal email only, Disable Outlook Access, India
+  //    O365 Login Access) are NOT addable via Graph — they're done in the Exchange
+  //    setup step. Non-fatal: the account + license already succeeded, so a group
+  //    hiccup returns a warning rather than discarding a created account.
+  setProgStatus(row.num, "Adding to security group…", "var(--muted)");
+  const warnings = [];
+  const gid = row.subContractor ? st.groups.subContractor : st.groups.teamMember;
+  if (gid) {
+    try {
+      await ITTools.graph.post(`/groups/${gid}/members/$ref`, {
+        "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`
+      });
+    } catch(e) {
+      warnings.push("security group add failed — " + ITTools.graph.friendlyError(e));
+    }
   }
-  for (const gid of groupsToAdd.filter(Boolean)) {
-    await ITTools.graph.post(`/groups/${gid}/members/$ref`, {
-      "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`
-    });
-  }
+  return warnings;  // createAccounts() shows these but still counts the user as created
 }
+```
+
+In the `createAccounts()` loop, capture the return so a group warning doesn't hide a created account:
+
+```javascript
+      const password = generatePassword();
+      const warnings = await createUser(row, password);
+      row.password = password;
+      st.created.push(row);
+      if (warnings && warnings.length) {
+        setProgStatus(row.num, IC.alert(13) + " Created — " + warnings.join("; ") + " (finish in Exchange step)", "var(--amber)");
+      } else {
+        setProgStatus(row.num, IC.check(13) + " Done", "var(--green)");
+      }
 ```
 
 - [ ] **Step 5: Verify creation flow in browser**
