@@ -2,13 +2,28 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a 4-step hub web tool that creates M365 user accounts via Graph API and generates a ready-to-run ZIP (Exchange PS script + bat launcher + credentials CSV) for the Exchange-only steps that Graph can't reach.
+**Goal:** Build a 4-step hub web tool that creates M365 user accounts via Graph API, then lets the tech **choose** how the Exchange-only steps finish — either an automated Azure runbook path (enqueue a job blob → scheduled runbook completes Exchange steps → Teams notification) or a downloadable ZIP (Exchange PS script + bat launcher + credentials CSV) the tech runs themselves.
 
-**Architecture:** Single `tools/user-creation/index.html` following the hub's established sidebar-wizard pattern (auth screen → 4-step sidebar → main content). All Graph work runs in the browser; Exchange work is deferred to the generated PowerShell script. JSZip is vendored alongside the tool for client-side ZIP generation.
+**Architecture:** Single `tools/user-creation/index.html` following the hub's established sidebar-wizard pattern (auth screen → 4-step sidebar → main content). All Graph work runs in the browser. At Step 4 the tech picks one of two co-equal paths for the Exchange-only steps: **Automated** — the browser writes a job blob to Azure storage via a write-scoped SAS, and a new scheduled runbook (`Invoke-UserCreationExchangeSetup.ps1`, reusing the Mailbox Cleanup Automation account + managed identity) completes the Exchange steps once each mailbox provisions and posts an Adaptive Card to a Teams channel; or **Download ZIP** — the browser generates a pre-populated PowerShell script + bat launcher + credentials CSV via JSZip. `Credentials.csv` is generated in-browser and downloaded locally in **both** paths — passwords never touch storage.
 
-**Tech Stack:** JavaScript (ES2020 async/await), Microsoft Graph REST API via `ITTools.graph`, MSAL via `ITTools.auth`, `ITTools.csv.parse()` for CSV parsing, JSZip 3.10.1 for ZIP generation, `crypto.getRandomValues()` for password generation.
+**Tech Stack:** JavaScript (ES2020 async/await), Microsoft Graph REST API via `ITTools.graph`, MSAL via `ITTools.auth`, `ITTools.csv.parse()` for CSV parsing, JSZip 3.10.1 for ZIP generation, `crypto.getRandomValues()` for password generation, Azure Blob REST (`PUT` with a write-scoped SAS) for the job blob. Runbook: PowerShell 7.2, `Az.Accounts`/`Az.Storage`, `ExchangeOnlineManagement` 3.4.0, managed-identity auth.
 
 **Spec:** `docs/superpowers/specs/2026-05-19-user-creation-design.md`
+
+---
+
+## Prerequisites & Sequencing
+
+The tool is designed so **Tasks 1–7 (the hub + ZIP path) are fully usable on their own** — the ZIP path needs no Azure infra or new RBAC. The automated path (Task 7 automated half + Task 8 runbook) layers on top and is gated behind two out-of-band grants. When those aren't in place, the tool detects it and offers only the ZIP path — nothing breaks.
+
+| Prerequisite | Needed for | Status / owner |
+|---|---|---|
+| Nothing — Graph scopes only | Tasks 1–6 + ZIP path (Task 7 ②) | ✅ ready to build now |
+| **`user-creation-jobs` blob container** in the existing `mailboxcleanup` storage account + a write-scoped SAS (create/write, no read/list/delete, object-scoped, time-bounded) | Automated queue (Task 7 ①) | ⏳ provision + issue SAS (same pattern as Mailbox Cleanup tracking blob) |
+| **`Distribution Groups`** Exchange RBAC role on managed identity `p-corp-aa-mailboxcleanup-azuc-01` | Runbook `Add-DistributionGroupMember` (Task 8) | ⏳ **must be granted by an Exchange admin** via `New-ManagementRoleAssignment` (same class of grant as Search And Purge). Identity already holds Mail Recipients + Mailbox Import Export + Mailbox Search. |
+| **Teams incoming webhook** for a new **[IT Automation]** channel, stored as Automation account variable `UserCreationTeamsWebhook` | Runbook completion card (Task 8) | ⏳ create channel + webhook |
+
+**Build order recommendation:** Tasks 1–7 first (ship the tool with the ZIP path live immediately), then Task 8 once the SAS + RBAC + webhook land. Task 9 flips the automated option on by filling the SAS constants and does the final deploy.
 
 ---
 
@@ -36,7 +51,7 @@ Open `config.json`. In the `tools` array, add after the last entry:
 {
   "id": "user-creation",
   "name": "User Creation",
-  "description": "Create new employee accounts from a CSV — assigns licenses, security groups, and generates a ready-to-run Exchange setup script.",
+  "description": "Create new employee accounts from a CSV — assigns licenses and security groups, then finishes Exchange setup your way: automatically via Azure or a downloadable script you run yourself.",
   "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#7c3aed' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><line x1='19' y1='8' x2='19' y2='14'/><line x1='22' y1='11' x2='16' y2='11'/></svg>",
   "status": "beta",
   "path": "tools/user-creation/",
@@ -133,8 +148,21 @@ Create `tools/user-creation/index.html`:
     /* ── Download step ── */
     .dl-card       { display:flex; flex-direction:column; align-items:center; gap:12px; padding:32px; background:var(--surface); border:1px solid var(--border); border-radius:12px; text-align:center; }
     .dl-icon       { font-size:48px; }
-    .dl-filename   { font-family:monospace; font-size:13px; color:var(--blue-text); }
+    .dl-filename   { font-family:monospace; font-size:12px; color:var(--blue-text); }
     .dl-contents   { font-size:12px; color:var(--muted); line-height:1.8; }
+
+    /* ── Step 4 path choice ── */
+    .path-choice        { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .path-card          { display:flex; flex-direction:column; gap:12px; padding:20px; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+    .path-card.disabled { opacity:.55; }
+    .path-card-hdr      { display:flex; align-items:center; gap:10px; }
+    .path-icon          { font-size:22px; }
+    .path-title         { font-size:14px; font-weight:700; color:var(--text); }
+    .path-tag           { margin-left:auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--green); background:var(--green-light); padding:3px 8px; border-radius:12px; }
+    .path-desc          { font-size:12px; color:var(--muted); line-height:1.6; flex:1; margin:0; }
+    .path-unavail       { font-size:11px; color:#fbbf24; }
+    .s4-done            { display:flex; align-items:flex-start; gap:10px; padding:14px 16px; background:var(--green-light); border:1px solid var(--green); border-radius:10px; font-size:13px; color:var(--text); line-height:1.6; }
+    @media (max-width:720px){ .path-choice { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -182,12 +210,12 @@ Create `tools/user-creation/index.html`:
       </div>
       <div class="step-item" id="nav4">
         <div class="step-bullet" id="bul4">4</div>
-        <div><div class="step-title">Download Scripts</div><div class="step-sub" id="sub4">Pending</div></div>
+        <div><div class="step-title">Exchange Setup</div><div class="step-sub" id="sub4">Pending</div></div>
       </div>
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
         <strong>How it works</strong>
-        Upload the standard NewAccounts CSV. Review and adjust per user. The hub creates accounts via Microsoft Graph, then generates an Exchange setup script for the remaining mailbox steps.
+        Upload the standard NewAccounts CSV. Review and adjust per user. The hub creates accounts via Microsoft Graph, then you choose how the remaining Exchange mailbox steps finish — automatically via Azure, or a script you download and run yourself.
       </div>
     </nav>
 
@@ -317,27 +345,47 @@ Create `tools/user-creation/index.html`:
         </div>
       </div>
 
-      <!-- ── Step 4: Download ── -->
+      <!-- ── Step 4: Exchange Setup (explicit path choice) ── -->
       <div class="section" id="step4">
         <div class="section-hdr">
-          <h2>Download Scripts</h2>
-          <p>All accounts created. Download the ZIP to complete mailbox configuration via Exchange Online.</p>
+          <h2>Complete Exchange Setup</h2>
+          <p>Accounts are created. Choose how the remaining Exchange-only steps (distribution groups, archive, retention, subcontractor attribute) get done. Either way, the credentials CSV downloads to your machine — passwords never leave your browser.</p>
         </div>
         <div class="banner error" id="s4Err" style="display:none"></div>
-        <div class="card">
-          <div class="dl-card">
-            <div class="dl-icon">📦</div>
-            <div id="dlFilename" class="dl-filename"></div>
-            <div class="dl-contents">
-              Exchange-Setup.ps1 — pre-populated Exchange script<br/>
-              Run-Exchange-Setup.bat — double-click launcher<br/>
-              Credentials.csv — per-user temp passwords
+
+        <!-- Path choice — two co-equal options, neither preselected -->
+        <div class="path-choice" id="pathChoice">
+
+          <!-- Path ① Automated -->
+          <div class="path-card" id="autoCard">
+            <div class="path-card-hdr">
+              <span class="path-icon">⚙️</span>
+              <span class="path-title">Automated setup</span>
+              <span class="path-tag" id="autoTag" style="display:none">Recommended</span>
             </div>
+            <p class="path-desc">Queue the Exchange steps to run automatically in Azure once each mailbox provisions. Results post to the <strong>[IT Automation]</strong> Teams channel — nothing to run yourself.</p>
+            <button class="btn btn-primary" id="autoBtn" onclick="queueExchangeSetup()">Queue Exchange Setup</button>
+            <div class="path-unavail" id="autoUnavail" style="display:none">Automated setup isn't wired up yet — use the ZIP option.</div>
+          </div>
+
+          <!-- Path ② Download ZIP -->
+          <div class="path-card" id="zipCard">
+            <div class="path-card-hdr">
+              <span class="path-icon">📦</span>
+              <span class="path-title">Download ZIP</span>
+            </div>
+            <p class="path-desc">Download a pre-populated script + launcher + credentials CSV and run the Exchange steps yourself in your own Exchange Online session.</p>
+            <div class="dl-filename" id="dlFilename"></div>
             <button class="btn btn-primary" id="dlBtn" onclick="downloadZip()">Download ZIP</button>
           </div>
+
         </div>
+
+        <!-- Outcome area — populated after a path is chosen -->
+        <div id="s4Outcome" style="margin-top:18px"></div>
+
         <div style="margin-top:16px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
-          🔑 <strong style="color:var(--text)">Credentials CSV is inside the ZIP.</strong> Extract to Desktop, double-click the .bat to run Exchange setup. Store credentials securely before distributing to new hires.
+          🔑 <strong style="color:var(--text)">Credentials download to your machine in both paths.</strong> Store them securely before distributing to new hires — passwords are never written to Azure or transmitted to any server.
         </div>
       </div>
 
@@ -387,6 +435,16 @@ const US_GROUPS = {
   subContractor: "TBD_US_SUBCONTRACTOR_GROUP",
   teamMember:    "TBD_US_TEAM_MEMBER_GROUP"
 };
+
+// ── Automated path (Azure job queue) ──────────────────────
+// Write-scoped SAS for the user-creation-jobs container: create+write only,
+// NO read/list/delete, object-scoped, time-bounded. Reissue on the same cadence
+// as the Mailbox Cleanup tracking-blob SAS. Leave BOTH blank until Azure is
+// provisioned AND the Distribution Groups RBAC role is granted — while blank,
+// Step 4 disables the Automated option and offers only the ZIP path (see Task 9).
+const JOBS_CONTAINER_URL = "";  // e.g. "https://<account>.blob.core.windows.net/user-creation-jobs"
+const JOBS_SAS_TOKEN     = "";  // e.g. "?sv=2023-01-03&ss=b&srt=o&sp=cw&se=2028-06-10T00:00:00Z&sig=..."
+const BLOB_API_VERSION   = "2021-08-06";
 
 const st = {
   rows:    [],     // enriched row objects (see parseAndRender)
@@ -1115,10 +1173,12 @@ git commit -m "feat: user-creation step 3 — account creation via Graph with li
 
 ---
 
-### Task 7: Step 4 — ZIP generation and download
+### Task 7: Step 4 — Path choice (automated queue + ZIP download)
+
+Step 4 presents two co-equal options. This task builds both: the shared credentials download, the ZIP path (script + bat + CSV), the automated path (job-blob PUT via write-scoped SAS), and the choice-rendering that disables Automated when the SAS constants are blank. The tool is fully usable via the ZIP path after this task even before any Azure infra exists (Task 8/9).
 
 **Files:**
-- Modify: `tools/user-creation/index.html` — add `buildExchangeScript()`, `buildBatFile()`, `buildCredentialsCsv()`, `downloadZip()`
+- Modify: `tools/user-creation/index.html` — add `buildExchangeScript()`, `buildBatFile()`, `buildCredentialsCsv()`, `downloadCredentialsCsv()`, `downloadZip()`, `automatedAvailable()`, `renderStep4()`, `queueExchangeSetup()`, `goToStep4()`
 
 - [ ] **Step 1: Add Exchange script builder**
 
@@ -1271,6 +1331,18 @@ function buildCredentialsCsv() {
   });
   return lines.join("\r\n");
 }
+
+// Shared by both paths — the automated path downloads the CSV directly
+// (there is no ZIP), the ZIP path bundles the same content inside the archive.
+function downloadCredentialsCsv() {
+  const blob = new Blob([buildCredentialsCsv()], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "Credentials-" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 ```
 
 - [ ] **Step 3: Add downloadZip()**
@@ -1304,37 +1376,347 @@ async function downloadZip() {
 }
 ```
 
-- [ ] **Step 4: Wire up goToStep4() from Step 3 Continue button**
+- [ ] **Step 4: Add the automated path — availability check and job-blob queue**
 
-In the Step 3 Continue button (already in the HTML as `onclick="gotoStep(4)"`), add a markDone call. Replace the inline onclick with a proper function. Find the Step 3 Continue button in the HTML and change `onclick="gotoStep(4)"` to `onclick="goToStep4()"`, then add:
+Add after `downloadZip()`:
+
+```javascript
+// ── Step 4: Automated path (Azure job queue) ──────────────
+
+function automatedAvailable() {
+  return JOBS_CONTAINER_URL !== "" && JOBS_SAS_TOKEN !== "";
+}
+
+async function queueExchangeSetup() {
+  const btn = document.getElementById("autoBtn");
+  btn.disabled = true;
+  btn.textContent = "Queuing…";
+  showErr("s4Err", "");
+  try {
+    // 1. Credentials always download locally first — never written to the blob.
+    downloadCredentialsCsv();
+
+    // 2. Build the job blob (UPNs + Exchange config flags only — NO passwords).
+    const rand  = crypto.getRandomValues(new Uint8Array(3));
+    const jobId = new Date().toISOString().slice(0, 10) + "-" +
+                  Array.from(rand).map(b => b.toString(16).padStart(2, "0")).join("");
+    const job = {
+      jobId,
+      createdBy: (ITTools.auth.account && ITTools.auth.account.username) || "unknown",
+      createdAt: new Date().toISOString(),
+      region:    st.region,
+      users: st.created.map(r => ({
+        upn:               r.upn,
+        size:              r.size,           // "2GB" | "50GB" | "E3"
+        subContractor:     r.subContractor,
+        internalEmailOnly: r.internalEmail,
+        status:            "pending"
+      }))
+    };
+
+    // 3. PUT the blob into pending/ via the write-scoped SAS.
+    const url = `${JOBS_CONTAINER_URL}/pending/${jobId}.json${JOBS_SAS_TOKEN}`;
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "x-ms-blob-type": "BlockBlob",
+        "x-ms-version":   BLOB_API_VERSION,
+        "Content-Type":   "application/json"
+      },
+      body: JSON.stringify(job, null, 2)
+    });
+    if (!res.ok) {
+      throw new Error(`Queue write failed (HTTP ${res.status}). ${await res.text()}`);
+    }
+
+    // 4. Confirm — the runbook takes it from here.
+    document.getElementById("pathChoice").style.display = "none";
+    document.getElementById("s4Outcome").innerHTML = `
+      <div class="s4-done">
+        <span style="font-size:18px">✅</span>
+        <div>
+          <strong>Exchange setup queued for ${job.users.length} user${job.users.length !== 1 ? "s" : ""} (${st.region}).</strong><br/>
+          Results will post to the <strong>[IT Automation]</strong> Teams channel when mailboxes finish
+          provisioning (usually within a few hours). Job ID <code>${jobId}</code>.<br/>
+          The credentials CSV downloaded to your machine — store it securely.
+        </div>
+      </div>`;
+    markDone(4, job.users.length + " queued");
+  } catch(e) {
+    showErr("s4Err", "Could not queue the job: " + e.message + " — you can use Download ZIP instead.");
+    btn.disabled = false;
+    btn.textContent = "Queue Exchange Setup";
+  }
+}
+```
+
+- [ ] **Step 5: Wire up goToStep4() and renderStep4() from the Step 3 Continue button**
+
+Find the Step 3 Continue button in the HTML (`onclick="gotoStep(4)"`) and change it to `onclick="goToStep4()"`. Then add:
 
 ```javascript
 function goToStep4() {
   markDone(3, st.created.length + " created");
   gotoStep(4);
+  renderStep4();
+}
+
+function renderStep4() {
+  // ZIP filename shown on the ZIP card.
+  document.getElementById("dlFilename").textContent =
+    "NewAccountsSetup-" + new Date().toISOString().slice(0, 10) + ".zip";
+
+  // Enable/disable the Automated option based on whether the SAS is vendored.
+  const available = automatedAvailable();
+  document.getElementById("autoCard").classList.toggle("disabled", !available);
+  document.getElementById("autoBtn").disabled = !available;
+  document.getElementById("autoTag").style.display     = available ? "inline-block" : "none";
+  document.getElementById("autoUnavail").style.display = available ? "none" : "block";
 }
 ```
 
-- [ ] **Step 5: Verify ZIP download in browser**
+- [ ] **Step 6: Verify both paths in browser**
 
-After completing a test creation run, advance to Step 4. Click Download ZIP. Verify:
+After completing a test creation run, advance to Step 4. Verify the **choice UI** first:
+- Two cards render side by side: **Automated setup** and **Download ZIP**
+- With `JOBS_CONTAINER_URL`/`JOBS_SAS_TOKEN` still blank (default), the Automated card is dimmed, its button disabled, the "Recommended" tag hidden, and the "isn't wired up yet" note shows — the ZIP card is fully active
+
+**ZIP path:** click Download ZIP. Verify:
 - ZIP downloads with correct filename (`NewAccountsSetup-YYYY-MM-DD.zip`)
 - Extract and inspect contents:
-  - `Exchange-Setup.ps1` — opens in editor, shows correct user array, correct region, correct operations
-  - `Run-Exchange-Setup.bat` — opens in editor, shows correct user count and date
-  - `Credentials.csv` — opens in Excel/Notepad, shows DisplayName, UPN, TempPassword for each created user
-- Passwords in credentials CSV are 16 chars with mixed character types
+  - `Exchange-Setup.ps1` — correct user array, region, and operations
+  - `Run-Exchange-Setup.bat` — correct user count and date
+  - `Credentials.csv` — DisplayName, UPN, TempPassword for each created user; passwords are 16 chars, mixed character types
 
-- [ ] **Step 6: Commit**
+**Automated path (only after Task 9 fills the SAS constants):** temporarily paste a valid test container URL + SAS, reload, and click **Queue Exchange Setup**. Verify: credentials CSV downloads, the choice UI is replaced by the green "queued" confirmation with a job ID, and a `pending/<jobid>.json` blob appears in the container (check via Storage Explorer) containing UPNs + flags and **no passwords**. Remove the test SAS afterward.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add tools/user-creation/index.html
-git commit -m "feat: user-creation step 4 — ZIP generation with Exchange script, bat launcher, credentials CSV"
+git commit -m "feat: user-creation step 4 — path choice: automated job-blob queue + ZIP download"
 ```
 
 ---
 
-### Task 8: Navigation polish, sidebar done states, push to testing and main
+### Task 8: Exchange setup runbook — Invoke-UserCreationExchangeSetup.ps1
+
+Builds the scheduled runbook that drains the job queue: connects to Exchange via the existing managed identity, completes the Exchange steps for each provisioned mailbox (idempotently), and posts a Teams Adaptive Card when a job finishes. Mirrors the Mailbox Cleanup `Invoke-SIRWatchdog.ps1` connection pattern exactly. **Depends on the prerequisites in the header** (SAS-less here — the runbook uses managed-identity storage access; needs Storage Blob Data Contributor on the container, the Distribution Groups Exchange role, and the Teams webhook variable).
+
+**Files:**
+- Create: `tools/user-creation/runbook/Invoke-UserCreationExchangeSetup.ps1`
+
+- [ ] **Step 1: Write the runbook — connect, drain queue, idempotent Exchange ops, Teams card**
+
+Create `tools/user-creation/runbook/Invoke-UserCreationExchangeSetup.ps1`:
+
+```powershell
+<#
+    Invoke-UserCreationExchangeSetup.ps1
+    Azure Automation runbook (PowerShell 7.2). Scheduled every ~15-30 min.
+
+    Drains user-creation-jobs/pending/*.json written by the User Creation hub tool.
+    For each pending user whose mailbox has provisioned, completes the Exchange-only
+    steps (distribution groups, archive, retention, CustomAttribute4), idempotently.
+    When every user in a job is resolved, writes a result CSV, moves the job blob to
+    completed/, and posts an Adaptive Card to the [IT Automation] Teams channel.
+
+    Auth: managed identity only (reuses the Mailbox Cleanup pattern).
+    Prereqs: Storage Blob Data Contributor on the storage account, Exchange roles
+    Mail Recipients + Distribution Groups, Automation variable UserCreationTeamsWebhook.
+#>
+
+$ErrorActionPreference = "Stop"
+
+# ── Config ────────────────────────────────────────────────
+$StorageAccount = "REPLACE_WITH_MAILBOXCLEANUP_STORAGE_ACCOUNT"  # same account as the SIR watchdog
+$Container      = "user-creation-jobs"
+$Organization   = "trusthcs0.onmicrosoft.com"
+$JobMaxAgeHours = 6
+$RetentionIndia = "India F3 Users"
+$WebhookUrl     = Get-AutomationVariable -Name "UserCreationTeamsWebhook"
+
+# ── Connect: Azure (managed identity) → Exchange Online ───
+Connect-AzAccount -Identity | Out-Null
+$ctx = New-AzStorageContext -StorageAccountName $StorageAccount -UseConnectedAccount
+
+$exoToken = (Get-AzAccessToken -ResourceUrl "https://outlook.office365.com").Token
+Connect-ExchangeOnline -AccessToken $exoToken -Organization $Organization -ShowBanner:$false | Out-Null
+Write-Output "Connected to Exchange Online as managed identity."
+
+# ── Idempotent per-user Exchange steps ────────────────────
+function Set-UserExchange {
+    param($User, $Region)
+    $results = [System.Collections.Generic.List[string]]::new()
+
+    # Distribution groups — skip if already a member
+    function Add-DGIfMissing($group, $upn) {
+        $already = Get-DistributionGroupMember -Identity $group -ResultSize Unlimited -ErrorAction SilentlyContinue |
+                   Where-Object { $_.PrimarySmtpAddress -eq $upn }
+        if ($already) { return "already in $group" }
+        Add-DistributionGroupMember -Identity $group -Member $upn -BypassSecurityGroupManagerCheck -ErrorAction Stop
+        return "added to $group"
+    }
+
+    if ($User.internalEmailOnly) {
+        $results.Add((Add-DGIfMissing "internal email only"   $User.upn))
+        $results.Add((Add-DGIfMissing "Disable Outlook Access" $User.upn))
+    }
+    if ($Region -eq "India" -and $User.size -eq "E3") {
+        $results.Add((Add-DGIfMissing "India O365 Login Access" $User.upn))
+    }
+
+    # Subcontractor attribute — skip if already set
+    if ($User.subContractor) {
+        $mbx = Get-Mailbox -Identity $User.upn
+        if ($mbx.CustomAttribute4 -ne "SubContractor") {
+            Set-Mailbox -Identity $User.upn -CustomAttribute4 "SubContractor" -ErrorAction Stop
+            $results.Add("CustomAttribute4=SubContractor")
+        } else { $results.Add("CustomAttribute4 already set") }
+    }
+
+    # 50 GB users — archive + retention, each guarded
+    if ($User.size -eq "50GB") {
+        $mbx = Get-Mailbox -Identity $User.upn
+        # Archive absent when ArchiveGuid is the empty GUID; enable only then.
+        if (-not $mbx.ArchiveGuid -or $mbx.ArchiveGuid -eq [guid]::Empty) {
+            Enable-Mailbox -Identity $User.upn -Archive -ErrorAction Stop
+            $results.Add("archive enabled")
+        } else { $results.Add("archive already present") }
+
+        if ($Region -eq "India") {
+            if ($mbx.RetentionPolicy -ne $RetentionIndia) {
+                Set-Mailbox -Identity $User.upn -RetentionPolicy $RetentionIndia -ErrorAction Stop
+                $results.Add("retention=$RetentionIndia")
+            } else { $results.Add("retention already set") }
+        }
+    }
+
+    return ($results -join "; ")
+}
+
+# ── Drain the queue ───────────────────────────────────────
+$pending = Get-AzStorageBlob -Container $Container -Context $ctx -Prefix "pending/" -ErrorAction SilentlyContinue |
+           Where-Object { $_.Name -like "pending/*.json" }
+Write-Output "Found $($pending.Count) pending job(s)."
+
+foreach ($blob in $pending) {
+    $tmp = New-TemporaryFile
+    Get-AzStorageBlobContent -Container $Container -Context $ctx -Blob $blob.Name -Destination $tmp.FullName -Force | Out-Null
+    $job = Get-Content $tmp.FullName -Raw | ConvertFrom-Json
+
+    $ageHours = (New-TimeSpan -Start ([datetime]$job.createdAt) -End (Get-Date).ToUniversalTime()).TotalHours
+
+    foreach ($u in $job.users | Where-Object { $_.status -eq "pending" }) {
+        # Has the mailbox provisioned yet?
+        $mbx = Get-Mailbox -Identity $u.upn -ErrorAction SilentlyContinue
+        if (-not $mbx) {
+            if ($ageHours -gt $JobMaxAgeHours) {
+                $u.status = "failed"
+                $u | Add-Member -NotePropertyName reason -NotePropertyValue "mailbox not provisioned within $JobMaxAgeHours h" -Force
+            }
+            continue   # not ready — leave pending, retry next cycle
+        }
+        try {
+            $detail = Set-UserExchange -User $u -Region $job.region
+            $u.status = "done"
+            $u | Add-Member -NotePropertyName reason -NotePropertyValue $detail -Force
+        } catch {
+            $u.status = "failed"
+            $u | Add-Member -NotePropertyName reason -NotePropertyValue $_.Exception.Message -Force
+        }
+    }
+
+    # Persist the updated job blob (status changes) back to pending/
+    ($job | ConvertTo-Json -Depth 6) | Set-Content $tmp.FullName
+    Set-AzStorageBlobContent -Container $Container -Context $ctx -Blob $blob.Name -File $tmp.FullName -Force | Out-Null
+
+    # If every user is resolved, finalize: result CSV, move to completed/, Teams card
+    if (-not ($job.users | Where-Object { $_.status -eq "pending" })) {
+        $csvName = "result-$($job.jobId).csv"
+        $csvTmp  = New-TemporaryFile
+        $job.users | Select-Object upn, size, status, reason | Export-Csv $csvTmp.FullName -NoTypeInformation
+        Set-AzStorageBlobContent -Container $Container -Context $ctx -Blob "results/$csvName" -File $csvTmp.FullName -Force | Out-Null
+
+        # Move job blob pending/ -> completed/
+        Start-AzStorageBlobCopy -SrcContainer $Container -SrcBlob $blob.Name `
+            -DestContainer $Container -DestBlob ("completed/" + [IO.Path]::GetFileName($blob.Name)) -Context $ctx | Out-Null
+        Remove-AzStorageBlob -Container $Container -Context $ctx -Blob $blob.Name -Force
+
+        # Short-lived read SAS for the result CSV (surfaced as a download link in the card)
+        $csvSas = New-AzStorageBlobSASToken -Container $Container -Blob "results/$csvName" `
+            -Permission r -ExpiryTime (Get-Date).AddDays(7) -Context $ctx -FullUri
+
+        Send-TeamsCard -Job $job -ResultUrl $csvSas -WebhookUrl $WebhookUrl
+        Write-Output "Job $($job.jobId) complete — card posted."
+    }
+}
+
+Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+Write-Output "User Creation Exchange setup runbook complete."
+```
+
+- [ ] **Step 2: Add the Teams Adaptive Card sender**
+
+Add the `Send-TeamsCard` function near the top of the runbook (after the config block, before it is called):
+
+```powershell
+function Send-TeamsCard {
+    param($Job, [string]$ResultUrl, [string]$WebhookUrl)
+
+    $rows = foreach ($u in $Job.users) {
+        $icon = if ($u.status -eq "done") { "✅" } else { "❌" }
+        @{ type = "TextBlock"; wrap = $true; spacing = "Small";
+           text = "$icon **$($u.upn)** — $($u.reason)" }
+    }
+    $doneCount = ($Job.users | Where-Object { $_.status -eq "done" }).Count
+
+    $card = @{
+        type = "message"
+        attachments = @(@{
+            contentType = "application/vnd.microsoft.card.adaptive"
+            content = @{
+                type    = "AdaptiveCard"
+                version = "1.4"
+                body    = @(
+                    @{ type = "TextBlock"; size = "Large"; weight = "Bolder";
+                       text = "Exchange setup complete — $doneCount/$($Job.users.Count) users · $($Job.region)" },
+                    @{ type = "TextBlock"; isSubtle = $true; spacing = "None";
+                       text = "Job $($Job.jobId) · queued by $($Job.createdBy)" }
+                ) + $rows
+                actions = @(@{
+                    type  = "Action.OpenUrl"
+                    title = "Download results CSV"
+                    url   = $ResultUrl
+                })
+                '$schema' = "http://adaptivecards.io/schemas/adaptive-card.json"
+            }
+        })
+    }
+    Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body ($card | ConvertTo-Json -Depth 20) -ContentType "application/json"
+}
+```
+
+- [ ] **Step 3: Parse-check the runbook**
+
+The runbook can't run outside Azure, so verify it parses cleanly instead:
+
+Run:
+```bash
+pwsh -NoProfile -Command "\$null = [System.Management.Automation.Language.Parser]::ParseFile('tools/user-creation/runbook/Invoke-UserCreationExchangeSetup.ps1', [ref]\$null, [ref]\$errs); if (\$errs) { \$errs; exit 1 } else { 'parse OK' }"
+```
+Expected: `parse OK` with no parse errors.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add tools/user-creation/runbook/Invoke-UserCreationExchangeSetup.ps1
+git commit -m "feat: user-creation runbook — automated Exchange setup from job queue + Teams card"
+```
+
+---
+
+### Task 9: Navigation polish, activate automated path, push to testing and main
 
 **Files:**
 - Modify: `tools/user-creation/index.html` — wire sidebar click guards, final sidebar subtitle updates
@@ -1356,15 +1738,29 @@ function gotoStep(n) {
 }
 ```
 
-- [ ] **Step 2: Final end-to-end walkthrough**
+- [ ] **Step 2: Activate the automated path (only once prerequisites land)**
+
+This step flips the Automated option on. Do it **after** the `user-creation-jobs` container + write-scoped SAS, the Distribution Groups RBAC grant, and the Teams webhook are all in place (see header). Until then, ship with the constants blank — the tool runs the ZIP path fine.
+
+1. Fill the constants in `tools/user-creation/index.html`:
+```javascript
+const JOBS_CONTAINER_URL = "https://<account>.blob.core.windows.net/user-creation-jobs";
+const JOBS_SAS_TOKEN     = "?sv=...&ss=b&srt=o&sp=cw&se=...&sig=...";
+```
+2. Set `$StorageAccount` in `tools/user-creation/runbook/Invoke-UserCreationExchangeSetup.ps1` to the real account name, and import the runbook into the Automation account (PowerShell 7.2 runtime), linked to a ~15–30 min schedule.
+3. Add the `UserCreationTeamsWebhook` Automation variable (the [IT Automation] channel's incoming webhook URL).
+
+If any prerequisite is not yet met, **skip this step** and leave the constants blank — `renderStep4()` disables Automated automatically.
+
+- [ ] **Step 3: Final end-to-end walkthrough**
 
 Complete a full run using the NewAccountsTemplate.csv against a sandbox tenant:
 1. Upload CSV → verify 13 rows, UPN checks run
 2. Review table → apply bulk F3 license → verify all rows update
 3. Create accounts → verify progress rows complete for all ready rows
-4. Download ZIP → extract and inspect all 3 files
+4. Step 4 → confirm the **two-card choice** renders; run the **ZIP path** (extract + inspect all 3 files). If Step 2 was done, also run the **Automated path** and confirm the queued confirmation + a `pending/<jobid>.json` blob with no passwords.
 
-- [ ] **Step 3: Push testing branch, then merge to main**
+- [ ] **Step 4: Push testing branch, then merge to main**
 
 ```bash
 git push origin testing
@@ -1374,7 +1770,7 @@ git push origin main
 git checkout testing
 ```
 
-- [ ] **Step 4: Commit memory and Obsidian note placeholder**
+- [ ] **Step 5: Commit memory and Obsidian note placeholder**
 
 Update memory with status. Create Obsidian stub at `C:\dev\notes\Projects\IT Tools Hub\Tools\User Creation.md` with the spec summary and plan path for team review reference.
 
@@ -1401,11 +1797,22 @@ Update memory with status. Create Obsidian stub at `C:\dev\notes\Projects\IT Too
 | Per-user live progress rows | Task 6 |
 | Failure isolation (one failure doesn't stop loop) | Task 6 |
 | Per-user crypto password generation | Task 6 |
-| Exchange-Setup.ps1 with user array | Task 7 |
-| Run-Exchange-Setup.bat with %~dp0 | Task 7 |
+| Exchange-Setup.ps1 with user array (Path ②) | Task 7 |
+| Run-Exchange-Setup.bat with %~dp0 (Path ②) | Task 7 |
 | Credentials.csv with per-user passwords | Task 7 |
-| JSZip client-side ZIP generation | Task 7 |
-| Single ZIP download button | Task 7 |
+| JSZip client-side ZIP generation (Path ②) | Task 7 |
+| Step 4 = explicit two-path choice (not default+fallback) | Task 7 (HTML in Task 1, wiring in Task 7) |
+| Automated path (Path ①) — job-blob PUT via write-scoped SAS | Task 7 |
+| Job blob carries UPNs + flags only, never passwords | Task 7 |
+| Credentials CSV downloaded locally in BOTH paths | Task 7 (`downloadCredentialsCsv`) |
+| Automated option auto-disables when SAS not vendored | Task 7 (`renderStep4`/`automatedAvailable`) |
+| Exchange Setup Runbook (managed-identity, drain queue) | Task 8 |
+| Idempotent Exchange operations (check-before-apply) | Task 8 (`Set-UserExchange`) |
+| Provisioning cutoff (~6h → failed) | Task 8 |
+| Result CSV + move pending/→completed/ | Task 8 |
+| Teams Adaptive Card completion notification | Task 8 (`Send-TeamsCard`) |
+| Distribution Groups RBAC prerequisite | Prerequisites section + Task 9 Step 2 |
+| Teams webhook stored as Automation variable | Task 8 + Task 9 Step 2 |
 | config.json entry | Task 1 |
 | JSZip vendored | Task 1 |
 | Passwords via crypto.getRandomValues() | Task 6 |

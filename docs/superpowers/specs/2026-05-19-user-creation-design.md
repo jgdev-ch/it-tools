@@ -1,17 +1,19 @@
 # User Creation Tool — Design Spec
 **Date:** 2026-05-19
-**Status:** Approved · **Revised 2026-07-24** (Exchange-step automation added — see Revision History)
+**Status:** Approved · **Revised 2026-07-24** (Exchange-step automation added) · **Revised 2026-07-27** (Step 4 = explicit tech choice — see Revision History)
 
 ## Revision History
+
+**2026-07-27 — Step 4 is an explicit choice, not a default-with-fallback.** Before the Exchange work runs, the tech chooses one of two co-equal paths: (A) let Azure automation complete the Exchange steps, or (B) download a ZIP and run it themselves. Automated is *recommended* when the *Distribution Groups* RBAC role is in place, but it is a deliberate selection the tech makes — not a silent default with a fallback. The two paths are otherwise unchanged; only their presentation in Step 4 is reframed.
 
 **2026-07-24 — Exchange steps can now run via Azure automation.** When this spec was first written, no tenant-side Exchange automation existed, so delegating Exchange-only steps to a downloadable ZIP script was the only secure option. The Mailbox Cleanup project has since stood up an Azure Automation account with a managed identity that authenticates to Exchange Online unattended (`Connect-AzAccount -Identity` → token → `Connect-ExchangeOnline`). This revision adds an **automated Exchange-setup path** as the default, while **keeping the ZIP download as an always-available fallback**. Steps 1–3, the CSV standard, license/group logic, region handling, and in-browser password generation are unchanged. See the new sections: *Step 4 (revised)*, *Job Blob*, *Exchange Setup Runbook*, *Exchange RBAC*, *Completion Notification (Teams)*, and *Failure & Fallback Semantics*.
 
 ## Overview
 
-A 4-step hub web tool that replaces the legacy `NewAccounts` PowerShell script. The hub handles everything reachable via Microsoft Graph (user creation, licensing, security groups). At completion, the Exchange-only steps (distribution-group membership, archive enablement, retention policy, subcontractor attribute) are completed one of two ways:
+A 4-step hub web tool that replaces the legacy `NewAccounts` PowerShell script. The hub handles everything reachable via Microsoft Graph (user creation, licensing, security groups). At completion, the tech **chooses how the Exchange-only steps** (distribution-group membership, archive enablement, retention policy, subcontractor attribute) **get done** — two co-equal paths, selected before the Exchange work runs:
 
-- **Automated (default):** the hub enqueues a job to Azure storage; a scheduled runbook completes the Exchange steps once each mailbox provisions, then reports results to a Teams channel. The tech only downloads the credentials CSV.
-- **ZIP fallback:** the hub generates a pre-populated Exchange setup script + `.bat` launcher + credentials CSV, so a tech can finish the Exchange steps manually — used when automation is unavailable or preferred.
+- **Automated:** the hub enqueues a job to Azure storage; a scheduled runbook completes the Exchange steps once each mailbox provisions, then reports results to a Teams channel. The tech only downloads the credentials CSV. *Recommended when the Distribution Groups RBAC role is in place.*
+- **Download ZIP:** the hub generates a pre-populated Exchange setup script + `.bat` launcher + credentials CSV, so the tech finishes the Exchange steps manually in their own EXO session — for when automation is unavailable, the RBAC grant hasn't landed, or the tech simply prefers to run it themselves.
 
 This tool covers **account creation only**. Updating existing users, re-enabling disabled accounts, managing licenses on existing users, and MFA management are separate future tools.
 
@@ -175,15 +177,15 @@ SKUs fetched once before the loop (`Get-MgSubscribedSku`) and cached for the ses
 
 ---
 
-## Step 4 — Complete Exchange Setup (revised 2026-07-24)
+## Step 4 — Complete Exchange Setup (revised 2026-07-24, reframed 2026-07-27)
 
-Step 4 presents two paths. The **automated path is the default**; the **ZIP download is the fallback**.
+Step 4 presents the tech with an **explicit choice** between two co-equal paths, made before any Exchange work runs. The UI shows both options side by side with a short description of each; **Automated** carries a *Recommended* tag when the *Distribution Groups* RBAC role is available, but neither is preselected — the tech deliberately picks one.
 
 In both paths, `Credentials.csv` is generated in-browser and **downloaded locally** — passwords never leave the browser (see *Password generation*).
 
-### Path ① — Automated Exchange setup (default)
+### Path ① — Automated Exchange setup
 
-Primary button: **Queue Exchange Setup**.
+Button: **Queue Exchange Setup**.
 
 On click, the hub:
 1. Generates the browser-side passwords and prompts a local download of `Credentials.csv` (same file as the ZIP path).
@@ -192,9 +194,9 @@ On click, the hub:
 
 The tech is then done — no script to run. A scheduled runbook takes it from here (see *Exchange Setup Runbook*).
 
-### Path ② — Download ZIP (fallback)
+### Path ② — Download ZIP
 
-Secondary button: **Download ZIP instead**. Identical to the original design — used when automation is unavailable, the *Distribution Groups* RBAC role has not yet been granted, or a tech prefers to run it manually. Generates `NewAccountsSetup-YYYY-MM-DD.zip` client-side via JSZip.
+Button: **Download ZIP**. Identical to the original design — chosen when automation is unavailable, the *Distribution Groups* RBAC role has not yet been granted, or a tech prefers to run it manually. Generates `NewAccountsSetup-YYYY-MM-DD.zip` client-side via JSZip.
 
 ### Job Blob
 
@@ -262,7 +264,7 @@ Card contents:
 - **Automation unavailable** — the ZIP path is always offered, so a broken or paused runbook never blocks onboarding.
 - **Idempotent retries** — safe to re-run; state is checked before every operation.
 
-## Step 4 — ZIP Contents (fallback path detail)
+## Step 4 — ZIP Contents (Path ② detail)
 
 Generated client-side via JSZip. Button label: `Download NewAccountsSetup-YYYY-MM-DD.zip`.
 
@@ -363,7 +365,7 @@ JSZip vendored alongside the tool (same approach as `msal-browser.min.js` in sha
 {
   "id": "user-creation",
   "name": "User Creation",
-  "description": "Create new employee accounts from a CSV — assigns licenses and security groups, then completes Exchange setup automatically via Azure (with a downloadable script as a fallback).",
+  "description": "Create new employee accounts from a CSV — assigns licenses and security groups, then finishes Exchange setup your way: automatically via Azure or a downloadable script you run yourself.",
   "status": "beta",
   "path": "tools/user-creation/",
   "permissions": ["User.ReadWrite.All", "Group.ReadWrite.All"],
