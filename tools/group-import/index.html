@@ -386,7 +386,7 @@ function renderSourceStep() {
     <div class="card">
       <div class="card-title">${wiz.op === "add" ? "Members to add" : "Members to remove"} (CSV)</div>
       <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
-        <div class="file-drop-idle"><div style="font-size:28px;margin-bottom:8px">📄</div>
+        <div class="file-drop-idle"><div style="margin-bottom:8px;color:var(--muted2);display:flex;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
           <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p></div>
         <div class="file-drop-busy"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Reading file…</div>
         <input type="file" id="fileIn" accept=".csv" onchange="handleFile(event)"/>
