@@ -1,10 +1,19 @@
 # User Creation Tool — Design Spec
 **Date:** 2026-05-19
-**Status:** Approved
+**Status:** Approved · **Revised 2026-07-24** (Exchange-step automation added) · **Revised 2026-07-27** (Step 4 = explicit tech choice — see Revision History)
+
+## Revision History
+
+**2026-07-27 — Step 4 is an explicit choice, not a default-with-fallback.** Before the Exchange work runs, the tech chooses one of two co-equal paths: (A) let Azure automation complete the Exchange steps, or (B) download a ZIP and run it themselves. Automated is *recommended* when the *Distribution Groups* RBAC role is in place, but it is a deliberate selection the tech makes — not a silent default with a fallback. The two paths are otherwise unchanged; only their presentation in Step 4 is reframed.
+
+**2026-07-24 — Exchange steps can now run via Azure automation.** When this spec was first written, no tenant-side Exchange automation existed, so delegating Exchange-only steps to a downloadable ZIP script was the only secure option. The Mailbox Cleanup project has since stood up an Azure Automation account with a managed identity that authenticates to Exchange Online unattended (`Connect-AzAccount -Identity` → token → `Connect-ExchangeOnline`). This revision adds an **automated Exchange-setup path** as the default, while **keeping the ZIP download as an always-available fallback**. Steps 1–3, the CSV standard, license/group logic, region handling, and in-browser password generation are unchanged. See the new sections: *Step 4 (revised)*, *Job Blob*, *Exchange Setup Runbook*, *Exchange RBAC*, *Completion Notification (Teams)*, and *Failure & Fallback Semantics*.
 
 ## Overview
 
-A 4-step hub web tool that replaces the legacy `NewAccounts` PowerShell script. The hub handles everything reachable via Microsoft Graph (user creation, licensing, security groups). At completion it generates a single ZIP download containing a pre-populated Exchange setup script, a `.bat` launcher, and a credentials CSV — so the tech runs one file to finish the Exchange-only steps.
+A 4-step hub web tool that replaces the legacy `NewAccounts` PowerShell script. The hub handles everything reachable via Microsoft Graph (user creation, licensing, security groups). At completion, the tech **chooses how the Exchange-only steps** (distribution-group membership, archive enablement, retention policy, subcontractor attribute) **get done** — two co-equal paths, selected before the Exchange work runs:
+
+- **Automated:** the hub enqueues a job to Azure storage; a scheduled runbook completes the Exchange steps once each mailbox provisions, then reports results to a Teams channel. The tech only downloads the credentials CSV. *Recommended when the Distribution Groups RBAC role is in place.*
+- **Download ZIP:** the hub generates a pre-populated Exchange setup script + `.bat` launcher + credentials CSV, so the tech finishes the Exchange steps manually in their own EXO session — for when automation is unavailable, the RBAC grant hasn't landed, or the tech simply prefers to run it themselves.
 
 This tool covers **account creation only**. Updating existing users, re-enabling disabled accounts, managing licenses on existing users, and MFA management are separate future tools.
 
@@ -18,18 +27,29 @@ This tool covers **account creation only**. Updating existing users, re-enabling
 │  Step 1: Upload & validate CSV              │
 │  Step 2: Review & edit (bulk + per-row)     │
 │  Step 3: Create accounts (live progress)    │
-│  Step 4: Generate & download ZIP            │
-└────────────────────┬────────────────────────┘
-                     │ ZIP download
-                     ▼
-┌─────────────────────────────────────────────┐
-│  NewAccountsSetup-YYYY-MM-DD.zip            │
-│  ├── Exchange-Setup.ps1  (pre-populated)    │
-│  ├── Run-Exchange-Setup.bat  (launcher)     │
-│  └── Credentials.csv  (per-user passwords) │
-└─────────────────────────────────────────────┘
-                     │ tech extracts + runs bat
-                     ▼
+│  Step 4: Automated setup  OR  Download ZIP  │
+└──────────┬───────────────────────┬──────────┘
+           │ ① write job blob        │ ② ZIP download (fallback)
+           │   (scoped SAS)          │
+           ▼                         ▼
+┌────────────────────────┐   ┌─────────────────────────────────┐
+│ Azure Storage          │   │ NewAccountsSetup-YYYY-MM-DD.zip │
+│ user-creation-jobs/    │   │ ├── Exchange-Setup.ps1          │
+│   pending/<jobid>.json │   │ ├── Run-Exchange-Setup.bat      │
+└──────────┬─────────────┘   │ └── Credentials.csv             │
+           │ polled ~15–30m  └──────────────┬──────────────────┘
+           ▼                                │ tech extracts + runs bat
+┌────────────────────────┐                 │
+│ Runbook (scheduled)    │                 │
+│ Invoke-UserCreation-   │                 │
+│   ExchangeSetup.ps1    │                 │
+│ - managed-identity EXO │                 │
+│ - mailbox provisioned? │                 │
+│   → run Exchange steps │                 │
+│ - write result CSV     │                 │
+│ - post Teams card      │                 │
+└──────────┬─────────────┘                 │
+           ▼                                ▼
 ┌─────────────────────────────────────────────┐
 │  Exchange Online (PowerShell)               │
 │  - Distribution group membership           │
@@ -38,6 +58,10 @@ This tool covers **account creation only**. Updating existing users, re-enabling
 │  - Set-Mailbox CustomAttribute4             │
 │    (subcontractors)                         │
 └─────────────────────────────────────────────┘
+
+Both paths converge on the same Exchange operations. Credentials.csv
+(browser-generated passwords) is ALWAYS downloaded locally in both paths —
+passwords are never written to the job blob or transmitted to any server.
 ```
 
 ### Graph scopes required
@@ -153,9 +177,96 @@ SKUs fetched once before the loop (`Get-MgSubscribedSku`) and cached for the ses
 
 ---
 
-## Step 4 — Download Scripts
+## Step 4 — Complete Exchange Setup (revised 2026-07-24, reframed 2026-07-27)
 
-Single **Download ZIP** button. ZIP generated client-side via JSZip. Button label: `Download NewAccountsSetup-YYYY-MM-DD.zip`.
+Step 4 presents the tech with an **explicit choice** between two co-equal paths, made before any Exchange work runs. The UI shows both options side by side with a short description of each; **Automated** carries a *Recommended* tag when the *Distribution Groups* RBAC role is available, but neither is preselected — the tech deliberately picks one.
+
+In both paths, `Credentials.csv` is generated in-browser and **downloaded locally** — passwords never leave the browser (see *Password generation*).
+
+### Path ① — Automated Exchange setup
+
+Button: **Queue Exchange Setup**.
+
+On click, the hub:
+1. Generates the browser-side passwords and prompts a local download of `Credentials.csv` (same file as the ZIP path).
+2. Writes a **job blob** to `user-creation-jobs/pending/<jobid>.json` in the audit storage account, using a scoped, write-limited SAS token vendored into the tool (same mechanism the Mailbox Cleanup script uses for its tracking blob).
+3. Shows a confirmation: *"Exchange setup queued for N users. Results will post to the [IT Automation] Teams channel when mailboxes finish provisioning (usually within a few hours)."*
+
+The tech is then done — no script to run. A scheduled runbook takes it from here (see *Exchange Setup Runbook*).
+
+### Path ② — Download ZIP
+
+Button: **Download ZIP**. Identical to the original design — chosen when automation is unavailable, the *Distribution Groups* RBAC role has not yet been granted, or a tech prefers to run it manually. Generates `NewAccountsSetup-YYYY-MM-DD.zip` client-side via JSZip.
+
+### Job Blob
+
+Written to `user-creation-jobs/pending/<jobid>.json`. Contains only UPNs and Exchange config flags — **never passwords**.
+
+```json
+{
+  "jobId": "2026-07-24-01",
+  "createdBy": "tech.upn@corrohealth.com",
+  "createdAt": "2026-07-24T14:03:00Z",
+  "region": "India",
+  "users": [
+    { "upn": "reddy.teja@corrohealth.com", "size": "50GB",
+      "subContractor": false, "internalEmailOnly": true,
+      "status": "pending" }
+  ]
+}
+```
+
+Per-user `status` is updated by the runbook (`pending` → `done` / `failed`). When all users are resolved, the blob moves `pending/` → `completed/`.
+
+### Exchange Setup Runbook
+
+**`Invoke-UserCreationExchangeSetup.ps1`** — new runbook in the existing Automation account, scheduled every ~15–30 minutes. Reuses the SIR-watchdog connection pattern exactly: `Connect-AzAccount -Identity` → `Get-AzAccessToken -ResourceUrl "https://outlook.office365.com"` → `Connect-ExchangeOnline -AccessToken -Organization trusthcs0.onmicrosoft.com`.
+
+Per cycle:
+1. List blobs under `user-creation-jobs/pending/`.
+2. For each user with `status = pending`, check the mailbox has provisioned (`Get-Mailbox -Identity <upn>` succeeds).
+   - **Ready** → run the same Exchange operations as the ZIP script (`Add-DistributionGroupMember`, `Enable-Mailbox -Archive` for 50 GB, `Set-Mailbox -RetentionPolicy` for 50 GB India, `Set-Mailbox -CustomAttribute4` for subcontractors), each guarded by an idempotency check; set `status = done`.
+   - **Not ready** → leave `pending`; retry next cycle.
+   - **Not ready past cutoff** (job age > ~6h) → set `status = failed`, reason `mailbox not provisioned`.
+3. When every user in a job is resolved, write `result-<jobid>.csv` to the audit container, move the job blob to `completed/`, and post the Teams card (see *Completion Notification*).
+
+**Idempotency:** every operation checks current state first (e.g., skip `Add-DistributionGroupMember` if already a member, skip `Enable-Mailbox -Archive` if archive already present), so re-running a cycle never double-applies.
+
+### Exchange RBAC (prerequisite for Path ①)
+
+The managed identity `p-corp-aa-mailboxcleanup-azuc-01` currently holds **Mail Recipients**, **Mailbox Import Export**, and **Mailbox Search**.
+
+| Exchange step | Role required | Status |
+|---|---|---|
+| `Enable-Mailbox -Archive` | Mail Recipients | ✅ held |
+| `Set-Mailbox` (retention / CustomAttribute4) | Mail Recipients | ✅ held |
+| `Add-DistributionGroupMember` | **Distribution Groups** | ❌ **must be granted** |
+
+**One new role — *Distribution Groups*** — must be assigned to the managed identity's service principal via `New-ManagementRoleAssignment` (requires an Exchange admin, same class of grant as the Search And Purge role). Path ① does not fully work until this lands; **Path ② (ZIP) requires none of it**, so the tool is usable from day one via the fallback while the grant is in flight.
+
+*Infra naming note:* the Automation account and storage are branded `mailboxcleanup`. Reusing them is fine and in-scope. A future rename to a neutral `p-corp-aa-ittools-*` would be cleaner but is explicitly out of scope — not worth re-plumbing working infrastructure.
+
+### Completion Notification (Teams)
+
+The runbook posts an **Adaptive Card** to a new dedicated **[IT Automation] Teams channel** via an **incoming webhook** (URL stored as an Automation account variable — not in the hub, not in the repo).
+
+Card contents:
+- Header: `Exchange setup complete — N users · <region>`
+- Per-user rows: ✓/✗ with what was applied (or the failure reason)
+- A **Download results** button linking to `result-<jobid>.csv` in the audit container via a short-lived scoped SAS URL
+
+(Incoming webhooks cannot attach binary files, so the result CSV lives in blob storage and is surfaced as a download link.)
+
+### Failure & Fallback Semantics
+
+- **Per-user isolation** — one user's failure never blocks the rest of the job; it is marked ✗ with a reason in the card and result CSV.
+- **Provisioning cutoff** — a mailbox not ready ~6h after job creation is marked failed. The tech re-runs only those stragglers via the ZIP fallback.
+- **Automation unavailable** — the ZIP path is always offered, so a broken or paused runbook never blocks onboarding.
+- **Idempotent retries** — safe to re-run; state is checked before every operation.
+
+## Step 4 — ZIP Contents (Path ② detail)
+
+Generated client-side via JSZip. Button label: `Download NewAccountsSetup-YYYY-MM-DD.zip`.
 
 ### ZIP contents
 
@@ -222,8 +333,13 @@ Reddy Teja,Reddy.teja@corrohealth.com,xK9#mP2qR8...
 ## Security Considerations
 
 - No passwords stored in hub session, localStorage, or any server
-- Credentials CSV is inside the ZIP — single controlled download, not a separate loose file
-- Exchange script contains no credentials — it prompts for MFA via `Connect-ExchangeOnline` at runtime
+- Credentials CSV is downloaded locally in both paths (inside the ZIP for Path ②, direct download for Path ①) — a single controlled download, never a separate loose server-side file
+- **Job blob carries no secrets** — only UPNs and Exchange config flags; passwords are never written to storage or transmitted
+- **Scoped SAS token** — the SAS vendored into the hub is write-limited to the `user-creation-jobs` container (create/write, no read/list/delete), object-scoped and time-bounded, matching the least-privilege approach used for the Mailbox Cleanup tracking blob. Reissue on the same cadence.
+- **No inbound web endpoint** — the hub never triggers Exchange writes directly; it only drops a job blob that a scheduled runbook polls. This preserves the security posture set in the Group Administration design (no web-exposed tenant-write endpoint).
+- **Runbook auth** — managed identity only; no stored credentials. Exchange RBAC is least-privilege (Mail Recipients + Distribution Groups).
+- **Teams webhook URL** stored as an Automation account variable — not in the hub, not in the repo
+- Exchange script (Path ②) contains no credentials — it prompts for MFA via `Connect-ExchangeOnline` at runtime
 - Graph token acquired via MSAL popup — standard hub auth pattern, no special handling needed
 
 ---
@@ -234,9 +350,12 @@ Reddy Teja,Reddy.teja@corrohealth.com,xK9#mP2qR8...
 tools/user-creation/
 ├── index.html           ← hub tool
 └── jszip.min.js         ← client-side ZIP library (vendored)
+
+runbook/                  ← Azure Automation (deployed separately, tracked in repo)
+└── Invoke-UserCreationExchangeSetup.ps1
 ```
 
-JSZip vendored alongside the tool (same approach as `msal-browser.min.js` in shared/) to avoid CDN dependency.
+JSZip vendored alongside the tool (same approach as `msal-browser.min.js` in shared/) to avoid CDN dependency. The runbook is tracked in the repo alongside the tool (mirroring `tools/mailbox-cleanup/runbook/`) but deployed to the Automation account out of band.
 
 ---
 
@@ -246,7 +365,7 @@ JSZip vendored alongside the tool (same approach as `msal-browser.min.js` in sha
 {
   "id": "user-creation",
   "name": "User Creation",
-  "description": "Create new employee accounts from a CSV — assigns licenses, security groups, and generates a ready-to-run Exchange setup script.",
+  "description": "Create new employee accounts from a CSV — assigns licenses and security groups, then finishes Exchange setup your way: automatically via Azure or a downloadable script you run yourself.",
   "status": "beta",
   "path": "tools/user-creation/",
   "permissions": ["User.ReadWrite.All", "Group.ReadWrite.All"],

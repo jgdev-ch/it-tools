@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Group Import — IT Tools</title>
+<title>Group Administration — IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -64,6 +64,19 @@
 
   /* ── Access badge (color + geometry in shared/styles.css) ── */
   .gsd-badge { display: inline-flex; }
+
+  /* ── Launcher card grid ── */
+  .type-grid  { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; }
+  .type-card  { width:200px; padding:18px 16px; border:1px solid var(--glass-border); border-radius:12px; background:var(--glass-fill); cursor:pointer; transition:transform .12s, box-shadow .12s; }
+  .type-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.08); }
+  .type-card.disabled { opacity:.55; cursor:not-allowed; }
+  .type-card.disabled:hover { transform:none; box-shadow:none; }
+  .type-icon  { font-size:26px; color:var(--accent-green); }
+  .type-card.disabled .type-icon { color:var(--muted); }
+  .type-name  { font-size:15px; font-weight:700; margin-top:8px; }
+  .type-tag   { display:inline-block; margin-top:8px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
+  .type-tag.live   { background:var(--green-light); color:var(--green); }
+  .type-tag.script { background:var(--surface3); color:var(--muted); }
 </style>
 </head>
 <body>
@@ -76,8 +89,8 @@
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
     <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></div>
-    <h1>Group Import</h1>
-    <p>Sign in with your M365 admin account to bulk-add users to an Entra ID security group from a CSV.</p>
+    <h1>Group Administration</h1>
+    <p>Sign in with your M365 admin account to add, remove, or export group members.</p>
     <button class="btn-ms" onclick="doSignIn()">
       <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
@@ -98,180 +111,38 @@
   <div class="app-body">
 
     <nav class="sidebar">
-      <div class="sidebar-lbl">Import Steps</div>
-      <div class="step-item active" id="nav1" onclick="gotoStep(1)">
-        <div class="step-bullet" id="bul1">1</div>
-        <div><div class="step-title">Upload CSV</div><div class="step-sub" id="sub1">Choose file &amp; column</div></div>
-      </div>
-      <div class="step-item" id="nav2" onclick="gotoStep(2)">
-        <div class="step-bullet" id="bul2">2</div>
-        <div><div class="step-title">Target Group</div><div class="step-sub" id="sub2">Find the Entra group</div></div>
-      </div>
-      <div class="step-item" id="nav3" onclick="gotoStep(3)">
-        <div class="step-bullet" id="bul3">3</div>
-        <div><div class="step-title">Run Import</div><div class="step-sub" id="sub3">Dry run, then go live</div></div>
+      <div class="sidebar-lbl">About</div>
+      <div class="sidebar-tip">
+        <strong>Group Administration</strong>
+        Add, remove, or export members of Entra security groups and Microsoft 365 groups — live via Microsoft Graph. Distribution lists, mail-enabled security groups, and shared mailboxes generate a PowerShell script (coming soon).
       </div>
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
         <strong>How it works</strong>
-        Upload a CSV of email addresses or UPNs. The tool resolves each user via Microsoft Graph, checks existing membership, then adds them with a full audit log.
+        Pick an object type, choose add / remove / export, target the group, and (for add/remove) upload a CSV of email addresses or UPNs. Every change previews as a dry run before you go live, with a full audit log.
       </div>
     </nav>
 
-    <main class="main-content">
+    <main class="main-content" style="max-width:900px">
 
-      <!-- STEP 1 -->
-      <div class="section active" id="step1">
+      <!-- LAUNCHER -->
+      <div id="launcher">
         <div class="section-hdr">
-          <h2>Upload your CSV</h2>
-          <p>Drop a CSV containing the users you want to import. Identifiers are normalised and deduplicated automatically.</p>
+          <h2>Group Administration</h2>
+          <p>Pick what you're working with. Security and Microsoft 365 groups run live here; the Exchange types generate a PowerShell script (coming soon).</p>
         </div>
-        <div class="banner error" id="s1Err"></div>
-        <div class="card">
-          <div class="card-title">Source file</div>
-          <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
-            <div class="file-drop-idle">
-              <div style="font-size:28px;margin-bottom:8px">📄</div>
-              <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p>
-              <p style="font-size:11px;color:var(--muted2);margin-top:4px">.csv files only</p>
-            </div>
-            <div class="file-drop-busy"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Reading file…</div>
-            <input type="file" id="fileIn" accept=".csv" onchange="handleFile(event)"/>
-          </div>
-          <div class="file-loaded" id="fileLoaded" style="display:none">
-            <span style="font-size:16px">✅</span>
-            <span class="file-loaded-name" id="fileName"></span>
-            <span class="file-loaded-count" id="fileCount"></span>
-            <button class="file-loaded-clear" onclick="clearFile()">✕</button>
-          </div>
-        </div>
-
-        <div class="card" id="colCard" style="display:none">
-          <div class="card-title">Identifier column</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Select the column with email addresses or UPNs. Auto-detected columns are marked ✦.</p>
-          <div class="col-pills" id="colPills"></div>
-          <div id="previewWrap" style="display:none;margin-top:12px">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Preview — first 5 values</div>
-            <div class="preview-list" id="previewList"></div>
-          </div>
-        </div>
-
-        <div class="card" id="optCard" style="display:none">
-          <div class="card-title">Normalisation options</div>
-          <div class="checkbox-group">
-            <label class="checkbox-label"><input type="checkbox" id="chkLower" checked/> Force identifiers to lowercase</label>
-            <label class="checkbox-label"><input type="checkbox" id="chkTrim"  checked/> Trim leading/trailing whitespace</label>
-            <label class="checkbox-label"><input type="checkbox" id="chkDedup" checked/> Remove duplicate identifiers</label>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-primary" id="s1Btn" onclick="s1Next()" disabled>Continue to Group →</button>
-          <span id="s1Msg" style="font-size:12px;color:var(--muted)"></span>
-        </div>
+        <div id="launcherLive"></div>
+        <div id="launcherScript" style="margin-top:1.25rem"></div>
       </div>
 
-      <!-- STEP 2 -->
-      <div class="section" id="step2">
+      <!-- WIZARD (hidden until a card is chosen) -->
+      <div id="wizard" style="display:none">
+        <button class="btn btn-ghost" style="margin-bottom:1rem" onclick="backToLauncher()">← All object types</button>
         <div class="section-hdr">
-          <h2>Target group</h2>
-          <p>Enter the display name or object ID of the Entra ID security group to add users to.</p>
+          <h2 id="wizTitle">—</h2>
+          <p id="wizSub"></p>
         </div>
-        <div class="banner error" id="s2Err"></div>
-        <div class="card">
-          <div class="card-title">Find group</div>
-          <div class="field">
-            <label class="field-label">Group name or GUID</label>
-            <div class="input-row">
-              <input type="text" id="groupIn" placeholder="e.g. IT-Security-Team or 00000000-0000-…" onkeydown="if(event.key==='Enter')lookupGroup()"/>
-              <button class="btn btn-secondary" onclick="lookupGroup()" id="lookupBtn" style="white-space:nowrap">Look up</button>
-            </div>
-          </div>
-          <div class="group-ok" id="groupOk">
-            <div class="group-ok-name" id="groupOkName"></div>
-            <div class="group-ok-id"   id="groupOkId"></div>
-          </div>
-          <div class="phase-line" id="lookupPhase"><span>Looking up…</span></div>
-        </div>
-
-        <div class="card" id="resolveCard" style="display:none">
-          <div class="card-title">Resolution settings</div>
-          <div class="field">
-            <label class="field-label">Resolve users by</label>
-            <select id="resolveBy">
-              <option value="Auto">Auto — try UPN first, then email</option>
-              <option value="UPN">UPN only</option>
-              <option value="Mail">Email (mail attribute) only</option>
-            </select>
-            <div class="field-hint">Auto works for most tenants. Use a specific mode if your CSV contains only one identifier type.</div>
-          </div>
-          <div class="checkbox-group" style="margin-top:12px">
-            <label class="checkbox-label"><input type="checkbox" id="chkGuests"/>   Include guest (B2B) accounts</label>
-            <label class="checkbox-label"><input type="checkbox" id="chkSkipEx"/>   Skip existing-membership pre-check (faster for large groups)</label>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-ghost" onclick="gotoStep(1)">← Back</button>
-          <button class="btn btn-primary" id="s2Btn" onclick="s2Next()" disabled>Continue to Run →</button>
-        </div>
-      </div>
-
-      <!-- STEP 3 -->
-      <div class="section" id="step3">
-        <div class="section-hdr">
-          <h2>Run import</h2>
-          <p>Dry run first to preview changes, then go live when you're confident.</p>
-        </div>
-
-        <div class="stats-row" id="runStats" style="display:none"></div>
-
-        <div class="card">
-          <div class="card-title">Import summary</div>
-          <div class="run-summary">
-            <div class="run-summary-item"><span>CSV file</span><span id="sumFile">—</span></div>
-            <div class="run-summary-item"><span>Identifiers</span><span id="sumCount">—</span></div>
-            <div class="run-summary-item"><span>Target group</span><span id="sumGroup" style="color:var(--blue-dark)">—</span></div>
-            <div class="run-summary-item"><span>Resolve by</span><span id="sumResolve">—</span></div>
-          </div>
-        </div>
-
-        <div class="banner error" id="s3Err"></div>
-
-        <div class="card" id="progCard" style="display:none">
-          <div class="progress-wrap">
-            <div class="progress-meta"><span id="progLabel">Processing…</span><span id="progPct">0%</span></div>
-            <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-ghost"    onclick="gotoStep(2)">← Back</button>
-          <button class="btn btn-secondary" id="btnDry"  onclick="runImport(true)" >▷ Dry Run</button>
-          <button class="btn btn-success"   id="btnLive" onclick="runImport(false)" disabled>▶ Live Run</button>
-        </div>
-
-        <div id="resultsWrap" style="display:none;margin-top:1.5rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div style="font-size:15px;font-weight:700" id="resTitle"></div>
-            <div style="display:flex;gap:8px">
-              <input type="search" id="resSearch" placeholder="Filter…" style="width:170px;font-size:12px;padding:5px 9px" oninput="filterRes(this.value)"/>
-              <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportLog()">Export CSV</button>
-            </div>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th>Status</th><th>Identifier</th><th>Display Name</th><th>Message</th><th>Time</th>
-              </tr></thead>
-              <tbody id="resBody"></tbody>
-            </table>
-          </div>
-          <div class="empty-state" id="resEmpty" style="display:none">
-            <div class="empty-icon">🔍</div>
-            <div class="empty-title">No matching results</div>
-          </div>
-        </div>
+        <div id="wizBody"></div>
       </div>
 
     </main>
@@ -303,7 +174,7 @@ async function checkGsdAccess() {
 
 async function init() {
   ITTools.theme.init();
-  ITTools.ui.renderTopbar({ toolName: "Group Import", hubRelPath: "../../" });
+  ITTools.ui.renderTopbar({ toolName: "Group Administration", hubRelPath: "../../" });
   ITTools.ui.syncThemeIcon();
 
   let _sessionFound = false;
@@ -314,6 +185,7 @@ async function init() {
       document.getElementById("authScreen").style.display = "none";
       document.getElementById("appScreen").style.display  = "block";
       ITTools.ui.setUser(acct);
+      renderLauncher();
       await checkGsdAccess();
       if (_hasGsdAccess) {
         document.getElementById("gsdBadgeBar").style.display = "flex";
@@ -338,6 +210,7 @@ async function doSignIn() {
     document.getElementById("authScreen").style.display = "none";
     document.getElementById("appScreen").style.display  = "block";
     ITTools.ui.setUser(acct);
+    renderLauncher();
     await checkGsdAccess();
     if (_hasGsdAccess) {
       document.getElementById("gsdBadgeBar").style.display = "flex";
@@ -354,23 +227,310 @@ function toggleUri() {
   b.style.display = b.style.display === "none" ? "block" : "none";
 }
 
-// ── State ────────────────────────────────────────────────────
-const st = { csvName:"", identifiers:[], groupId:"", groupName:"", dryDone:false, lastLog:[] };
+// ── Lucide icons (match hub visual design) ──────────────────────
+const _svg = p => `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ICONS = {
+  shield:      _svg(`<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>`),
+  package:     _svg(`<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>`),
+  mail:        _svg(`<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>`),
+  shieldCheck: _svg(`<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>`),
+  inbox:       _svg(`<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>`),
+  userPlus:    _svg(`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>`),
+  userMinus:   _svg(`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" x2="16" y1="11" y2="11"/>`),
+  download:    _svg(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`),
+};
 
-// ── Step navigation ───────────────────────────────────────────
-function gotoStep(n) {
-  if (n >= 2 && !st.identifiers.length) { showErr("s1Err","Complete Step 1 first."); return; }
-  if (n >= 3 && !st.groupId)            { showErr("s2Err","Look up a group first.");  return; }
-  [1,2,3].forEach(i => {
-    document.getElementById("step"+i).classList.toggle("active", i===n);
-    document.getElementById("nav"+i).classList.toggle("active", i===n);
-  });
-  if (n===3) updateSummary();
+// ── Object-type registry ───────────────────────────────────────
+// backend: "graph" (live) | "exchange" (v2 script-gen, disabled in v1)
+// source:  "members" | "permissions"
+const OBJECT_TYPES = [
+  { id:"security-group", label:"Security Group", backend:"graph", source:"members",
+    icon:ICONS.shield, tag:"Live · Graph", enabled:true,
+    graphKind:"security", // used to filter lookup
+    ops:["add","remove","export"] },
+  { id:"m365-group", label:"Microsoft 365 Group", backend:"graph", source:"members",
+    icon:ICONS.package, tag:"Live · Graph", enabled:true,
+    graphKind:"unified",
+    ops:["add","remove","export"] },
+  { id:"distribution-list", label:"Distribution List", backend:"exchange", source:"members",
+    icon:ICONS.mail, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+  { id:"mail-security-group", label:"Mail-enabled Security Group", backend:"exchange", source:"members",
+    icon:ICONS.shieldCheck, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+  { id:"shared-mailbox", label:"Shared Mailbox", backend:"exchange", source:"permissions",
+    icon:ICONS.inbox, tag:"Script · EXO", enabled:false, ops:["grant","remove","export"] },
+];
+function getType(id){ return OBJECT_TYPES.find(t => t.id === id) || null; }
+
+// ── Launcher ────────────────────────────────────────────────────
+function renderLauncher() {
+  const card = t => `
+    <div class="type-card${t.enabled?"":" disabled"}" ${t.enabled?`onclick="openWizard('${t.id}')"`:""}>
+      <div class="type-icon">${t.icon}</div>
+      <div class="type-name">${t.label}</div>
+      <span class="type-tag ${t.backend==="graph"?"live":"script"}">${t.enabled?t.tag:"v2 — coming soon"}</span>
+    </div>`;
+  const live   = OBJECT_TYPES.filter(t => t.backend==="graph");
+  const script = OBJECT_TYPES.filter(t => t.backend==="exchange");
+  document.getElementById("launcher").style.display = "block";
+  document.getElementById("wizard").style.display   = "none";
+  document.getElementById("launcherLive").innerHTML =
+    `<div class="sidebar-lbl">Live in browser · Microsoft Graph</div><div class="type-grid">${live.map(card).join("")}</div>`;
+  document.getElementById("launcherScript").innerHTML =
+    `<div class="sidebar-lbl">Generates a PowerShell script · Exchange Online</div><div class="type-grid">${script.map(card).join("")}</div>`;
 }
-function markDone(n) {
-  document.getElementById("nav"+n).classList.remove("active");
-  document.getElementById("nav"+n).classList.add("done");
+function backToLauncher() {
+  document.getElementById("wizard").style.display   = "none";
+  document.getElementById("launcher").style.display = "block";
 }
+
+// ── Wizard ──────────────────────────────────────────────────────
+const wiz = { typeId:"", op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] };
+
+function openWizard(typeId) {
+  const t = getType(typeId);
+  if (!t || !t.enabled) return;
+  Object.assign(wiz, { typeId, op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] });
+  document.getElementById("launcher").style.display = "none";
+  document.getElementById("wizard").style.display   = "block";
+  document.getElementById("wizTitle").textContent = t.label;
+  document.getElementById("wizSub").textContent   = "Add, remove, or export members — live via Microsoft Graph.";
+  renderActionStep();
+}
+
+function renderActionStep() {
+  wiz.op = "";
+  document.getElementById("wizBody").innerHTML = `
+    <div class="card">
+      <div class="card-title">What do you want to do?</div>
+      <div class="type-grid">
+        <div class="type-card" onclick="chooseOp('add')"><div class="type-icon">${ICONS.userPlus}</div><div class="type-name">Add members</div><p class="step-sub">Import a CSV into this group</p></div>
+        <div class="type-card" onclick="chooseOp('remove')"><div class="type-icon">${ICONS.userMinus}</div><div class="type-name">Remove members</div><p class="step-sub">Remove a CSV of users from this group</p></div>
+        <div class="type-card" onclick="chooseOp('export')"><div class="type-icon">${ICONS.download}</div><div class="type-name">Export members</div><p class="step-sub">Download current membership as CSV</p></div>
+      </div>
+    </div>`;
+}
+function chooseOp(op) {
+  wiz.op = op;
+  renderTargetStep();
+}
+
+// ── Target lookup (Graph, kind-filtered) ────────────────────────
+function isUnified(group){ return (group.groupTypes || []).includes("Unified"); }
+
+function renderTargetStep() {
+  const t = getType(wiz.typeId);
+  const wantUnified = t.graphKind === "unified";
+  const lbl = wantUnified ? "Group name, email, or GUID" : "Group name or GUID";
+  const ph  = wantUnified ? "e.g. Marketing Team, group@domain.com, or a GUID" : "e.g. IT-Security-Team or a GUID";
+  document.getElementById("wizBody").innerHTML = `
+    <div class="banner error" id="wErr" style="display:none"></div>
+    <div class="card">
+      <div class="card-title">Target ${t.label.toLowerCase()}</div>
+      <div class="field"><label class="field-label">${lbl}</label>
+        <div class="input-row">
+          <input type="text" id="wGroupIn" placeholder="${ph}" onkeydown="if(event.key==='Enter')wizLookup()"/>
+          <button class="btn btn-secondary" id="wLookupBtn" onclick="wizLookup()" style="white-space:nowrap">Look up</button>
+        </div>
+      </div>
+      <div class="group-ok" id="wGroupOk"><div class="group-ok-name" id="wGroupOkName"></div><div class="group-ok-id" id="wGroupOkId"></div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="renderActionStep()">← Back</button>
+      <button class="btn btn-primary" id="wTargetNext" onclick="afterTarget()" disabled>Continue →</button>
+    </div>`;
+}
+
+async function wizLookup() {
+  const input = document.getElementById("wGroupIn").value.trim();
+  const err = document.getElementById("wErr");
+  if (!input) { err.textContent = "Enter a group name, email, or GUID."; err.style.display="block"; return; }
+  err.style.display = "none";
+  const t = getType(wiz.typeId);
+  const wantUnified = t.graphKind === "unified";
+  try {
+    await ITTools.ui.withButtonSpinner(document.getElementById("wLookupBtn"), async () => {
+      let group;
+      if (/^[0-9a-f-]{36}$/i.test(input)) {
+        group = await ITTools.graph.get(`/groups/${input}?$select=id,displayName,groupTypes`);
+        if (isUnified(group) !== wantUnified)
+          throw new Error(`That group is a ${isUnified(group) ? "Microsoft 365" : "security"} group, not a ${t.label}.`);
+      } else {
+        const esc = input.replace(/'/g, "''");
+        const byEmail = input.includes("@");
+        const field = byEmail ? "mail" : "displayName";
+        const res = await ITTools.graph.get(`/groups?$filter=${field} eq '${encodeURIComponent(esc)}'&$select=id,displayName,groupTypes&$count=true&$top=20`);
+        const matches = (res.value || []).filter(g => isUnified(g) === wantUnified);
+        if (!matches.length) throw new Error(`No ${t.label} found ${byEmail ? `with email "${input}"` : `named "${input}"`}.`);
+        group = matches[0];
+      }
+      wiz.groupId = group.id; wiz.groupName = group.displayName;
+      document.getElementById("wGroupOkName").textContent = group.displayName;
+      document.getElementById("wGroupOkId").textContent   = group.id;
+      document.getElementById("wGroupOk").style.display    = "block";
+      document.getElementById("wTargetNext").disabled      = false;
+    }, "Looking up…", [document.getElementById("wGroupIn")]);
+  } catch(e) {
+    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block"; wiz.groupId = "";
+  }
+}
+
+function afterTarget() {
+  if (!wiz.groupId) return;
+  if (wiz.op === "export") { renderRunStep(); } else { renderSourceStep(); }
+}
+
+// ── Source CSV step (Add / Remove) ──────────────────────────────
+function renderSourceStep() {
+  document.getElementById("wizBody").innerHTML = `
+    <div class="banner error" id="s1Err" style="display:none"></div>
+    <div class="card">
+      <div class="card-title">${wiz.op === "add" ? "Members to add" : "Members to remove"} (CSV)</div>
+      <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+        <div class="file-drop-idle"><div style="margin-bottom:8px;color:var(--muted2);display:flex;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
+          <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p></div>
+        <div class="file-drop-busy"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Reading file…</div>
+        <input type="file" id="fileIn" accept=".csv" onchange="handleFile(event)"/>
+      </div>
+      <div class="file-loaded" id="fileLoaded" style="display:none"><span style="font-size:16px">✅</span>
+        <span class="file-loaded-name" id="fileName"></span><span class="file-loaded-count" id="fileCount"></span>
+        <button class="file-loaded-clear" onclick="clearFile()">✕</button></div>
+    </div>
+    <div class="card" id="colCard" style="display:none">
+      <div class="card-title">Identifier column</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Select the column with email addresses or UPNs. Auto-detected columns are marked ✦.</p>
+      <div class="col-pills" id="colPills"></div>
+      <div id="previewWrap" style="display:none;margin-top:12px"><div class="preview-list" id="previewList"></div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="renderTargetStep()">← Back</button>
+      <button class="btn btn-primary" id="s1Btn" onclick="sourceNext()" disabled>Continue to Run →</button>
+    </div>`;
+}
+function sourceNext() {
+  wiz.identifiers = getPrimed();
+  if (!wiz.identifiers.length) { showErr("s1Err","No identifiers found."); return; }
+  renderRunStep();
+}
+
+// ── Run step + operations ───────────────────────────────────────
+function renderRunStep() {
+  const isExport = wiz.op === "export";
+  document.getElementById("wizBody").innerHTML = `
+    <div class="stats-row" id="runStats" style="display:none"></div>
+    <div class="card"><div class="card-title">Summary</div>
+      <div class="run-summary">
+        <div class="run-summary-item"><span>Action</span><span>${wiz.op}</span></div>
+        <div class="run-summary-item"><span>Group</span><span style="color:var(--blue-dark)">${wiz.groupName}</span></div>
+        ${isExport ? "" : `<div class="run-summary-item"><span>Identifiers</span><span>${wiz.identifiers.length}</span></div>`}
+      </div>
+    </div>
+    <div class="banner error" id="s3Err" style="display:none"></div>
+    <div class="card" id="progCard" style="display:none"><div class="progress-wrap">
+      <div class="progress-meta"><span id="progLabel">Processing…</span><span id="progPct">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progFill"></div></div></div></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="${isExport ? "renderTargetStep()" : "renderSourceStep()"}">← Back</button>
+      ${isExport
+        ? `<button class="btn btn-success" onclick="runExport()">⭳ Export members</button>`
+        : `<button class="btn btn-secondary" id="btnDry" onclick="runOp(true)">▷ Dry Run</button>
+           <button class="btn btn-success" id="btnLive" onclick="runOp(false)" disabled>▶ Live Run</button>`}
+    </div>
+    <div id="resultsWrap" style="display:none;margin-top:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:700" id="resTitle"></div>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="exportLog()">Export log CSV</button>
+      </div>
+      <div class="tbl-wrap"><table><thead><tr><th>Status</th><th>Identifier</th><th>Display Name</th><th>Message</th></tr></thead><tbody id="resBody"></tbody></table></div>
+    </div>`;
+}
+
+async function resolveUser(ident) {
+  try {
+    const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(ident)}?$select=id,displayName,userPrincipalName,userType`,
+      { headers: { Authorization: "Bearer " + (await ITTools.auth.getToken()) } });
+    if (r.ok) return await r.json();
+    const esc = ident.replace(/'/g,"''");
+    const res = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(esc)}'&$select=id,displayName,userPrincipalName,userType`);
+    return res.value?.length ? res.value[0] : null;
+  } catch(_) { return null; }
+}
+
+async function loadExistingMembers() {
+  const set = {};
+  const page = await ITTools.graph.getAll(`/groups/${wiz.groupId}/members?$select=id&$top=999`);
+  (page || []).forEach(m => set[m.id] = true);
+  return set;
+}
+
+async function opAdd(existing, user, isDry, entry) {
+  if (existing[user.id]) { entry.action="Skipped"; entry.message="Already a member"; return; }
+  if (isDry) { entry.action="WouldAdd"; entry.message="Dry run — no change"; return; }
+  try {
+    await ITTools.graph.post(`/groups/${wiz.groupId}/members/$ref`, { "@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${user.id}` });
+    existing[user.id]=true; entry.action="Added"; entry.message="Success";
+  } catch(e) { entry.action="Error"; entry.message=ITTools.graph.friendlyError(e); }
+}
+
+async function opRemove(existing, user, isDry, entry) {
+  if (!existing[user.id]) { entry.action="Skipped"; entry.message="Not a member"; return; }
+  if (isDry) { entry.action="WouldRemove"; entry.message="Dry run — no change"; return; }
+  try {
+    await ITTools.graph.del(`/groups/${wiz.groupId}/members/${user.id}/$ref`);
+    delete existing[user.id]; entry.action="Removed"; entry.message="Success";
+  } catch(e) { entry.action="Error"; entry.message=ITTools.graph.friendlyError(e); }
+}
+
+async function runOp(isDry) {
+  document.getElementById("s3Err").style.display = "none";
+  if (!isDry && wiz.op === "remove" &&
+      !confirm(`Remove ${wiz.identifiers.length} member(s) from "${wiz.groupName}"? This cannot be undone.`)) return;
+  const btnDry=document.getElementById("btnDry"), btnLive=document.getElementById("btnLive");
+  if (btnDry) btnDry.disabled = true; if (btnLive) btnLive.disabled = true;
+  document.getElementById("resultsWrap").style.display = "none";
+  document.getElementById("progCard").style.display = "block";
+  setProgress(0, wiz.identifiers.length, "Loading existing members…");
+  let existing = {};
+  try { existing = await loadExistingMembers(); }
+  catch(e){ showErr("s3Err","Could not load members: "+ITTools.graph.friendlyError(e)); }
+  const log = [];
+  for (let i=0;i<wiz.identifiers.length;i++){
+    const ident = wiz.identifiers[i];
+    setProgress(i+1, wiz.identifiers.length, `(${i+1}/${wiz.identifiers.length}) ${ident}`);
+    const entry = { identifier:ident, displayName:"", action:"", message:"" };
+    const user = await resolveUser(ident);
+    if (!user) { entry.action="NotFound"; entry.message="Could not resolve via UPN or email"; log.push(entry); continue; }
+    entry.displayName = user.displayName||"";
+    if (wiz.op==="add")    await opAdd(existing, user, isDry, entry);
+    if (wiz.op==="remove") await opRemove(existing, user, isDry, entry);
+    if (!isDry) await new Promise(r=>setTimeout(r,150));
+    log.push(entry);
+  }
+  wiz.lastLog = log;
+  if (isDry && btnLive) { wiz.dryDone=true; btnLive.disabled=false; }
+  if (btnDry) btnDry.disabled=false;
+  setProgress(wiz.identifiers.length, wiz.identifiers.length, "Complete");
+  renderRunStats(log, isDry); renderLog(log, isDry);
+}
+
+async function runExport() {
+  document.getElementById("s3Err").style.display = "none";
+  document.getElementById("progCard").style.display = "block";
+  setProgress(0, 1, "Loading members…");
+  try {
+    const members = await ITTools.graph.getAll(
+      `/groups/${wiz.groupId}/members?$select=id,displayName,userPrincipalName,mail,userType&$top=999`);
+    setProgress(1, 1, "Complete");
+    if (!members.length) { showErr("s3Err","This group has no members."); return; }
+    ITTools.csv.download(
+      `GroupExport_${wiz.groupName.replace(/[^A-Za-z0-9]/g,"")}_${new Date().toISOString().slice(0,10)}.csv`,
+      members.map(m => ({
+        DisplayName:m.displayName||"", UserPrincipalName:m.userPrincipalName||"",
+        Mail:m.mail||"", UserType:m.userType||"", Id:m.id
+      })));
+  } catch(e) { showErr("s3Err","Export failed: "+ITTools.graph.friendlyError(e)); }
+}
+
+// ── Error banner ──────────────────────────────────────────────
 function showErr(id, msg) {
   const el = document.getElementById(id);
   el.textContent = msg; el.className = "banner error"; el.style.display = "block";
@@ -383,15 +543,14 @@ function dropFile(e)  { e.preventDefault(); dragLeave(); loadFile(e.dataTransfer
 function handleFile(e){ loadFile(e.target.files[0]); }
 
 function clearFile() {
-  st.csvName = ""; st.identifiers = [];
-  ["fileLoaded","colCard","optCard"].forEach(id => document.getElementById(id).style.display="none");
+  wiz.csvName = "";
+  ["fileLoaded","colCard","optCard"].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = "none"; });
   const drop = document.getElementById("fileDrop");
-  drop.classList.remove("file-reading");
-  drop.style.display = "block";
-  document.getElementById("s1Btn").disabled = true;
-  document.getElementById("s1Msg").textContent = "";
-  document.getElementById("fileIn").value = "";
-  document.getElementById("s1Err").style.display = "none";
+  if (drop) { drop.classList.remove("file-reading"); drop.style.display = "block"; }
+  const btn = document.getElementById("s1Btn"); if (btn) btn.disabled = true;
+  const msg = document.getElementById("s1Msg"); if (msg) msg.textContent = "";
+  const fi = document.getElementById("fileIn"); if (fi) fi.value = "";
+  const e1 = document.getElementById("s1Err"); if (e1) e1.style.display = "none";
 }
 
 async function loadFile(file) {
@@ -420,14 +579,14 @@ async function loadFile(file) {
 let _parsed = null;
 function parseAndRender(name, text) {
   try { _parsed = ITTools.csv.parse(text); } catch(e) { showErr("s1Err", e.message); return; }
-  st.csvName = name;
+  wiz.csvName = name;
   document.getElementById("s1Err").style.display = "none";
   document.getElementById("fileLoaded").style.display = "flex";
   document.getElementById("fileDrop").style.display   = "none";
   document.getElementById("fileName").textContent  = name;
   document.getElementById("fileCount").textContent = _parsed.rows.length + " rows";
   document.getElementById("colCard").style.display = "block";
-  document.getElementById("optCard").style.display = "block";
+  const _optCard = document.getElementById("optCard"); if (_optCard) _optCard.style.display = "block";
   renderColPills(_parsed.headers, _parsed.rows);
   updateS1();
 }
@@ -456,82 +615,17 @@ function selectCol(col) {
 function getPrimed() {
   if (!_parsed || !_selCol) return [];
   let vals = _parsed.rows.map(r => r[_selCol]||"").filter(v=>v);
-  if (document.getElementById("chkTrim").checked)  vals = vals.map(v=>v.trim());
-  if (document.getElementById("chkLower").checked) vals = vals.map(v=>v.toLowerCase());
-  if (document.getElementById("chkDedup").checked) vals = [...new Set(vals)];
+  const on = id => { const el = document.getElementById(id); return el ? el.checked : true; };
+  if (on("chkTrim"))  vals = vals.map(v=>v.trim());
+  if (on("chkLower")) vals = vals.map(v=>v.toLowerCase());
+  if (on("chkDedup")) vals = [...new Set(vals)];
   return vals.filter(v=>v);
 }
 
 function updateS1() {
   const count = getPrimed().length;
-  document.getElementById("s1Btn").disabled = count === 0;
-  document.getElementById("s1Msg").textContent = count > 0 ? count + " identifiers ready" : "";
-}
-
-function s1Next() {
-  st.identifiers = getPrimed();
-  if (!st.identifiers.length) { showErr("s1Err","No identifiers found."); return; }
-  markDone(1);
-  document.getElementById("sub1").textContent = st.identifiers.length + " identifiers ready";
-  gotoStep(2);
-}
-
-// ── Step 2: Group ──────────────────────────────────────────────
-async function lookupGroup() {
-  const input = document.getElementById("groupIn").value.trim();
-  if (!input) { showErr("s2Err", "Enter a group name or GUID."); return; }
-  document.getElementById("s2Err").style.display     = "none";
-  document.getElementById("groupOk").style.display    = "none";
-  document.getElementById("resolveCard").style.display = "none";
-  document.getElementById("s2Btn").disabled            = true;
-  document.getElementById("lookupPhase").classList.add("show");
-  try {
-    await ITTools.ui.withButtonSpinner(
-      document.getElementById("lookupBtn"),
-      async () => {
-        let group;
-        if (/^[0-9a-f-]{36}$/i.test(input)) {
-          group = await ITTools.graph.get(`/groups/${input}`);
-        } else {
-          const escaped = input.replace(/'/g, "''");
-          const res = await ITTools.graph.get(
-            `/groups?$filter=displayName eq '${encodeURIComponent(escaped)}'&$count=true&$top=5`
-          );
-          if (!res.value?.length) throw new Error(`No group found named "${input}".`);
-          group = res.value[0];
-        }
-        st.groupId   = group.id;
-        st.groupName = group.displayName;
-        document.getElementById("groupOkName").textContent   = group.displayName;
-        document.getElementById("groupOkId").textContent     = group.id;
-        document.getElementById("groupOk").style.display     = "block";
-        document.getElementById("resolveCard").style.display = "block";
-        document.getElementById("s2Btn").disabled            = false;
-      },
-      "Looking up…",
-      [document.getElementById("groupIn")]
-    );
-  } catch(e) {
-    showErr("s2Err", ITTools.graph.friendlyError(e));
-    st.groupId = "";
-  } finally {
-    document.getElementById("lookupPhase").classList.remove("show");
-  }
-}
-
-function s2Next() {
-  if (!st.groupId) { showErr("s2Err","Look up a group first."); return; }
-  markDone(2);
-  document.getElementById("sub2").textContent = st.groupName;
-  gotoStep(3);
-}
-
-// ── Step 3: Run ────────────────────────────────────────────────
-function updateSummary() {
-  document.getElementById("sumFile").textContent    = st.csvName || "—";
-  document.getElementById("sumCount").textContent   = st.identifiers.length + " users";
-  document.getElementById("sumGroup").textContent   = st.groupName || "—";
-  document.getElementById("sumResolve").textContent = document.getElementById("resolveBy")?.value || "Auto";
+  const btn = document.getElementById("s1Btn"); if (btn) btn.disabled = count === 0;
+  const msg = document.getElementById("s1Msg"); if (msg) msg.textContent = count > 0 ? count + " identifiers ready" : "";
 }
 
 function setProgress(curr, total, label) {
@@ -541,96 +635,20 @@ function setProgress(curr, total, label) {
   document.getElementById("progLabel").textContent      = label || `Processing ${curr} / ${total}`;
 }
 
-async function runImport(isDry) {
-  document.getElementById("s3Err").style.display = "none";
-  if (!st.identifiers.length) { showErr("s3Err","No identifiers — go back to Step 1."); return; }
-  if (!st.groupId)             { showErr("s3Err","No group — go back to Step 2.");       return; }
-  if (!isDry && !st.dryDone && !confirm("You haven't completed a dry run. Proceed with live import?")) return;
-
-  const btnDry  = document.getElementById("btnDry");
-  const btnLive = document.getElementById("btnLive");
-  btnDry.disabled = btnLive.disabled = true;
-  document.getElementById("progCard").style.display   = "block";
-  document.getElementById("progFill").className       = "progress-fill";
-  document.getElementById("resultsWrap").style.display = "none";
-  setProgress(0, st.identifiers.length, "Connecting…");
-
-  // Pre-load existing members
-  const existing = {};
-  if (!document.getElementById("chkSkipEx").checked) {
-    setProgress(0, st.identifiers.length, "Loading existing members…");
-    try {
-      let next = `/groups/${st.groupId}/members?$select=id&$top=999`;
-      while (next) {
-        const page = await ITTools.graph.get(next.startsWith("http") ? next : "https://graph.microsoft.com/v1.0"+next);
-        (page.value||[]).forEach(m => existing[m.id]=true);
-        next = page["@odata.nextLink"]||null;
-      }
-    } catch(e) { showErr("s3Err","Could not load existing members: "+ITTools.graph.friendlyError(e)); }
-  }
-
-  const resolveBy = document.getElementById("resolveBy").value;
-  const incGuests = document.getElementById("chkGuests").checked;
-  const log = [];
-
-  for (let i = 0; i < st.identifiers.length; i++) {
-    const ident = st.identifiers[i];
-    setProgress(i+1, st.identifiers.length, `(${i+1}/${st.identifiers.length}) ${ident}`);
-
-    let user = null;
-    try {
-      if (resolveBy==="UPN"||resolveBy==="Auto") {
-        const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(ident)}?$select=id,displayName,userPrincipalName,userType`,
-          { headers: { Authorization: "Bearer "+(await ITTools.auth.getToken()) } });
-        if (r.ok) user = await r.json();
-      }
-      if (!user&&(resolveBy==="Mail"||resolveBy==="Auto")) {
-        const escaped = ident.replace(/'/g,"''");
-        const r = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(escaped)}'&$select=id,displayName,userPrincipalName,userType`);
-        if (r.value?.length) user = r.value[0];
-      }
-    } catch(_) {}
-
-    const entry = { timestamp:new Date().toISOString().slice(0,19).replace("T"," "), identifier:ident, displayName:"", action:"", message:"" };
-
-    if (!user)                                    { entry.action="NotFound"; entry.message="Could not resolve via UPN or email"; log.push(entry); continue; }
-    entry.displayName = user.displayName||"";
-    if (!incGuests&&user.userType==="Guest")      { entry.action="Skipped"; entry.message="Guest account (enable 'Include guests' to allow)"; log.push(entry); continue; }
-    if (existing[user.id])                        { entry.action="Skipped"; entry.message="Already a member"; log.push(entry); continue; }
-
-    if (isDry) {
-      entry.action="WouldAdd"; entry.message="Dry run — no change made";
-    } else {
-      try {
-        await ITTools.graph.post(`/groups/${st.groupId}/members/$ref`, { "@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${user.id}` });
-        existing[user.id]=true; entry.action="Added"; entry.message="Success";
-      } catch(e) { entry.action="Error"; entry.message=e.message; }
-      await new Promise(r=>setTimeout(r,150));
-    }
-    log.push(entry);
-  }
-
-  st.lastLog = log;
-  if (isDry) { st.dryDone=true; btnLive.disabled=false; }
-  btnDry.disabled = false;
-
-  setProgress(st.identifiers.length, st.identifiers.length, "Complete");
-  document.getElementById("progFill").classList.add("done");
-  renderRunStats(log, isDry);
-  renderLog(log, isDry);
-  markDone(3);
-}
-
 function renderRunStats(log, isDry) {
-  const added    = log.filter(r=>r.action==="Added"||r.action==="WouldAdd").length;
+  const isRemove = wiz.op === "remove";
+  const changed  = log.filter(r => isRemove
+    ? (r.action==="Removed" || r.action==="WouldRemove")
+    : (r.action==="Added"   || r.action==="WouldAdd")).length;
   const skipped  = log.filter(r=>r.action==="Skipped").length;
   const notFound = log.filter(r=>r.action==="NotFound").length;
   const errors   = log.filter(r=>r.action==="Error").length;
+  const verb = isRemove ? (isDry ? "Would Remove" : "Removed") : (isDry ? "Would Add" : "Added");
   const row = document.getElementById("runStats");
   row.style.display = "flex";
   row.innerHTML =
     sc("blue","Total",log.length) +
-    sc(isDry?"blue":"green", isDry?"Would Add":"Added", added) +
+    sc(isDry?"blue":"green", verb, changed) +
     sc("amber","Skipped",skipped) +
     (notFound>0?sc("red","Not Found",notFound):"") +
     (errors>0?sc("red","Errors",errors):"");
@@ -638,31 +656,23 @@ function renderRunStats(log, isDry) {
 function sc(c,l,v) { return `<div class="stat ${c}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div></div>`; }
 
 function renderLog(log, isDry) {
-  document.getElementById("resTitle").textContent = isDry ? "Dry run preview" : "Import results";
-  const pillMap = { Added:"pill-added", WouldAdd:"pill-wouldadd", Skipped:"pill-skipped", Error:"pill-error", NotFound:"pill-notfound" };
+  document.getElementById("resTitle").textContent = isDry ? "Dry run preview" : "Results";
+  const pillMap = { Added:"pill-added", WouldAdd:"pill-wouldadd", Removed:"pill-added", WouldRemove:"pill-wouldadd", Skipped:"pill-skipped", Error:"pill-error", NotFound:"pill-notfound" };
   document.getElementById("resBody").innerHTML = log.map(r =>
-    `<tr data-search="${(r.identifier+" "+r.displayName).toLowerCase()}">
+    `<tr>
       <td><span class="status-pill ${pillMap[r.action]||""}">${r.action}</span></td>
       <td class="mono text-xs">${r.identifier}</td>
       <td>${r.displayName||"—"}</td>
       <td class="muted text-xs">${r.message}</td>
-      <td class="muted text-xs" style="white-space:nowrap">${r.timestamp}</td>
     </tr>`
   ).join("");
   document.getElementById("resultsWrap").style.display = "block";
-  document.getElementById("resEmpty").style.display    = "none";
-}
-
-function filterRes(q) {
-  q = q.toLowerCase(); let vis = 0;
-  document.querySelectorAll("#resBody tr").forEach(tr => { const show=tr.dataset.search.includes(q); tr.style.display=show?"":"none"; if(show)vis++; });
-  document.getElementById("resEmpty").style.display = vis===0?"block":"none";
 }
 
 function exportLog() {
-  if (!st.lastLog.length) return;
-  ITTools.csv.download("GroupImport_"+new Date().toISOString().slice(0,10)+".csv",
-    st.lastLog.map(r=>({ Status:r.action, Identifier:r.identifier, "Display Name":r.displayName, Message:r.message, Timestamp:r.timestamp }))
+  if (!wiz.lastLog.length) return;
+  ITTools.csv.download("GroupAdmin_"+wiz.op+"_"+new Date().toISOString().slice(0,10)+".csv",
+    wiz.lastLog.map(r=>({ Status:r.action, Identifier:r.identifier, "Display Name":r.displayName, Message:r.message }))
   );
 }
 
