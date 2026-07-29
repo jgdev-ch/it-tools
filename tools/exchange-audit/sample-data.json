@@ -1,7 +1,9 @@
 {
-  "lastScan": "2026-05-26T02:14:37Z",
-  "runDurationSeconds": 203,
-  "totalMailboxes": 412,
+  "lastScan": "2026-07-29T02:00:00Z",
+  "runDurationSeconds": 3180,
+  "totalScanned": 15948,
+  "offenderCount": 4,
+  "scanErrors": 0,
   "mailboxes": [
     {
       "upn": "hrconnect@corrohealth.com",
@@ -52,10 +54,10 @@
     {
       "upn": "blocked.elc@corrohealth.com",
       "displayName": "Blocked ELC User",
-      "recoverableUsedBytes": 96636764160,
+      "recoverableUsedBytes": 42949672960,
       "recoverableQuotaBytes": 107374182400,
-      "recoverablePct": 90,
-      "status": "critical",
+      "recoverablePct": 40,
+      "status": "ok",
       "sirEnabled": true,
       "elcProcessingDisabled": true,
       "retentionHoldEnabled": false,
@@ -64,8 +66,8 @@
       "inPlaceHoldsCount": 0,
       "hasDetailStats": true,
       "folders": {
-        "discoveryHoldsBytes": 96636764160,
-        "discoveryHoldsItems": 800000,
+        "discoveryHoldsBytes": 42949672960,
+        "discoveryHoldsItems": 300000,
         "purgesBytes": 0,
         "purgesItems": 0,
         "versionsBytes": 0,
@@ -73,19 +75,27 @@
       }
     },
     {
-      "upn": "john.smith@corrohealth.com",
-      "displayName": "John Smith",
-      "recoverableUsedBytes": 21474836480,
+      "upn": "held.user@corrohealth.com",
+      "displayName": "Held User",
+      "recoverableUsedBytes": 32212254720,
       "recoverableQuotaBytes": 107374182400,
-      "recoverablePct": 20,
+      "recoverablePct": 30,
       "status": "ok",
       "sirEnabled": true,
       "elcProcessingDisabled": false,
-      "retentionHoldEnabled": false,
-      "litigationHold": false,
+      "retentionHoldEnabled": true,
+      "litigationHold": true,
       "delayHoldApplied": false,
-      "inPlaceHoldsCount": 0,
-      "hasDetailStats": false
+      "inPlaceHoldsCount": 2,
+      "hasDetailStats": true,
+      "folders": {
+        "discoveryHoldsBytes": 32212254720,
+        "discoveryHoldsItems": 150000,
+        "purgesBytes": 0,
+        "purgesItems": 0,
+        "versionsBytes": 0,
+        "substrateHoldsBytes": 0
+      }
     }
   ]
 }

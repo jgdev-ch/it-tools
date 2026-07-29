@@ -77,6 +77,8 @@
                     text-transform: uppercase; border: 1px solid; }
   .badge-critical { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
   .badge-warning  { background: var(--amber-light); color: var(--amber); border-color: var(--amber-border); }
+  .badge-blocked  { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
+  .badge-hold     { background: var(--amber-light); color: var(--amber); border-color: var(--amber-border); }
 
   /* ── Side panel ──────────────────────────────────────────── */
   .panel-empty    { display: flex; align-items: center; justify-content: center;
@@ -185,6 +187,7 @@
       <option value="name-asc">Sort: Name A–Z</option>
       <option value="gb-desc">Sort: GB ↓</option>
     </select>
+    <button id="exportBtn" class="strip-select" style="cursor:pointer;font-weight:600" onclick="exportCsv()">⬇ Export CSV</button>
   </div>
 
   <!-- Main layout: table + panel -->
@@ -341,17 +344,17 @@ async function loadAuditData() {
 
 // ── Summary strip ────────────────────────────────────────────────────────────
 function renderStrip(data, filtered) {
-  const total    = data.mailboxes.length;
-  const critical = data.mailboxes.filter(m => m.status === 'critical').length;
-  const warning  = data.mailboxes.filter(m => m.status === 'warning').length;
+  const offenders = data.mailboxes.length;
+  const critical  = data.mailboxes.filter(m => m.status === 'critical').length;
+  const warning   = data.mailboxes.filter(m => m.status === 'warning').length;
 
-  const daysAgo = dateDaysAgo(data.lastScan);
+  const daysAgo  = dateDaysAgo(data.lastScan);
   const scanDate = new Date(data.lastScan).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
   const meta = document.getElementById('scanMeta');
-  meta.innerHTML = `<strong>${data.totalMailboxes.toLocaleString()}</strong> mailboxes &nbsp;·&nbsp; Last scan: <strong>${scanDate}</strong>`;
+  meta.innerHTML = `Scanned <strong>${(data.totalScanned ?? 0).toLocaleString()}</strong> mailboxes &nbsp;·&nbsp; <strong>${offenders}</strong> at risk &nbsp;·&nbsp; Last scan: <strong>${scanDate}</strong>`;
   meta.className = 'strip-scan' + (daysAgo > AGE_ERR_DAYS ? ' expired' : daysAgo > AGE_WARN_DAYS ? ' stale' : '');
 
-  document.getElementById('pillTotal').textContent    = `${total.toLocaleString()} total`;
+  document.getElementById('pillTotal').textContent    = `${offenders} at risk`;
   document.getElementById('pillCritical').textContent = `${critical} critical`;
   document.getElementById('pillWarning').textContent  = `${warning} warning`;
 }
@@ -369,11 +372,12 @@ function renderTable(list) {
     const fill  = colorClass(pct);
     const gb    = (m.recoverableUsedBytes / 1073741824).toFixed(1);
     const sel   = m.upn === selectedUpn ? ' row-sel' : '';
-    const badge = m.status === 'critical'
-      ? `<span class="status-badge badge-critical">Critical</span>`
-      : m.status === 'warning'
-      ? `<span class="status-badge badge-warning">Warning</span>`
-      : '';
+    const badges = [];
+    if (m.status === 'critical')      badges.push(`<span class="status-badge badge-critical">Critical</span>`);
+    else if (m.status === 'warning')  badges.push(`<span class="status-badge badge-warning">Warning</span>`);
+    if (m.elcProcessingDisabled)      badges.push(`<span class="status-badge badge-blocked" title="ElcProcessingDisabled — MFA cannot reclaim space">Blocked</span>`);
+    if (m.retentionHoldEnabled)       badges.push(`<span class="status-badge badge-hold" title="RetentionHold on — MFA skips this mailbox">Hold</span>`);
+    const badge = badges.join(' ');
     const barW  = Math.min(pct, 100);
 
     return `<tr class="${sel}" onclick="selectMailbox('${m.upn}')">
@@ -596,6 +600,32 @@ function filterMode(mode) {
 function onSort(value) {
   currentSort = value;
   applyFilters();
+}
+
+function exportCsv() {
+  if (!filteredList.length) return;
+  const gb = b => (b / 1073741824).toFixed(2);
+  const rows = filteredList.map(m => ({
+    UPN:               m.upn,
+    DisplayName:       m.displayName,
+    RecoverableUsedGB: gb(m.recoverableUsedBytes),
+    RecoverableQuotaGB:gb(m.recoverableQuotaBytes),
+    UsagePct:          m.recoverablePct,
+    Status:            m.status,
+    ListingReason:     [
+                         m.recoverableUsedBytes >= 80 * 1073741824 ? '>=80GB' : null,
+                         m.elcProcessingDisabled ? 'ElcProcessingDisabled' : null,
+                         m.retentionHoldEnabled ? 'RetentionHold' : null
+                       ].filter(Boolean).join('; '),
+    SIR:               m.sirEnabled ? 'Enabled' : 'DISABLED',
+    MFAProcessing:     m.elcProcessingDisabled ? 'BLOCKED' : 'Allowed',
+    RetentionHold:     m.retentionHoldEnabled ? 'ENABLED' : 'False',
+    HoldsActive:       [ m.litigationHold ? 'Litigation' : null, m.delayHoldApplied ? 'DelayHold' : null,
+                         m.inPlaceHoldsCount > 0 ? m.inPlaceHoldsCount + ' policy' : null ].filter(Boolean).join('; ') || 'None',
+    DiscoveryHoldsGB:  m.hasDetailStats && m.folders ? gb(m.folders.discoveryHoldsBytes) : '',
+    PurgesGB:          m.hasDetailStats && m.folders ? gb(m.folders.purgesBytes) : ''
+  }));
+  ITTools.csv.download('exchange-audit-offenders-' + new Date().toISOString().slice(0,10) + '.csv', rows);
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
