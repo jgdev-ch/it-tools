@@ -54,56 +54,78 @@ try {
 }
 
 $runStart = Get-Date
+# Thresholds $DEEP_SCAN_THRESHOLD_GB (=80), $STATUS_CRITICAL_PCT (=90), $STATUS_WARNING_PCT (=70)
+# come from the Config block at the top of the file.
 
-# ── Pass 1: All mailboxes ─────────────────────────────────────────────────
-Write-Output "Pass 1: fetching all user mailboxes..."
+# ── Pass A: bulk flags + quota (fast; Get-Mailbox has quota but NOT used size) ──
+Write-Output "Pass A: fetching all user mailboxes (flags + quota)..."
 $allMailboxes = Get-Mailbox -ResultSize Unlimited -RecipientTypeDetails UserMailbox |
-    Select-Object UserPrincipalName, DisplayName,
-                  RecoverableItemsQuota, RecoverableItemsSize,
+    Select-Object UserPrincipalName, DisplayName, ExchangeGuid,
+                  RecoverableItemsQuota,
                   SingleItemRecoveryEnabled, ElcProcessingDisabled,
                   RetentionHoldEnabled, LitigationHoldEnabled,
                   DelayHoldApplied, InPlaceHolds
+Write-Output "Pass A complete — $($allMailboxes.Count) mailboxes"
 
-Write-Output "Pass 1 complete — $($allMailboxes.Count) mailboxes retrieved"
-
-$mailboxObjects = [System.Collections.Generic.List[hashtable]]::new()
-
+# ── Pass B: per-mailbox real Recoverable Items used size (the slow part) ──
+Write-Output "Pass B: measuring Recoverable Items used size per mailbox..."
+$offenders  = [System.Collections.Generic.List[hashtable]]::new()
+$scanErrors = 0
+$i = 0
 foreach ($mbx in $allMailboxes) {
-    $usedBytes  = ConvertTo-Bytes $mbx.RecoverableItemsSize
-    $quotaBytes = ConvertTo-Bytes $mbx.RecoverableItemsQuota
+    $i++
+    if ($i % 1000 -eq 0) { Write-Output "  ...$i / $($allMailboxes.Count)  (offenders so far: $($offenders.Count), errors: $scanErrors)" }
 
+    $usedBytes = [long]0
+    $ok = $false
+    for ($attempt = 1; $attempt -le 3 -and -not $ok; $attempt++) {
+        try {
+            $stats = Get-EXOMailboxStatistics -Identity $mbx.ExchangeGuid.ToString() -Properties TotalDeletedItemSize -ErrorAction Stop
+            $usedBytes = ConvertTo-Bytes $stats.TotalDeletedItemSize
+            $ok = $true
+        } catch {
+            if ($attempt -eq 3) { $scanErrors++; Write-Warning "stats failed for $($mbx.UserPrincipalName): $_" }
+            else { Start-Sleep -Milliseconds (500 * $attempt) }   # back off then retry
+        }
+    }
+    Start-Sleep -Milliseconds 25   # pacing to stay under EXO throttling
+
+    $quotaBytes = ConvertTo-Bytes $mbx.RecoverableItemsQuota
     $pct = if ($quotaBytes -gt 0) { [int][Math]::Round(($usedBytes / $quotaBytes) * 100) } else { 0 }
+
+    $elcBlocked = [bool]$mbx.ElcProcessingDisabled
+    $retHold    = [bool]$mbx.RetentionHoldEnabled
+    $isOffender = ($usedBytes -ge ($DEEP_SCAN_THRESHOLD_GB * 1GB)) -or $elcBlocked -or $retHold
+    if (-not $isOffender) { continue }
 
     $status = if     ($pct -ge $STATUS_CRITICAL_PCT) { 'critical' }
               elseif ($pct -ge $STATUS_WARNING_PCT)  { 'warning'  }
               else                                    { 'ok'       }
 
-    $obj = @{
+    $offenders.Add(@{
         upn                  = $mbx.UserPrincipalName
         displayName          = $mbx.DisplayName
+        exchangeGuid         = $mbx.ExchangeGuid.ToString()
         recoverableUsedBytes = $usedBytes
         recoverableQuotaBytes= $quotaBytes
         recoverablePct       = $pct
         status               = $status
         sirEnabled           = [bool]$mbx.SingleItemRecoveryEnabled
-        elcProcessingDisabled= [bool]$mbx.ElcProcessingDisabled
-        retentionHoldEnabled = [bool]$mbx.RetentionHoldEnabled
+        elcProcessingDisabled= $elcBlocked
+        retentionHoldEnabled = $retHold
         litigationHold       = [bool]$mbx.LitigationHoldEnabled
         delayHoldApplied     = [bool]$mbx.DelayHoldApplied
         inPlaceHoldsCount    = if ($mbx.InPlaceHolds) { $mbx.InPlaceHolds.Count } else { 0 }
         hasDetailStats       = $false
-    }
-
-    $mailboxObjects.Add($obj)
+    })
 }
+Write-Output "Pass B complete — scanned $($allMailboxes.Count), offenders $($offenders.Count), errors $scanErrors"
 
-# ── Pass 2: Deep scan for flagged mailboxes ────────────────────────────────
-$flagged = $mailboxObjects | Where-Object { $_.recoverableUsedBytes -ge ($DEEP_SCAN_THRESHOLD_GB * 1GB) }
-Write-Output "Pass 2: deep scan on $($flagged.Count) mailboxes >= ${DEEP_SCAN_THRESHOLD_GB} GB..."
-
-foreach ($obj in $flagged) {
+# ── Pass C: folder detail on offenders only ──
+Write-Output "Pass C: folder breakdown on $($offenders.Count) offenders..."
+foreach ($obj in $offenders) {
     try {
-        $folders = Get-MailboxFolderStatistics -Identity $obj.upn -FolderScope RecoverableItems |
+        $folders = Get-MailboxFolderStatistics -Identity $obj.exchangeGuid -FolderScope RecoverableItems |
             Where-Object { $_.FolderPath -in @('/DiscoveryHolds', '/Purges', '/Versions', '/SubstrateHolds') }
 
         $dh = $folders | Where-Object { $_.FolderPath -eq '/DiscoveryHolds' }
@@ -121,11 +143,10 @@ foreach ($obj in $flagged) {
             substrateHoldsBytes = if ($su) { ConvertTo-Bytes $su.FolderAndSubfolderSize } else { [long]0 }
         }
     } catch {
-        Write-Warning "Pass 2 failed for $($obj.upn): $_"
+        Write-Warning "Pass C failed for $($obj.upn): $_"
     }
 }
-
-Write-Output "Pass 2 complete"
+Write-Output "Pass C complete"
 
 # ── Build output JSON ──────────────────────────────────────────────────────
 $runDuration = [int]((Get-Date) - $runStart).TotalSeconds
@@ -133,11 +154,13 @@ $runDuration = [int]((Get-Date) - $runStart).TotalSeconds
 $output = @{
     lastScan           = (Get-Date).ToUniversalTime().ToString('o')
     runDurationSeconds = $runDuration
-    totalMailboxes     = $mailboxObjects.Count
-    mailboxes          = @($mailboxObjects)
+    totalScanned       = $allMailboxes.Count
+    offenderCount      = $offenders.Count
+    scanErrors         = $scanErrors
+    mailboxes          = @($offenders)
 } | ConvertTo-Json -Depth 5 -Compress
 
-Write-Output "JSON built — $($output.Length) bytes, $($mailboxObjects.Count) mailboxes"
+Write-Output "JSON built — $($output.Length) bytes, $($offenders.Count) offenders of $($allMailboxes.Count) scanned"
 
 # ── Upload to Azure Blob Storage ───────────────────────────────────────────
 Write-Output "Uploading to Blob Storage: $STORAGE_ACCOUNT/$CONTAINER_NAME/$BLOB_NAME..."
