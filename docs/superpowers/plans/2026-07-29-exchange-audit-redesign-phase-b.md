@@ -6,7 +6,7 @@
 
 **Architecture:** New Node Function App (matches the `adobe-func` `.js` precedent) with a system-assigned managed identity granted **Storage Blob Data Reader** on the `exchange-audit` container, gated by **App Service Easy Auth** (Microsoft/Entra). The tool acquires a token for a scope exposed on the **existing hub app registration** (`6d881af5-d626-4df6-8969-69f1f0292772`) and calls `GET /api/exchange-audit`. Blob container stays fully private (no SAS, no anonymous).
 
-**Tech Stack:** Node 20 Azure Functions (v4 model, `@azure/storage-blob` + `@azure/identity`); MSAL via shared `auth.js`; Az.Storage/Automation for the run.
+**Tech Stack:** Node Azure Functions (v4 model; **Node 22 LTS** or latest supported LTS — *not* Node 20, which is EOL) with `@azure/storage-blob` + `@azure/identity`; MSAL via shared `auth.js`; Az.Storage/Automation for the run.
 
 **Spec:** `docs/superpowers/specs/2026-07-29-exchange-audit-redesign-design.md`
 **Depends on:** Phase A (built) — offenders-only runbook + tool schema already in place on `testing`.
@@ -22,7 +22,7 @@ These are unknown until infra exists; treated like the SAS was (constants filled
 ### Task 1: Provision the Function App [infra]
 
 - [ ] **Step 1: Create the Function App**
-  - Portal → Create Function App → **Runtime: Node 20**, plan: Consumption (or the existing hub plan), same region as the storage account.
+  - Portal → Create Function App → **Flex Consumption**, **Runtime: Node.js 22 LTS** (or latest supported LTS — not 20, EOL), Linux, same region as the storage account.
   - After create: **Identity → System assigned → On**. Note the MI's object/principal ID.
 
 - [ ] **Step 2: Grant the MI read on the blob container**
