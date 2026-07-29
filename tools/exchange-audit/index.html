@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Exchange Audit — IT Tools</title>
+<link rel="stylesheet" href="../../shared/styles.css"/>
+<script src="../../shared/auth.js"></script>
+<style>
+  /* ── Layout ───────────────────────────────────────────────── */
+  .audit-wrap     { padding: 1.25rem 1.5rem; max-width: 1400px; margin: 0 auto; }
+  .audit-strip    { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+                    margin-bottom: 1rem; padding: 10px 14px;
+                    background: var(--surface); border: 1px solid var(--border);
+                    border-radius: var(--radius); }
+  .audit-layout   { display: grid; grid-template-columns: 60% 1fr; gap: 1rem;
+                    height: calc(100vh - 200px); min-height: 500px; }
+  .audit-table-wrap { overflow-y: auto; border: 1px solid var(--border);
+                      border-radius: var(--radius); background: var(--surface); }
+  .audit-panel    { border: 1px solid var(--border); border-radius: var(--radius);
+                    background: var(--surface); overflow-y: auto; }
+
+  /* ── Summary strip ───────────────────────────────────────── */
+  .strip-scan     { font-size: 12px; color: var(--muted); margin-right: auto; }
+  .strip-scan strong { color: var(--text); }
+  .strip-scan.stale  { color: var(--amber); }
+  .strip-scan.expired { color: var(--red); }
+  .count-pill     { display: inline-flex; align-items: center; gap: 5px;
+                    padding: 4px 10px; border-radius: 20px; font-size: 12px;
+                    font-weight: 600; border: 1.5px solid; cursor: pointer;
+                    transition: opacity .12s; white-space: nowrap; }
+  .count-pill:hover { opacity: .75; }
+  .pill-critical  { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
+  .pill-warning   { background: var(--amber-light); color: var(--amber); border-color: var(--amber-border); }
+  .pill-total     { background: var(--surface2); color: var(--text); border-color: var(--border); cursor: default; }
+  .strip-search   { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px;
+                    background: var(--surface2); color: var(--text); font-size: 13px;
+                    width: 200px; outline: none; }
+  .strip-search:focus { border-color: var(--blue-mid); }
+  .strip-select   { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+                    background: var(--surface2); color: var(--text); font-size: 12px;
+                    cursor: pointer; outline: none; }
+
+  /* ── Table ───────────────────────────────────────────────── */
+  .audit-table    { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .audit-table th { position: sticky; top: 0; background: var(--surface2);
+                    padding: 9px 14px; text-align: left; font-size: 11px;
+                    font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+                    color: var(--muted); border-bottom: 1px solid var(--border); }
+  .audit-table td { padding: 9px 14px; border-bottom: 1px solid var(--border);
+                    vertical-align: middle; }
+  .audit-table tr:last-child td { border-bottom: none; }
+  .audit-table tr.row-sel td    { background: var(--blue-light); }
+  .audit-table tbody tr         { cursor: pointer; transition: background .1s; }
+  .audit-table tbody tr:hover td { background: var(--surface2); }
+  .audit-table tbody tr.row-sel:hover td { background: var(--blue-light); }
+  .row-sel td:first-child { border-left: 3px solid var(--blue); padding-left: 11px; }
+
+  .upn-cell       { line-height: 1.4; }
+  .upn-name       { font-weight: 600; color: var(--text); }
+  .upn-addr       { font-size: 11px; color: var(--muted); }
+
+  .usage-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .usage-bar      { flex: 1; height: 6px; border-radius: 3px; background: var(--surface3);
+                    overflow: hidden; min-width: 60px; }
+  .usage-fill     { height: 100%; border-radius: 3px; transition: width .2s; }
+  .fill-green  { background: var(--green); }
+  .fill-amber  { background: var(--amber); }
+  .fill-red    { background: var(--red); }
+  .usage-pct   { font-size: 12px; font-weight: 600; min-width: 36px; text-align: right; }
+  .pct-green   { color: var(--green); }
+  .pct-amber   { color: var(--amber); }
+  .pct-red     { color: var(--red); }
+
+  .status-badge   { display: inline-block; padding: 2px 7px; border-radius: 4px;
+                    font-size: 10px; font-weight: 700; letter-spacing: .04em;
+                    text-transform: uppercase; border: 1px solid; }
+  .badge-critical { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
+  .badge-warning  { background: var(--amber-light); color: var(--amber); border-color: var(--amber-border); }
+
+  /* ── Side panel ──────────────────────────────────────────── */
+  .panel-empty    { display: flex; align-items: center; justify-content: center;
+                    height: 100%; color: var(--muted); font-size: 13px; padding: 2rem;
+                    text-align: center; }
+  .panel-body     { padding: 1.25rem; }
+  .panel-name     { font-size: 16px; font-weight: 700; color: var(--text);
+                    margin-bottom: 2px; }
+  .panel-upn      { font-size: 11px; color: var(--muted); margin-bottom: 1rem;
+                    word-break: break-all; }
+  .panel-bar-wrap { margin-bottom: 1rem; }
+  .panel-bar      { height: 8px; border-radius: 4px; background: var(--surface3);
+                    overflow: hidden; margin-top: 6px; }
+  .panel-fill     { height: 100%; border-radius: 4px; }
+  .panel-quota    { display: flex; justify-content: space-between; font-size: 12px;
+                    color: var(--muted); margin-top: 4px; }
+
+  .panel-section  { margin-top: 1rem; }
+  .panel-sec-lbl  { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                    letter-spacing: .07em; color: var(--muted2); margin-bottom: 6px; }
+  .panel-row      { display: flex; justify-content: space-between; align-items: center;
+                    padding: 5px 0; border-bottom: 1px solid var(--border);
+                    font-size: 13px; }
+  .panel-row:last-child { border-bottom: none; }
+  .panel-lbl      { color: var(--muted); font-size: 12px; }
+  .panel-val      { font-weight: 600; }
+  .val-green      { color: var(--green); }
+  .val-amber      { color: var(--amber); }
+  .val-red        { color: var(--red); }
+  .panel-val-note { font-size: 11px; color: var(--muted); font-weight: 400;
+                    display: block; margin-top: 2px; }
+
+  .folder-row     { display: flex; justify-content: space-between; align-items: baseline;
+                    padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .folder-row:last-child { border-bottom: none; }
+  .folder-name    { color: var(--muted); font-family: 'Cascadia Code','Consolas',monospace;
+                    font-size: 11px; }
+  .folder-sz      { font-weight: 600; color: var(--text); }
+  .folder-note    { font-size: 10px; color: var(--muted2); margin-left: 6px; }
+  .no-detail-note { font-size: 12px; color: var(--muted); font-style: italic; padding: 6px 0; }
+
+  .btn-copy-cmd   { margin-top: 1rem; width: 100%; padding: 8px 12px;
+                    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+                    background: var(--blue-light); color: var(--blue-dark);
+                    border: 1px solid var(--blue-border); border-radius: 6px;
+                    font-size: 12px; font-weight: 600; cursor: pointer;
+                    transition: background .12s; }
+  .btn-copy-cmd:hover { background: var(--blue); color: #fff; }
+  .btn-copy-cmd.copied { background: var(--green-light); color: var(--green);
+                         border-color: var(--green-border); }
+
+  /* ── States ──────────────────────────────────────────────── */
+  .state-wrap     { display: flex; flex-direction: column; align-items: center;
+                    justify-content: center; padding: 3rem; gap: 12px; color: var(--muted); }
+  .state-wrap p   { font-size: 13px; text-align: center; max-width: 340px; line-height: 1.6; }
+  .ea-spinner     { width: 28px; height: 28px; border: 3px solid var(--border);
+                    border-top-color: var(--blue); border-radius: 50%;
+                    animation: ea-spin .7s linear infinite; }
+  @keyframes ea-spin { to { transform: rotate(360deg); } }
+  .state-err      { color: var(--red); }
+
+  .data-age-banner { padding: 8px 14px; border-radius: 6px; font-size: 12px;
+                     margin-bottom: .75rem; display: none; }
+  .age-stale      { background: var(--amber-light); color: var(--amber);
+                    border: 1px solid var(--amber-border); }
+  .age-expired    { background: var(--red-light); color: var(--red);
+                    border: 1px solid var(--red-border); }
+
+  .local-file-wrap { margin-top: 1rem; }
+  .local-file-lbl  { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .local-file-drop { border: 2px dashed var(--border); border-radius: 8px;
+                     padding: 20px; text-align: center; cursor: pointer;
+                     font-size: 13px; color: var(--muted);
+                     transition: border-color .12s, background .12s; }
+  .local-file-drop:hover { border-color: var(--blue-mid); background: var(--blue-light); }
+  #localFileInput { display: none; }
+
+  .empty-state    { padding: 2rem; text-align: center; color: var(--muted);
+                    font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="topbar"></div>
+
+<div class="audit-wrap">
+
+  <!-- Data age banner (shown when JSON is stale) -->
+  <div id="ageBanner" class="data-age-banner"></div>
+
+  <!-- Summary strip -->
+  <div class="audit-strip" id="auditStrip" style="display:none">
+    <span class="strip-scan" id="scanMeta"></span>
+    <span class="count-pill pill-total" id="pillTotal"></span>
+    <span class="count-pill pill-critical" id="pillCritical" onclick="filterMode('critical')"></span>
+    <span class="count-pill pill-warning"  id="pillWarning"  onclick="filterMode('warning')"></span>
+    <input  type="text"   id="searchInput"  class="strip-search"  placeholder="Search name or UPN…" oninput="onSearch(this.value)">
+    <select id="filterSel" class="strip-select" onchange="filterMode(this.value)">
+      <option value="all">All mailboxes</option>
+      <option value="critical">Critical only</option>
+      <option value="warning">Warning +</option>
+    </select>
+    <select id="sortSel" class="strip-select" onchange="onSort(this.value)">
+      <option value="pct-desc">Sort: Usage % ↓</option>
+      <option value="pct-asc">Sort: Usage % ↑</option>
+      <option value="name-asc">Sort: Name A–Z</option>
+      <option value="gb-desc">Sort: GB ↓</option>
+    </select>
+  </div>
+
+  <!-- Main layout: table + panel -->
+  <div class="audit-layout" id="auditLayout" style="display:none">
+    <div class="audit-table-wrap" id="tableWrap"></div>
+    <div class="audit-panel"      id="sidePanel">
+      <div class="panel-empty">Select a user to view details</div>
+    </div>
+  </div>
+
+  <!-- Loading / error / local-file states -->
+  <div id="stateArea"></div>
+
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const AUDIT_BLOB_URL = ''; // set to the exchange-audit read-SAS blob URL once Azure is provisioned
+const AGE_WARN_DAYS  = 8;
+const AGE_ERR_DAYS   = 14;
+
+// Lucide icons (match hub visual design)
+const LU_COPY  = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
+const LU_CHECK = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M20 6 9 17l-5-5"/></svg>`;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let auditData      = null;
+let filteredList   = [];
+let selectedUpn    = null;
+let currentFilter  = 'all';
+let currentSort    = 'pct-desc';
+let searchQuery    = '';
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmtBytes(bytes) {
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+  if (bytes >= 1048576)    return (bytes / 1048576).toFixed(1) + ' MB';
+  return (bytes / 1024).toFixed(0) + ' KB';
+}
+
+function fmtCount(n) {
+  return n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n.toLocaleString();
+}
+
+function colorClass(pct) {
+  return pct >= 90 ? 'red' : pct >= 70 ? 'amber' : 'green';
+}
+
+function dateDaysAgo(isoString) {
+  return (Date.now() - new Date(isoString).getTime()) / 86400000;
+}
+
+// ── Loading / error states ─────────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('stateArea').innerHTML = `
+    <div class="state-wrap">
+      <div class="ea-spinner"></div>
+      <p>Fetching audit data…</p>
+    </div>`;
+}
+
+function showError(message, blobUrl) {
+  document.getElementById('stateArea').innerHTML = `
+    <div class="state-wrap">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p class="state-err">${message}</p>
+      ${blobUrl ? `<p style="font-size:11px;font-family:monospace;word-break:break-all">${blobUrl}</p>` : ''}
+      <div class="local-file-wrap">
+        <p class="local-file-lbl">Load a local audit JSON file for testing:</p>
+        <div class="local-file-drop" onclick="document.getElementById('localFileInput').click()">
+          Click to browse or drop a JSON file here
+        </div>
+        <input type="file" id="localFileInput" accept=".json" onchange="loadLocalFile(this)">
+      </div>
+    </div>`;
+
+  // Wire drag-and-drop on the drop zone
+  const dropZone = document.querySelector('.local-file-drop');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--blue)'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.style.borderColor = '';
+      const file = e.dataTransfer.files[0];
+      if (file) processLocalFile(file);
+    });
+  }
+}
+
+// ── Local file fallback ────────────────────────────────────────────────────
+function loadLocalFile(input) {
+  const file = input.files[0];
+  if (file) processLocalFile(file);
+}
+
+async function processLocalFile(file) {
+  try {
+    const text = await Promise.race([
+      file.text(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+    ]);
+    const data = JSON.parse(text);
+    onDataLoaded(data);
+  } catch (e) {
+    showError('Could not read or parse the JSON file: ' + e.message, null);
+  }
+}
+
+// ── Data age banner ────────────────────────────────────────────────────────
+function checkDataAge(lastScan) {
+  const days = dateDaysAgo(lastScan);
+  const banner = document.getElementById('ageBanner');
+  if (days > AGE_ERR_DAYS) {
+    banner.className = 'data-age-banner age-expired';
+    banner.textContent = `Audit data is ${Math.floor(days)} days old — runbook may not have run recently. Data may be unreliable.`;
+    banner.style.display = 'block';
+  } else if (days > AGE_WARN_DAYS) {
+    banner.className = 'data-age-banner age-stale';
+    banner.textContent = `Audit data is ${Math.floor(days)} days old — next runbook cycle should refresh this soon.`;
+    banner.style.display = 'block';
+  }
+}
+
+// ── Entry point ────────────────────────────────────────────────────────────
+function onDataLoaded(data) {
+  auditData = data;
+  document.getElementById('stateArea').innerHTML = '';
+  document.getElementById('auditStrip').style.display = '';
+  document.getElementById('auditLayout').style.display = '';
+  checkDataAge(data.lastScan);
+  applyFilters();
+}
+
+// ── Fetch audit blob ─────────────────────────────────────────────────────────
+async function loadAuditData() {
+  if (!AUDIT_BLOB_URL) {
+    showError('Azure Blob URL is not configured. Load a local JSON file to test.', null);
+    return;
+  }
+  showLoading();
+  try {
+    const res = await fetch(AUDIT_BLOB_URL, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    onDataLoaded(data);
+  } catch (e) {
+    showError(
+      'Could not load audit data. Check that the Azure Blob URL is reachable and CORS is enabled on the storage account.',
+      AUDIT_BLOB_URL
+    );
+  }
+}
+
+// ── Summary strip ────────────────────────────────────────────────────────────
+function renderStrip(data, filtered) {
+  const total    = data.mailboxes.length;
+  const critical = data.mailboxes.filter(m => m.status === 'critical').length;
+  const warning  = data.mailboxes.filter(m => m.status === 'warning').length;
+
+  const daysAgo = dateDaysAgo(data.lastScan);
+  const scanDate = new Date(data.lastScan).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  const meta = document.getElementById('scanMeta');
+  meta.innerHTML = `<strong>${data.totalMailboxes.toLocaleString()}</strong> mailboxes &nbsp;·&nbsp; Last scan: <strong>${scanDate}</strong>`;
+  meta.className = 'strip-scan' + (daysAgo > AGE_ERR_DAYS ? ' expired' : daysAgo > AGE_WARN_DAYS ? ' stale' : '');
+
+  document.getElementById('pillTotal').textContent    = `${total.toLocaleString()} total`;
+  document.getElementById('pillCritical').textContent = `${critical} critical`;
+  document.getElementById('pillWarning').textContent  = `${warning} warning`;
+}
+
+// ── Mailbox table ──────────────────────────────────────────────────────────
+function renderTable(list) {
+  const wrap = document.getElementById('tableWrap');
+  if (list.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No mailboxes match your filter.</div>';
+    return;
+  }
+
+  const rows = list.map(m => {
+    const pct   = m.recoverablePct;
+    const fill  = colorClass(pct);
+    const gb    = (m.recoverableUsedBytes / 1073741824).toFixed(1);
+    const sel   = m.upn === selectedUpn ? ' row-sel' : '';
+    const badge = m.status === 'critical'
+      ? `<span class="status-badge badge-critical">Critical</span>`
+      : m.status === 'warning'
+      ? `<span class="status-badge badge-warning">Warning</span>`
+      : '';
+    const barW  = Math.min(pct, 100);
+
+    return `<tr class="${sel}" onclick="selectMailbox('${m.upn}')">
+      <td class="upn-cell">
+        <div class="upn-name">${m.displayName}</div>
+        <div class="upn-addr">${m.upn}</div>
+      </td>
+      <td style="white-space:nowrap">${gb} GB</td>
+      <td style="min-width:140px">
+        <div class="usage-bar-wrap">
+          <div class="usage-bar"><div class="usage-fill fill-${fill}" style="width:${barW}%"></div></div>
+          <span class="usage-pct pct-${fill}">${pct}%</span>
+        </div>
+      </td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>Name / UPN</th>
+          <th>GB Used</th>
+          <th>Usage</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function selectMailbox(upn) {
+  selectedUpn = upn;
+  renderTable(filteredList);   // re-render to update row highlight
+  renderPanel(auditData.mailboxes.find(m => m.upn === upn));
+}
+
+// ── Side panel ───────────────────────────────────────────────────────────────
+function renderPanel(mailbox) {
+  const panel = document.getElementById('sidePanel');
+  const pct   = mailbox.recoverablePct;
+  const fill  = colorClass(pct);
+  const usedGb  = (mailbox.recoverableUsedBytes  / 1073741824).toFixed(2);
+  const quotaGb = (mailbox.recoverableQuotaBytes / 1073741824).toFixed(0);
+  const barW    = Math.min(pct, 100);
+
+  // SIR row
+  const sirHtml = mailbox.sirEnabled
+    ? `<span class="panel-val val-green">Enabled</span>`
+    : `<span class="panel-val val-amber">DISABLED</span>`;
+
+  // MFA Processing row (ElcProcessingDisabled)
+  const mfaHtml = mailbox.elcProcessingDisabled
+    ? `<span class="panel-val val-red">BLOCKED
+         <span class="panel-val-note">ElcProcessingDisabled is set — MFA will not reclaim space on this mailbox.<br>
+         Fix: Set-Mailbox '${mailbox.upn}' -ElcProcessingDisabled $false</span>
+       </span>`
+    : `<span class="panel-val val-green">Allowed</span>`;
+
+  // RetentionHold row
+  const retHtml = mailbox.retentionHoldEnabled
+    ? `<span class="panel-val val-amber">ENABLED <span class="panel-val-note">MFA skips this mailbox while active</span></span>`
+    : `<span class="panel-val val-green">False</span>`;
+
+  // Holds row
+  let holdsText = 'None';
+  const holdParts = [];
+  if (mailbox.litigationHold)               holdParts.push('Litigation Hold');
+  if (mailbox.delayHoldApplied)             holdParts.push('Delay Hold');
+  if (mailbox.inPlaceHoldsCount > 0)        holdParts.push(`${mailbox.inPlaceHoldsCount} policy/eDiscovery hold(s)`);
+  if (holdParts.length) holdsText = holdParts.join(', ');
+  const holdsColor = holdParts.length ? 'val-amber' : 'val-green';
+
+  // Folder breakdown
+  let folderHtml = '';
+  if (mailbox.hasDetailStats && mailbox.folders) {
+    const f = mailbox.folders;
+    const dhGb = (f.discoveryHoldsBytes / 1073741824).toFixed(2);
+    const puGb = (f.purgesBytes         / 1073741824).toFixed(2);
+    const veGb = (f.versionsBytes       / 1073741824).toFixed(2);
+    const suGb = (f.substrateHoldsBytes / 1073741824).toFixed(2);
+
+    const purgesNote = f.purgesItems > 0 ? `<span class="folder-note">(${fmtCount(f.purgesItems)} items — pending MFA)</span>` : '';
+    const subNote    = f.substrateHoldsBytes > 0 ? `<span class="folder-note">(Teams/Skype)</span>` : '';
+    const dhNote     = f.discoveryHoldsItems > 0 ? ` · ${fmtCount(f.discoveryHoldsItems)} items` : '';
+
+    folderHtml = `
+      <div class="panel-section">
+        <div class="panel-sec-lbl">Folder Breakdown</div>
+        <div class="folder-row">
+          <span class="folder-name">/DiscoveryHolds</span>
+          <span class="folder-sz">${dhGb} GB<span style="font-weight:400;color:var(--muted);font-size:11px">${dhNote}</span></span>
+        </div>
+        ${f.purgesBytes > 0 ? `<div class="folder-row">
+          <span class="folder-name">/Purges</span>
+          <span class="folder-sz">${puGb} GB${purgesNote}</span>
+        </div>` : ''}
+        ${f.versionsBytes > 0 ? `<div class="folder-row">
+          <span class="folder-name">/Versions</span>
+          <span class="folder-sz">${veGb} GB</span>
+        </div>` : ''}
+        ${f.substrateHoldsBytes > 0 ? `<div class="folder-row">
+          <span class="folder-name">/SubstrateHolds</span>
+          <span class="folder-sz">${suGb} GB${subNote}</span>
+        </div>` : ''}
+      </div>`;
+  } else if (!mailbox.hasDetailStats) {
+    folderHtml = `
+      <div class="panel-section">
+        <div class="panel-sec-lbl">Folder Breakdown</div>
+        <p class="no-detail-note">Not available — below 80 GB deep-scan threshold</p>
+      </div>`;
+  }
+
+  // Copy cleanup command button (warning + critical only)
+  const copyBtnHtml = (mailbox.status === 'critical' || mailbox.status === 'warning')
+    ? `<button class="btn-copy-cmd" id="copyBtn" onclick="copyCleanupCmd('${mailbox.upn}')">
+         ${LU_COPY} Copy cleanup command
+       </button>`
+    : '';
+
+  panel.innerHTML = `
+    <div class="panel-body">
+      <div class="panel-name">${mailbox.displayName}</div>
+      <div class="panel-upn">${mailbox.upn}</div>
+
+      <div class="panel-bar-wrap">
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span style="color:var(--muted)">Recoverable Items</span>
+          <span style="font-weight:700;color:var(--${fill})">${pct}%</span>
+        </div>
+        <div class="panel-bar"><div class="panel-fill fill-${fill}" style="width:${barW}%"></div></div>
+        <div class="panel-quota"><span>${usedGb} GB used</span><span>${quotaGb} GB quota</span></div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-sec-lbl">Mailbox State</div>
+        <div class="panel-row"><span class="panel-lbl">SIR</span>${sirHtml}</div>
+        <div class="panel-row"><span class="panel-lbl">MFA Processing</span>${mfaHtml}</div>
+        <div class="panel-row"><span class="panel-lbl">Retention Hold</span>${retHtml}</div>
+        <div class="panel-row"><span class="panel-lbl">Holds active</span><span class="panel-val ${holdsColor}">${holdsText}</span></div>
+      </div>
+
+      ${folderHtml}
+      ${copyBtnHtml}
+    </div>`;
+}
+
+function copyCleanupCmd(upn) {
+  navigator.clipboard.writeText(`.\\Invoke-MailboxCleanup.ps1 -Mailbox ${upn}`).then(() => {
+    const btn = document.getElementById('copyBtn');
+    if (!btn) return;
+    btn.innerHTML = `${LU_CHECK} Copied!`;
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.innerHTML = `${LU_COPY} Copy cleanup command`;
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// ── Interactivity: search, filter, sort ─────────────────────────────────────
+function applyFilters() {
+  if (!auditData) return;
+
+  let list = auditData.mailboxes.slice();
+
+  // Search
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    list = list.filter(m =>
+      m.displayName.toLowerCase().includes(q) ||
+      m.upn.toLowerCase().includes(q)
+    );
+  }
+
+  // Filter mode
+  if (currentFilter === 'critical') {
+    list = list.filter(m => m.status === 'critical');
+  } else if (currentFilter === 'warning') {
+    list = list.filter(m => m.status === 'critical' || m.status === 'warning');
+  }
+
+  // Sort
+  list.sort((a, b) => {
+    switch (currentSort) {
+      case 'pct-desc': return b.recoverablePct - a.recoverablePct;
+      case 'pct-asc':  return a.recoverablePct - b.recoverablePct;
+      case 'name-asc': return a.displayName.localeCompare(b.displayName);
+      case 'gb-desc':  return b.recoverableUsedBytes - a.recoverableUsedBytes;
+      default:         return b.recoverablePct - a.recoverablePct;
+    }
+  });
+
+  filteredList = list;
+  renderStrip(auditData, filteredList);
+  renderTable(filteredList);
+
+  // If selected user was filtered out, clear the panel
+  if (selectedUpn && !filteredList.find(m => m.upn === selectedUpn)) {
+    selectedUpn = null;
+    document.getElementById('sidePanel').innerHTML =
+      '<div class="panel-empty">Select a user to view details</div>';
+  }
+}
+
+function onSearch(value) {
+  searchQuery = value.trim();
+  applyFilters();
+}
+
+function filterMode(mode) {
+  currentFilter = mode;
+  const sel = document.getElementById('filterSel');
+  if (sel) sel.value = mode === 'critical' || mode === 'warning' ? mode : 'all';
+  applyFilters();
+}
+
+function onSort(value) {
+  currentSort = value;
+  applyFilters();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "Exchange Audit", hubRelPath: "../../", status: "beta" });
+  ITTools.ui.syncThemeIcon();
+  loadAuditData();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

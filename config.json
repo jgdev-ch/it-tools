@@ -70,6 +70,17 @@
       "reportingOnly": true
     },
     {
+      "id": "exchange-audit",
+      "name": "Exchange Audit",
+      "description": "Weekly snapshot of all Exchange mailboxes ranked by Recoverable Items quota usage. Drill into any user for SIR status, hold details, and folder breakdown.",
+      "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#1a56db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='20' height='16' x='2' y='4' rx='2'/><path d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/></svg>",
+      "status": "beta",
+      "path": "tools/exchange-audit/",
+      "accent": "var(--accent-blue)",
+      "category": "reporting-audit",
+      "reportingOnly": true
+    },
+    {
       "id": "finance-dashboard",
       "name": "License Spend",
       "description": "Analyze M365 license costs by SKU and department, identify inactive seat waste, and model 12-month budget scenarios.",

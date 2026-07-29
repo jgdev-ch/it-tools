@@ -1,0 +1,91 @@
+{
+  "lastScan": "2026-05-26T02:14:37Z",
+  "runDurationSeconds": 203,
+  "totalMailboxes": 412,
+  "mailboxes": [
+    {
+      "upn": "hrconnect@corrohealth.com",
+      "displayName": "HR Connect",
+      "recoverableUsedBytes": 128586891264,
+      "recoverableQuotaBytes": 107374182400,
+      "recoverablePct": 120,
+      "status": "critical",
+      "sirEnabled": false,
+      "elcProcessingDisabled": false,
+      "retentionHoldEnabled": false,
+      "litigationHold": false,
+      "delayHoldApplied": false,
+      "inPlaceHoldsCount": 0,
+      "hasDetailStats": true,
+      "folders": {
+        "discoveryHoldsBytes": 128449339392,
+        "discoveryHoldsItems": 55712,
+        "purgesBytes": 0,
+        "purgesItems": 0,
+        "versionsBytes": 19456,
+        "substrateHoldsBytes": 19456
+      }
+    },
+    {
+      "upn": "divyalakshmi.palanivel@corrohealth.com",
+      "displayName": "Divyalakshmi Palanivel",
+      "recoverableUsedBytes": 89370009600,
+      "recoverableQuotaBytes": 107374182400,
+      "recoverablePct": 83,
+      "status": "warning",
+      "sirEnabled": true,
+      "elcProcessingDisabled": false,
+      "retentionHoldEnabled": false,
+      "litigationHold": false,
+      "delayHoldApplied": false,
+      "inPlaceHoldsCount": 1,
+      "hasDetailStats": true,
+      "folders": {
+        "discoveryHoldsBytes": 85899345920,
+        "discoveryHoldsItems": 402000,
+        "purgesBytes": 2147483648,
+        "purgesItems": 1200,
+        "versionsBytes": 0,
+        "substrateHoldsBytes": 1048576
+      }
+    },
+    {
+      "upn": "blocked.elc@corrohealth.com",
+      "displayName": "Blocked ELC User",
+      "recoverableUsedBytes": 96636764160,
+      "recoverableQuotaBytes": 107374182400,
+      "recoverablePct": 90,
+      "status": "critical",
+      "sirEnabled": true,
+      "elcProcessingDisabled": true,
+      "retentionHoldEnabled": false,
+      "litigationHold": false,
+      "delayHoldApplied": false,
+      "inPlaceHoldsCount": 0,
+      "hasDetailStats": true,
+      "folders": {
+        "discoveryHoldsBytes": 96636764160,
+        "discoveryHoldsItems": 800000,
+        "purgesBytes": 0,
+        "purgesItems": 0,
+        "versionsBytes": 0,
+        "substrateHoldsBytes": 0
+      }
+    },
+    {
+      "upn": "john.smith@corrohealth.com",
+      "displayName": "John Smith",
+      "recoverableUsedBytes": 21474836480,
+      "recoverableQuotaBytes": 107374182400,
+      "recoverablePct": 20,
+      "status": "ok",
+      "sirEnabled": true,
+      "elcProcessingDisabled": false,
+      "retentionHoldEnabled": false,
+      "litigationHold": false,
+      "delayHoldApplied": false,
+      "inPlaceHoldsCount": 0,
+      "hasDetailStats": false
+    }
+  ]
+}
