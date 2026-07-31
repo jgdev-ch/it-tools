@@ -391,16 +391,17 @@ const INDIA_GROUPS = {
   // Graph-managed pure security groups — added in the hub (Step 3).
   subContractor: "P-SG-InTune-Global-SubContractor-User-Group",
   teamMember:    "P-SG-InTune-Global-Team_Member-User-Group",
+  disableOutlook:"Disable Outlook Access",
   // Mail-enabled / distribution groups — NOT addable via Graph. Handled in the
   // Exchange setup step (Add-DistributionGroupMember). Listed here for reference only.
   o365Login:     "India O365 Login Access",
-  internalEmail: "internal email only",
-  disableOutlook:"Disable Outlook Access"
+  internalEmail: "internal email only"
 };
 
 const US_GROUPS = {
   subContractor: "TBD_US_SUBCONTRACTOR_GROUP",
-  teamMember:    "TBD_US_TEAM_MEMBER_GROUP"
+  teamMember:    "TBD_US_TEAM_MEMBER_GROUP",
+  disableOutlook:"TBD_US_DISABLE_OUTLOOK_GROUP"
 };
 
 // ── Automated path (Azure job queue) ──
@@ -853,12 +854,12 @@ async function fetchSkus() {
   }
 }
 
-// Only the pure security groups (subContractor / teamMember) are managed via Graph.
-// Mail-enabled groups and distribution lists — "internal email only",
-// "Disable Outlook Access", "India O365 Login Access" — CANNOT take members via
-// Graph (it returns "Cannot update a mail-enabled security group and/or distribution
-// list"). Those are handled in the Exchange setup step via Add-DistributionGroupMember.
-const GRAPH_SECURITY_GROUP_KEYS = ["subContractor", "teamMember"];
+// Pure security groups (subContractor / teamMember / disableOutlook) are managed
+// via Graph. Mail-enabled groups and distribution lists — "internal email only",
+// "India O365 Login Access" — CANNOT take members via Graph (it returns "Cannot
+// update a mail-enabled security group and/or distribution list"). Those are
+// handled in the Exchange setup step via Add-DistributionGroupMember.
+const GRAPH_SECURITY_GROUP_KEYS = ["subContractor", "teamMember", "disableOutlook"];
 
 async function resolveGroups() {
   const groupNames = st.region === "India" ? INDIA_GROUPS : US_GROUPS;
@@ -979,14 +980,18 @@ async function createUser(row, password) {
     removeLicenses: []
   });
 
-  // 3. Add to the Graph-managed security group only (subContractor OR teamMember).
-  //    Mail-enabled groups / DLs are done in the Exchange setup step, not here.
-  //    Non-fatal: the account + license already succeeded, so a group hiccup returns
-  //    a warning rather than discarding a created account.
+  // 3. Add to Graph-managed groups: subContractor/teamMember always, plus
+  //    disableOutlook when InternalEmailOnly=Y — it's a plain Entra security
+  //    group, not mail-enabled, so Graph can write to it (unlike "internal
+  //    email only", a real Exchange DL still handled in the Exchange step).
+  //    Non-fatal per group: the account + license already succeeded, so a
+  //    group hiccup returns a warning rather than discarding a created account.
   setProgStatus(row.num, "Adding to security group…", "var(--muted)");
-  const warnings = [];
-  const gid = row.subContractor ? st.groups.subContractor : st.groups.teamMember;
-  if (gid) {
+  const warnings  = [];
+  const groupIds  = [row.subContractor ? st.groups.subContractor : st.groups.teamMember];
+  if (row.internalEmail) groupIds.push(st.groups.disableOutlook);
+  for (const gid of groupIds) {
+    if (!gid) continue;
     try {
       await ITTools.graph.post(`/groups/${gid}/members/$ref`, {
         "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`
@@ -1078,12 +1083,6 @@ foreach (\$u in \$users) {
                 -BypassSecurityGroupManagerCheck -ErrorAction Stop
             Write-Detail "Added to: internal email only" Green
         } catch { Write-Detail "  internal email only: \$(\$_.Exception.Message)" Yellow }
-
-        try {
-            Add-DistributionGroupMember -Identity "Disable Outlook Access" -Member \$u.UPN \`
-                -BypassSecurityGroupManagerCheck -ErrorAction Stop
-            Write-Detail "Added to: Disable Outlook Access" Green
-        } catch { Write-Detail "  Disable Outlook Access: \$(\$_.Exception.Message)" Yellow }
     }
 ${indiaE3Block}
 
