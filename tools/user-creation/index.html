@@ -1045,7 +1045,17 @@ ${userEntries}
 
 # --- Phase 1: Connect ---
 Write-Step 1 "Connecting to Exchange Online..."
+
+\$minVersion = [Version]"3.9.0"
+\$installed  = Get-Module -ListAvailable -Name ExchangeOnlineManagement |
+    Sort-Object Version -Descending | Select-Object -First 1
+if (\$null -eq \$installed -or \$installed.Version -lt \$minVersion) {
+    Write-Detail "ExchangeOnlineManagement not found — installing..." Yellow
+    Install-Module ExchangeOnlineManagement -Force -AllowClobber -Scope CurrentUser
+}
+
 try {
+    Import-Module ExchangeOnlineManagement -ErrorAction Stop
     Connect-ExchangeOnline -ShowBanner:\$false -ErrorAction Stop
     Write-Detail "Exchange Online: connected" Green
 } catch {
