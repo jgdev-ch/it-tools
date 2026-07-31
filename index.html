@@ -323,10 +323,12 @@ body::before {
     0 8px 32px rgba(0,0,0,.55),
     inset 0 1px 0 rgba(255,255,255,.16);
 }
-.tool-card.no-hover { cursor: default; }
-.tool-card.no-hover:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); }
-.tool-card.locked { opacity: .72; cursor: default; }
-.tool-card.locked:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); opacity: .72; }
+/* !important needed: the cardIn entrance animation (opacity 0→1, fill-mode
+   both) otherwise wins over a plain opacity declaration once it completes. */
+.tool-card.no-hover { opacity: .72 !important; cursor: default; }
+.tool-card.no-hover:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); opacity: .72 !important; }
+.tool-card.locked { opacity: .72 !important; cursor: default; }
+.tool-card.locked:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); opacity: .72 !important; }
 
 /* ── Icon square ── */
 .tool-icon-sq {
@@ -669,6 +671,12 @@ const STATUS_DOT_LABELS = {
   deprecated:       "deprecated",
 };
 
+// Statuses that render as a clickable card. Anything else (coming-soon,
+// in-development, deprecated, ...) renders greyed out via buildComingSoonCard,
+// even for tools gated behind a permission group that the user has (see
+// unlockCard) — passing the gate means "can see it," not "it's ready."
+const CLICKABLE_STATUSES = ["live", "beta"];
+
 function statusDotHtml(status) {
   const label = STATUS_DOT_LABELS[status] || status;
   return `<div class="tool-status-dot dot-${status}">
@@ -684,6 +692,15 @@ function buildLiveCard({ path, accent, icon, status, name, desc }) {
     <div class="tool-desc">${desc}</div>
     ${statusDotHtml(status)}
   </a>`;
+}
+
+function buildComingSoonCard({ accent, icon, name, desc, status }) {
+  return `<div class="tool-card no-hover" style="--tool-accent:${accent}">
+    <div class="tool-icon-sq">${icon}</div>
+    <div class="tool-name">${name}</div>
+    <div class="tool-desc">${desc}</div>
+    ${statusDotHtml(status)}
+  </div>`;
 }
 
 function buildLockedCard({ gateKey, path, accent, icon, status, name, desc }) {
@@ -705,14 +722,17 @@ function buildLockedCard({ gateKey, path, accent, icon, status, name, desc }) {
 // ── Card lock / unlock ────────────────────────────────────────────────────────
 function unlockCard(gateKey) {
   document.querySelectorAll(`[data-gate="${gateKey}"]`).forEach(locked => {
-    locked.outerHTML = buildLiveCard({
+    const meta = {
       path:   locked.dataset.path,
       accent: locked.dataset.accent,
       icon:   locked.dataset.icon,
       status: locked.dataset.status,
       name:   locked.dataset.name,
       desc:   locked.dataset.desc,
-    });
+    };
+    locked.outerHTML = CLICKABLE_STATUSES.includes(meta.status)
+      ? buildLiveCard(meta)
+      : buildComingSoonCard(meta);
   });
 }
 
@@ -892,7 +912,6 @@ async function loadTools() {
   try {
     const res  = await fetch("config.json?v=" + Date.now());
     const data = await res.json();
-    const clickable = ["live", "beta"];
 
     function cardHtml(tool) {
       if (tool.financeOnly) {
@@ -915,7 +934,7 @@ async function loadTools() {
         return buildLockedCard({ gateKey: "reporting", ...meta });
       }
 
-      if (clickable.includes(tool.status) && tool.path) {
+      if (CLICKABLE_STATUSES.includes(tool.status) && tool.path) {
         return buildLiveCard({
           path: tool.path, accent: tool.accent,
           icon: tool.icon, status: tool.status, name: tool.name,
@@ -923,12 +942,10 @@ async function loadTools() {
         });
       }
 
-      return `<div class="tool-card no-hover" style="--tool-accent:${tool.accent}">
-        <div class="tool-icon-sq">${tool.icon}</div>
-        <div class="tool-name">${tool.name}</div>
-        <div class="tool-desc">${tool.description}</div>
-        ${statusDotHtml(tool.status)}
-      </div>`;
+      return buildComingSoonCard({
+        accent: tool.accent, icon: tool.icon,
+        name: tool.name, desc: tool.description, status: tool.status,
+      });
     }
 
     const grouped = {};
