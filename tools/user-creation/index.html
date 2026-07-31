@@ -188,6 +188,7 @@
           <p>Use the standard NewAccounts template. The hub validates all columns and checks for existing UPNs before you proceed.</p>
         </div>
         <div class="banner error" id="s1Err" style="display:none"></div>
+        <div id="s1ErrTable"></div>
         <div class="card">
           <div class="card-title">Source file</div>
           <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
@@ -435,6 +436,37 @@ function showErr(id, msg) {
   el.textContent = msg;
   el.className = "banner error";
   el.style.display = msg ? "block" : "none";
+  if (id === "s1Err") {
+    const t = document.getElementById("s1ErrTable");
+    if (t) t.innerHTML = "";
+  }
+}
+
+function renderCsvErrorTable(rows) {
+  const container = document.getElementById("s1ErrTable");
+  if (!container) return;
+  const bad = rows.filter(r => r.err);
+  if (!bad.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <table class="review-tbl" style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <thead>
+        <tr><th>Row</th><th>Name</th><th>EID</th><th>Error</th></tr>
+      </thead>
+      <tbody>
+        ${bad.map(r => `
+          <tr class="row-err">
+            <td style="color:var(--muted);font-size:12px">${r.num}</td>
+            <td>${(r.fn + " " + r.ln).trim() || "—"}</td>
+            <td style="color:var(--muted);font-size:12px">${r.eid || "—"}</td>
+            <td>${r.err}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 async function doSignIn() {
@@ -566,7 +598,7 @@ function parseAndRender(filename, text) {
     else if (eid.length > 16) err = "EID must be 16 characters or fewer (Entra employeeId limit)";
 
     return {
-      num:             i + 1,
+      num:             i + 2,
       fn, ln,
       upn,
       eid,
@@ -595,6 +627,7 @@ function parseAndRender(filename, text) {
 
   if (hardErrors) {
     showErr("s1Err", hardErrors + " row(s) have errors — fix the CSV and re-upload.");
+    renderCsvErrorTable(st.rows);
   } else {
     document.getElementById("s1Btn").disabled = false;
     document.getElementById("s1Msg").textContent = st.rows.length + " rows ready — checking UPNs…";
@@ -630,6 +663,7 @@ async function checkUpns() {
     document.getElementById("s1Btn").disabled = true;
     document.getElementById("s1Msg").textContent = "";
     showErr("s1Err", errors + " row(s) have errors — fix the CSV and re-upload.");
+    renderCsvErrorTable(st.rows);
   } else {
     document.getElementById("s1Btn").disabled = false;
     document.getElementById("s1Msg").textContent =
