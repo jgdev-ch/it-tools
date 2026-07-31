@@ -188,6 +188,7 @@
           <p>Use the standard NewAccounts template. The hub validates all columns and checks for existing UPNs before you proceed.</p>
         </div>
         <div class="banner error" id="s1Err" style="display:none"></div>
+        <div id="s1ErrTable"></div>
         <div class="card">
           <div class="card-title">Source file</div>
           <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
@@ -390,16 +391,17 @@ const INDIA_GROUPS = {
   // Graph-managed pure security groups — added in the hub (Step 3).
   subContractor: "P-SG-InTune-Global-SubContractor-User-Group",
   teamMember:    "P-SG-InTune-Global-Team_Member-User-Group",
+  disableOutlook:"Disable Outlook Access",
   // Mail-enabled / distribution groups — NOT addable via Graph. Handled in the
   // Exchange setup step (Add-DistributionGroupMember). Listed here for reference only.
   o365Login:     "India O365 Login Access",
-  internalEmail: "internal email only",
-  disableOutlook:"Disable Outlook Access"
+  internalEmail: "internal email only"
 };
 
 const US_GROUPS = {
   subContractor: "TBD_US_SUBCONTRACTOR_GROUP",
-  teamMember:    "TBD_US_TEAM_MEMBER_GROUP"
+  teamMember:    "TBD_US_TEAM_MEMBER_GROUP",
+  disableOutlook:"TBD_US_DISABLE_OUTLOOK_GROUP"
 };
 
 // ── Automated path (Azure job queue) ──
@@ -435,6 +437,37 @@ function showErr(id, msg) {
   el.textContent = msg;
   el.className = "banner error";
   el.style.display = msg ? "block" : "none";
+  if (id === "s1Err") {
+    const t = document.getElementById("s1ErrTable");
+    if (t) t.innerHTML = "";
+  }
+}
+
+function renderCsvErrorTable(rows) {
+  const container = document.getElementById("s1ErrTable");
+  if (!container) return;
+  const bad = rows.filter(r => r.err);
+  if (!bad.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <table class="review-tbl" style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <thead>
+        <tr><th>Row</th><th>Name</th><th>EID</th><th>Error</th></tr>
+      </thead>
+      <tbody>
+        ${bad.map(r => `
+          <tr class="row-err">
+            <td style="color:var(--muted);font-size:12px">${r.num}</td>
+            <td>${(r.fn + " " + r.ln).trim() || "—"}</td>
+            <td style="color:var(--muted);font-size:12px">${r.eid || "—"}</td>
+            <td>${r.err}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 async function doSignIn() {
@@ -556,18 +589,20 @@ function parseAndRender(filename, text) {
     const fn  = (r.Firstname  || "").trim();
     const ln  = (r.Lastname   || "").trim();
     const upn = (r.UserPrincipalName || "").trim();
+    const eid = (r.EID || "").trim();
     const sz  = normaliseSize(r.RequiredMailboxSize);
     let   err = "", warn = "";
 
     if (!fn || !ln)      err  = "Missing first or last name";
     else if (!upnRe.test(upn)) err = "UPN format invalid";
     else if (!sz)        err  = "RequiredMailboxSize must be 2 GB, 50 GB, or E3";
+    else if (eid.length > 16) err = "EID must be 16 characters or fewer (Entra employeeId limit)";
 
     return {
-      num:             i + 1,
+      num:             i + 2,
       fn, ln,
       upn,
-      eid:             (r.EID || "").trim(),
+      eid,
       size:            sz || r.RequiredMailboxSize,
       internalEmail:   (r.InternalEmailOnly || "").toUpperCase() === "Y",
       entApps:         (r.EntApps      || "").toUpperCase() === "Y",
@@ -593,6 +628,7 @@ function parseAndRender(filename, text) {
 
   if (hardErrors) {
     showErr("s1Err", hardErrors + " row(s) have errors — fix the CSV and re-upload.");
+    renderCsvErrorTable(st.rows);
   } else {
     document.getElementById("s1Btn").disabled = false;
     document.getElementById("s1Msg").textContent = st.rows.length + " rows ready — checking UPNs…";
@@ -628,6 +664,7 @@ async function checkUpns() {
     document.getElementById("s1Btn").disabled = true;
     document.getElementById("s1Msg").textContent = "";
     showErr("s1Err", errors + " row(s) have errors — fix the CSV and re-upload.");
+    renderCsvErrorTable(st.rows);
   } else {
     document.getElementById("s1Btn").disabled = false;
     document.getElementById("s1Msg").textContent =
@@ -817,12 +854,12 @@ async function fetchSkus() {
   }
 }
 
-// Only the pure security groups (subContractor / teamMember) are managed via Graph.
-// Mail-enabled groups and distribution lists — "internal email only",
-// "Disable Outlook Access", "India O365 Login Access" — CANNOT take members via
-// Graph (it returns "Cannot update a mail-enabled security group and/or distribution
-// list"). Those are handled in the Exchange setup step via Add-DistributionGroupMember.
-const GRAPH_SECURITY_GROUP_KEYS = ["subContractor", "teamMember"];
+// Pure security groups (subContractor / teamMember / disableOutlook) are managed
+// via Graph. Mail-enabled groups and distribution lists — "internal email only",
+// "India O365 Login Access" — CANNOT take members via Graph (it returns "Cannot
+// update a mail-enabled security group and/or distribution list"). Those are
+// handled in the Exchange setup step via Add-DistributionGroupMember.
+const GRAPH_SECURITY_GROUP_KEYS = ["subContractor", "teamMember", "disableOutlook"];
 
 async function resolveGroups() {
   const groupNames = st.region === "India" ? INDIA_GROUPS : US_GROUPS;
@@ -943,14 +980,18 @@ async function createUser(row, password) {
     removeLicenses: []
   });
 
-  // 3. Add to the Graph-managed security group only (subContractor OR teamMember).
-  //    Mail-enabled groups / DLs are done in the Exchange setup step, not here.
-  //    Non-fatal: the account + license already succeeded, so a group hiccup returns
-  //    a warning rather than discarding a created account.
+  // 3. Add to Graph-managed groups: subContractor/teamMember always, plus
+  //    disableOutlook when InternalEmailOnly=Y — it's a plain Entra security
+  //    group, not mail-enabled, so Graph can write to it (unlike "internal
+  //    email only", a real Exchange DL still handled in the Exchange step).
+  //    Non-fatal per group: the account + license already succeeded, so a
+  //    group hiccup returns a warning rather than discarding a created account.
   setProgStatus(row.num, "Adding to security group…", "var(--muted)");
-  const warnings = [];
-  const gid = row.subContractor ? st.groups.subContractor : st.groups.teamMember;
-  if (gid) {
+  const warnings  = [];
+  const groupIds  = [row.subContractor ? st.groups.subContractor : st.groups.teamMember];
+  if (row.internalEmail) groupIds.push(st.groups.disableOutlook);
+  for (const gid of groupIds) {
+    if (!gid) continue;
     try {
       await ITTools.graph.post(`/groups/${gid}/members/$ref`, {
         "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`
@@ -1009,7 +1050,17 @@ ${userEntries}
 
 # --- Phase 1: Connect ---
 Write-Step 1 "Connecting to Exchange Online..."
+
+\$minVersion = [Version]"3.9.0"
+\$installed  = Get-Module -ListAvailable -Name ExchangeOnlineManagement |
+    Sort-Object Version -Descending | Select-Object -First 1
+if (\$null -eq \$installed -or \$installed.Version -lt \$minVersion) {
+    Write-Detail "ExchangeOnlineManagement not found — installing..." Yellow
+    Install-Module ExchangeOnlineManagement -Force -AllowClobber -Scope CurrentUser
+}
+
 try {
+    Import-Module ExchangeOnlineManagement -ErrorAction Stop
     Connect-ExchangeOnline -ShowBanner:\$false -ErrorAction Stop
     Write-Detail "Exchange Online: connected" Green
 } catch {
@@ -1032,12 +1083,6 @@ foreach (\$u in \$users) {
                 -BypassSecurityGroupManagerCheck -ErrorAction Stop
             Write-Detail "Added to: internal email only" Green
         } catch { Write-Detail "  internal email only: \$(\$_.Exception.Message)" Yellow }
-
-        try {
-            Add-DistributionGroupMember -Identity "Disable Outlook Access" -Member \$u.UPN \`
-                -BypassSecurityGroupManagerCheck -ErrorAction Stop
-            Write-Detail "Added to: Disable Outlook Access" Green
-        } catch { Write-Detail "  Disable Outlook Access: \$(\$_.Exception.Message)" Yellow }
     }
 ${indiaE3Block}
 
@@ -1092,7 +1137,17 @@ echo  This will connect to Exchange Online and complete
 echo  mailbox configuration for newly created accounts.
 echo.
 pause
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Exchange-Setup.ps1"
+where pwsh.exe >nul 2>nul
+if %ERRORLEVEL%==0 (
+    pwsh.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Exchange-Setup.ps1"
+) else (
+    echo.
+    echo  WARNING: PowerShell 7 not found on this machine ^(pwsh.exe^).
+    echo  Falling back to Windows PowerShell 5.1. For best results,
+    echo  install PowerShell 7: https://aka.ms/powershell-release?tag=stable
+    echo.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Exchange-Setup.ps1"
+)
 pause
 `;
 }

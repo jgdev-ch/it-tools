@@ -623,18 +623,20 @@ function parseAndRender(filename, text) {
     const fn  = (r.Firstname  || "").trim();
     const ln  = (r.Lastname   || "").trim();
     const upn = (r.UserPrincipalName || "").trim();
+    const eid = (r.EID || "").trim();
     const sz  = normaliseSize(r.RequiredMailboxSize);
     let   err = "", warn = "";
 
     if (!fn || !ln)      err  = "Missing first or last name";
     else if (!upnRe.test(upn)) err = "UPN format invalid";
     else if (!sz)        err  = "RequiredMailboxSize must be 2 GB, 50 GB, or E3";
+    else if (eid.length > 16) err = "EID must be 16 characters or fewer (Entra employeeId limit)";
 
     return {
       num:             i + 1,
       fn, ln,
       upn,
-      eid:             (r.EID || "").trim(),
+      eid,
       size:            sz || r.RequiredMailboxSize,
       internalEmail:   (r.InternalEmailOnly || "").toUpperCase() === "Y",
       entApps:         (r.EntApps      || "").toUpperCase() === "Y",
