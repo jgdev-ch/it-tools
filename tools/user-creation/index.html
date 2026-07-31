@@ -1138,7 +1138,17 @@ echo  This will connect to Exchange Online and complete
 echo  mailbox configuration for newly created accounts.
 echo.
 pause
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Exchange-Setup.ps1"
+where pwsh.exe >nul 2>nul
+if %ERRORLEVEL%==0 (
+    pwsh.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Exchange-Setup.ps1"
+) else (
+    echo.
+    echo  WARNING: PowerShell 7 not found on this machine ^(pwsh.exe^).
+    echo  Falling back to Windows PowerShell 5.1. For best results,
+    echo  install PowerShell 7: https://aka.ms/powershell-release?tag=stable
+    echo.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Exchange-Setup.ps1"
+)
 pause
 `;
 }
