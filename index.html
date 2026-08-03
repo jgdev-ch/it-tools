@@ -276,13 +276,19 @@ body::before {
 .section-chevron { flex-shrink: 0; transition: transform .3s cubic-bezier(.4,0,.2,1); }
 .tool-section.collapsed .section-chevron { transform: rotate(-90deg); }
 
-/* ── Section collapse — smooth height via grid-template-rows, no JS measuring ── */
+/* ── Section collapse — smooth height via grid-template-rows, no JS measuring.
+   Content fades out first so it dissolves rather than getting clipped/wiped
+   by the shrinking box. ── */
 .section-collapse {
   display: grid; grid-template-rows: 1fr;
   transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
 }
 .tool-section.collapsed .section-collapse { grid-template-rows: 0fr; }
-.section-collapse-inner { overflow: hidden; min-height: 0; }
+.section-collapse-inner {
+  overflow: hidden; min-height: 0;
+  opacity: 1; transition: opacity .2s ease;
+}
+.tool-section.collapsed .section-collapse-inner { opacity: 0; }
 
 /* ── Tools grid ── */
 .tools-grid {
