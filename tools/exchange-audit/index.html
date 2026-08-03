@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Exchange Audit — IT Tools</title>
+<title>Exchange Audit: IT Tools</title>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <script src="../../shared/auth.js"></script>
 <style>
@@ -303,11 +303,11 @@ function checkDataAge(lastScan) {
   const banner = document.getElementById('ageBanner');
   if (days > AGE_ERR_DAYS) {
     banner.className = 'data-age-banner age-expired';
-    banner.textContent = `Audit data is ${Math.floor(days)} days old — runbook may not have run recently. Data may be unreliable.`;
+    banner.textContent = `Audit data is ${Math.floor(days)} days old, so the runbook may not have run recently. Data may be unreliable.`;
     banner.style.display = 'block';
   } else if (days > AGE_WARN_DAYS) {
     banner.className = 'data-age-banner age-stale';
-    banner.textContent = `Audit data is ${Math.floor(days)} days old — next runbook cycle should refresh this soon.`;
+    banner.textContent = `Audit data is ${Math.floor(days)} days old; the next runbook cycle should refresh this soon.`;
     banner.style.display = 'block';
   }
 }
@@ -375,8 +375,8 @@ function renderTable(list) {
     const badges = [];
     if (m.status === 'critical')      badges.push(`<span class="status-badge badge-critical">Critical</span>`);
     else if (m.status === 'warning')  badges.push(`<span class="status-badge badge-warning">Warning</span>`);
-    if (m.elcProcessingDisabled)      badges.push(`<span class="status-badge badge-blocked" title="ElcProcessingDisabled — MFA cannot reclaim space">Blocked</span>`);
-    if (m.retentionHoldEnabled)       badges.push(`<span class="status-badge badge-hold" title="RetentionHold on — MFA skips this mailbox">Hold</span>`);
+    if (m.elcProcessingDisabled)      badges.push(`<span class="status-badge badge-blocked" title="ElcProcessingDisabled is set, so MFA cannot reclaim space">Blocked</span>`);
+    if (m.retentionHoldEnabled)       badges.push(`<span class="status-badge badge-hold" title="RetentionHold is on, so MFA skips this mailbox">Hold</span>`);
     const badge = badges.join(' ');
     const barW  = Math.min(pct, 100);
 
@@ -433,7 +433,7 @@ function renderPanel(mailbox) {
   // MFA Processing row (ElcProcessingDisabled)
   const mfaHtml = mailbox.elcProcessingDisabled
     ? `<span class="panel-val val-red">BLOCKED
-         <span class="panel-val-note">ElcProcessingDisabled is set — MFA will not reclaim space on this mailbox.<br>
+         <span class="panel-val-note">ElcProcessingDisabled is set, so MFA will not reclaim space on this mailbox.<br>
          Fix: Set-Mailbox '${mailbox.upn}' -ElcProcessingDisabled $false</span>
        </span>`
     : `<span class="panel-val val-green">Allowed</span>`;
@@ -461,7 +461,7 @@ function renderPanel(mailbox) {
     const veGb = (f.versionsBytes       / 1073741824).toFixed(2);
     const suGb = (f.substrateHoldsBytes / 1073741824).toFixed(2);
 
-    const purgesNote = f.purgesItems > 0 ? `<span class="folder-note">(${fmtCount(f.purgesItems)} items — pending MFA)</span>` : '';
+    const purgesNote = f.purgesItems > 0 ? `<span class="folder-note">(${fmtCount(f.purgesItems)} items pending MFA)</span>` : '';
     const subNote    = f.substrateHoldsBytes > 0 ? `<span class="folder-note">(Teams/Skype)</span>` : '';
     const dhNote     = f.discoveryHoldsItems > 0 ? ` · ${fmtCount(f.discoveryHoldsItems)} items` : '';
 
@@ -489,7 +489,7 @@ function renderPanel(mailbox) {
     folderHtml = `
       <div class="panel-section">
         <div class="panel-sec-lbl">Folder Breakdown</div>
-        <p class="no-detail-note">Not available — below 80 GB deep-scan threshold</p>
+        <p class="no-detail-note">Not available (below 80 GB deep-scan threshold)</p>
       </div>`;
   }
 

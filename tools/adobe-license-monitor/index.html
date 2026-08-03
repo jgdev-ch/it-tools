@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Adobe License Monitor — IT Tools</title>
+<title>Adobe License Monitor: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -44,7 +44,10 @@
   /* Left: identity */
   .card-identity { padding: 22px 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; gap: 6px; }
   .card-identity-top { display: flex; align-items: center; gap: 8px; }
-  .adobe-dot  { width: 10px; height: 10px; border-radius: 50%; background: #fa0f00; flex-shrink: 0; }
+  .adobe-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--surface3); }
+  .adobe-dot.ok   { background: var(--green); }
+  .adobe-dot.warn { background: var(--amber); }
+  .adobe-dot.full { background: var(--red); }
   .product-name  { font-size: 14px; font-weight: 700; line-height: 1.2; }
   /* Info pills — object ID + group name under product name */
   .info-pills { display: flex; flex-direction: column; gap: 5px; }
@@ -114,8 +117,8 @@
   .entra-big.na { color: var(--muted2); font-size: 28px; }
   .entra-sub  { font-size: 10px; color: var(--blue-dark); opacity: .65; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .entra-sync { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; width: fit-content; }
-  .entra-sync.ok    { background: var(--green-light); color: var(--green);  border: 1px solid var(--green-border); }
-  .entra-sync.drift { background: var(--amber-light); color: var(--amber);  border: 1px solid var(--amber-border); }
+  .entra-sync.ok    { background: var(--green-light); color: var(--green);  border: 1px solid var(--green-border); cursor: help; }
+  .entra-sync.drift { background: var(--amber-light); color: var(--amber);  border: 1px solid var(--amber-border); cursor: help; }
   .entra-sync.na    { background: var(--surface2);    color: var(--muted2); border: 1px solid var(--border); }
 
   /* ── Shimmer skeletons ── */
@@ -363,19 +366,19 @@
         <div class="summary-icon blue">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </div>
-        <div><div class="summary-num" id="sumPurchased">—</div><div class="summary-label">Total purchased seats</div></div>
+        <div><div class="summary-num" id="sumPurchased">-</div><div class="summary-label">Total purchased seats</div></div>
       </div>
       <div class="summary-stat">
         <div class="summary-icon green">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
-        <div><div class="summary-num" id="sumAssigned">—</div><div class="summary-label">Assigned in Adobe</div></div>
+        <div><div class="summary-num" id="sumAssigned">-</div><div class="summary-label">Assigned in Adobe</div></div>
       </div>
       <div class="summary-stat">
         <div class="summary-icon amber">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
         </div>
-        <div><div class="summary-num" id="sumDrift">—</div><div class="summary-label">Products with drift</div></div>
+        <div><div class="summary-num" id="sumDrift">-</div><div class="summary-label">Products with drift</div></div>
       </div>
     </div>
 
@@ -565,9 +568,25 @@ function barClass(pct) {
 
 function driftStatus(assigned, entra) {
   if (assigned === null || entra === null) return null;
-  if (entra > assigned)  return { type: "drift", label: (entra - assigned) + " unprovisioned" };
-  if (entra < assigned)  return { type: "drift", label: (assigned - entra) + " orphaned seats" };
-  return { type: "ok", label: "In sync" };
+  if (entra > assigned) {
+    return {
+      type: "drift",
+      label: (entra - assigned) + " unprovisioned",
+      detail: "More members in the Entra group than seats assigned in Adobe, so these users are expected to get a license but haven't been provisioned yet.",
+    };
+  }
+  if (entra < assigned) {
+    return {
+      type: "drift",
+      label: (assigned - entra) + " orphaned seats",
+      detail: "More seats assigned in Adobe than members in the Entra group, meaning these users kept their Adobe license after leaving the group, so group-based provisioning won't catch or reclaim them.",
+    };
+  }
+  return {
+    type: "ok",
+    label: "In sync",
+    detail: "Adobe seat assignments match Entra group membership exactly.",
+  };
 }
 
 function renderSummary(results) {
@@ -579,9 +598,9 @@ function renderSummary(results) {
   }).length;
 
   document.getElementById("sumPurchased").textContent =
-    validPurchased.length ? validPurchased.reduce((s, r) => s + r.purchased, 0) : "—";
+    validPurchased.length ? validPurchased.reduce((s, r) => s + r.purchased, 0) : "-";
   document.getElementById("sumAssigned").textContent =
-    validAssigned.length  ? validAssigned.reduce((s, r)  => s + r.assigned,  0) : "—";
+    validAssigned.length  ? validAssigned.reduce((s, r)  => s + r.assigned,  0) : "-";
   document.getElementById("sumDrift").textContent = driftCount;
   document.getElementById("sumDrift").style.color =
     driftCount > 0 ? "var(--amber)" : "var(--green)";
@@ -596,7 +615,7 @@ function renderDriftBanner(results) {
 
   if (!driftItems.length) { driftEl.style.display = "none"; return; }
   driftText.textContent = driftItems
-    .map(x => x.name + " — " + x.drift.label)
+    .map(x => x.name + ": " + x.drift.label)
     .join(" · ");
   driftEl.style.display = "flex";
 }
@@ -611,32 +630,32 @@ function renderCards(results) {
     const groupName  = `P-EID-SG-STD-SSO-Adobe_${r.name.replace(/ /g, "_")}`;
 
     const utilMiddle = r.adobeFailed
-      ? `<div class="util-unavail">Adobe data unavailable — proxy error</div>`
+      ? `<div class="util-unavail">Adobe data unavailable due to a proxy error</div>`
       : `
         <div class="util-bar-wrap"><div class="util-bar ${bc}" style="width:${pct ?? 0}%"></div></div>
         <div class="util-numbers">
-          <span class="util-big ${bc}">${r.assigned ?? "—"}</span>
+          <span class="util-big ${bc}">${r.assigned ?? "-"}</span>
           <span class="util-sep">of</span>
-          <span class="util-total">${r.purchased ?? "—"}</span>
+          <span class="util-total">${r.purchased ?? "-"}</span>
           <span class="util-pct">${pct !== null ? "assigned · " + pct + "%" : ""}</span>
         </div>
         <div class="util-free-row ${bc}">${free !== null ? free + " seat" + (free !== 1 ? "s" : "") + " available" : ""}</div>`;
 
     const driftPill = drift
-      ? `<div class="entra-sync ${drift.type}">${drift.type === "ok" ? "✓" : "⚠"} ${drift.label}</div>`
-      : `<div class="entra-sync na">—</div>`;
+      ? `<div class="entra-sync ${drift.type}" title="${drift.detail}">${drift.type === "ok" ? "✓" : "⚠"} ${drift.label}</div>`
+      : `<div class="entra-sync na">-</div>`;
 
     return `
       <div class="product-card" id="card-${r.groupId}">
         <div class="card-identity">
           <div class="card-identity-top">
-            <div class="adobe-dot"></div>
+            <div class="adobe-dot ${bc}"></div>
             <div class="product-name">${r.name}</div>
           </div>
           <div class="info-pills">
             <div class="info-pill">
               <span class="info-pill-label">ID</span>
-              <span class="info-pill-value" title="${r.groupId}">${r.groupId ? r.groupId.slice(0, 8) + "…" : "—"}</span>
+              <span class="info-pill-value" title="${r.groupId}">${r.groupId ? r.groupId.slice(0, 8) + "…" : "-"}</span>
               <button class="info-pill-copy" onclick="_copyPill('${r.groupId}','Object ID')" title="Copy Object ID">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               </button>
@@ -662,7 +681,7 @@ function renderCards(results) {
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
             Entra group members
           </div>
-          <div class="entra-big ${r.entra === null ? "na" : ""}" id="entra-big-${r.groupId}">${r.entra ?? "—"}</div>
+          <div class="entra-big ${r.entra === null ? "na" : ""}" id="entra-big-${r.groupId}">${r.entra ?? "-"}</div>
           ${driftPill}
         </div>
         <div class="expand-strip" id="strip-${r.groupId}" onclick="toggleExpand('${r.groupId}', ${idx})">
@@ -700,9 +719,9 @@ function setLoading(loading) {
         <div class="skeleton" style="height:42px;width:40%"></div>
       </div>
     </div>`).join("");
-  document.getElementById("sumPurchased").textContent = "—";
-  document.getElementById("sumAssigned").textContent  = "—";
-  document.getElementById("sumDrift").textContent     = "—";
+  document.getElementById("sumPurchased").textContent = "-";
+  document.getElementById("sumAssigned").textContent  = "-";
+  document.getElementById("sumDrift").textContent     = "-";
   document.getElementById("driftBanner").style.display = "none";
 }
 
@@ -880,7 +899,7 @@ function renderMemberTable(groupId, idx, members) {
 
   const adminPill = _isLicenseAdmin
     ? `<span class="license-admin-pill">License Admin</span> Remove enabled`
-    : "Read-only — License Admin required to remove";
+    : "Read-only. License Admin required to remove";
 
   section.innerHTML = `
     <div class="member-tbl-wrap">

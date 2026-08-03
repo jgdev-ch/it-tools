@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Guest Access Audit — IT Tools</title>
+<title>Guest Access Audit: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -236,7 +236,7 @@
         <span class="reporting-badge" id="reportingViewIndicator"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Reporting View</span>
         <span class="gsd-badge" id="gsdIndicator"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> GSD Access</span>
       </div>
-      <p>Identify stale B2B guest accounts — review last sign-in, group memberships, and license exposure.</p>
+      <p>Identify stale B2B guest accounts. Review last sign-in, group memberships, and license exposure.</p>
     </div>
 
     <div class="banner error" id="errBanner" style="display:none"></div>
@@ -438,7 +438,7 @@ function cancelScan() {
   _cancelled = true;
   setPhase(null);
   const b = document.getElementById("infoBanner");
-  b.textContent   = "⚠ Scan cancelled — partial results shown below.";
+  b.textContent   = "⚠ Scan cancelled; partial results shown below.";
   b.className     = "banner info";
   b.style.display = "block";
 }
@@ -508,7 +508,7 @@ async function graphWithRetry(fn, maxRetries = 5) {
       if (!isRateLimit || attempt > maxRetries) throw e;
       if (_cancelled) throw new Error("Scan cancelled");
       const waitSec = Math.min(60, Math.pow(2, attempt));
-      setPhase(`Rate limited — retrying in ${waitSec}s…`);
+      setPhase(`Rate limited, retrying in ${waitSec}s…`);
       await countdownEta(waitSec);
       if (_cancelled) throw new Error("Scan cancelled");
     }
@@ -519,7 +519,7 @@ async function countdownEta(seconds) {
   const line = document.getElementById("phaseText");
   for (let s = seconds; s > 0; s--) {
     if (_cancelled) return;
-    if (line) line.textContent = `Rate limited — resuming in ${s}s…`;
+    if (line) line.textContent = `Rate limited, resuming in ${s}s…`;
     await new Promise(r => setTimeout(r, 1000));
   }
 }
@@ -538,7 +538,7 @@ async function startScan() {
     if (e.message === "Scan cancelled") { setPhase(null); return; }
     const banner = document.getElementById("errBanner");
     if (e.message && e.message.includes("403")) {
-      banner.textContent = "Permission denied — check Graph API consents in your Entra app registration (User.Read.All, User.ReadWrite.All, Directory.Read.All, AuditLog.Read.All).";
+      banner.textContent = "Permission denied: check Graph API consents in your Entra app registration (User.Read.All, User.ReadWrite.All, Directory.Read.All, AuditLog.Read.All).";
     } else {
       banner.textContent = ITTools.graph.friendlyError(e);
     }
@@ -696,7 +696,7 @@ function setSortCol(col) {
 function corroMatchCell(g) {
   const m = g.corroMatch;
   if (m.pending)        return `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:auto"></div>`;
-  if (m.found === null) return `<span style="color:var(--muted2)">—</span>`;
+  if (m.found === null) return `<span style="color:var(--muted2)">-</span>`;
   if (!m.found)         return `<span style="color:var(--muted2)">None</span>`;
 
   const corroEmail = parseCorroUpn(g.upn) || "";
@@ -739,7 +739,7 @@ function initials(name) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
@@ -793,7 +793,7 @@ function renderTable(guests) {
           </div>
         </div>
       </td>
-      <td${g.companyName ? ` title="${esc(g.companyName)}"` : ""}>${g.companyName ? esc(g.companyName) : `<span style="color:var(--muted2)">—</span>`}</td>
+      <td${g.companyName ? ` title="${esc(g.companyName)}"` : ""}>${g.companyName ? esc(g.companyName) : `<span style="color:var(--muted2)">-</span>`}</td>
       <td>${g.isNever ? `<span style="color:var(--muted2)">Never</span>` : fmtDate(g.lastSignIn)}</td>
       <td>${ageBadge(g)}</td>
       <td>${fmtDate(g.created)}</td>
@@ -867,11 +867,11 @@ function exportCsv() {
       ].filter(Boolean).join("; "),
       "CorroHealth Account":        g.corroMatch.found === true  ? "Matched"
                                   : g.corroMatch.found === false ? "None"
-                                  : "—",
+                                  : "-",
       "CorroHealth Account Status": g.corroMatch.found === true && g.corroMatch.accountEnabled === true  ? "Active"
                                   : g.corroMatch.found === true && g.corroMatch.accountEnabled === false ? "Disabled"
-                                  : "—",
-      "CorroHealth Email":          parseCorroUpn(g.upn) || "—",
+                                  : "-",
+      "CorroHealth Email":          parseCorroUpn(g.upn) || "-",
     }))
   );
 }
@@ -904,7 +904,7 @@ async function openGroupModal(userId, displayName) {
       `<li class="group-item">${esc(g.displayName || g.id)}</li>`
     ).join("")}</ul>`;
   } catch(e) {
-    body.innerHTML = `<p style="font-size:13px;color:var(--red);padding:0.5rem 0">Could not load groups — ${esc(e.message)}</p>`;
+    body.innerHTML = `<p style="font-size:13px;color:var(--red);padding:0.5rem 0">Could not load groups: ${esc(e.message)}</p>`;
   }
 }
 

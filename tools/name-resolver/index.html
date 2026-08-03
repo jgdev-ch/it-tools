@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Name Resolver — IT Tools</title>
+<title>Name Resolver: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <script>window._sheetjsOk = false;</script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"
@@ -196,7 +196,7 @@
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
         <strong>How it works</strong>
-        Upload a name list (CSV, Excel, or paste). The tool searches your tenant via Graph and resolves each name to an email — ready to drop into Group Import.
+        Upload a name list (CSV, Excel, or paste). The tool searches your tenant via Graph and resolves each name to an email, ready to drop into Group Import.
       </div>
     </nav>
 
@@ -289,7 +289,7 @@
           </div>
 
           <div id="previewWrap" style="display:none;margin-top:14px">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Preview — first 5 names</div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Preview: first 5 names</div>
             <div class="preview-list" id="previewList"></div>
           </div>
         </div>
@@ -361,7 +361,7 @@
           <div class="card-title">Export</div>
           <label class="export-opt">
             <input type="checkbox" id="includeAll" checked/>
-            Include all rows — adds <code>Input Name</code> and <code>Status</code> columns
+            Include all rows to add <code>Input Name</code> and <code>Status</code> columns
           </label>
           <p style="font-size:11px;color:var(--muted2);margin-bottom:14px">
             Uncheck to export matched emails only (for pasting into Group Import).
@@ -655,7 +655,7 @@ async function handleFileDrop(file) {
     drop.classList.remove("file-reading");
     document.getElementById("fileIn").value = "";
     if (e.message === "AV_TIMEOUT") {
-      showErr("s1Err", "File took too long to read — Windows Defender may be scanning it. Wait a moment and try again.");
+      showErr("s1Err", "File took too long to read; Windows Defender may be scanning it. Wait a moment and try again.");
     } else {
       showErr("s1Err", "Could not read file. (" + e.message + ")");
     }
@@ -989,7 +989,7 @@ async function startResolve() {
         document.getElementById("progLabel").textContent = done + " of " + total + " resolved…";
       },
       onThrottle: (secs) => {
-        document.getElementById("progLabel").textContent = "Rate limit — retrying in " + secs + "s…";
+        document.getElementById("progLabel").textContent = "Rate limit, retrying in " + secs + "s…";
       },
       onRowDone: (idx) => {
         // Replace just this row (and any expand row) by rebuilding from its id
@@ -1002,7 +1002,7 @@ async function startResolve() {
         }
       },
       onAuthError: () => {
-        showErr("s2Err", "Session expired — please sign out and sign back in to continue.");
+        showErr("s2Err", "Session expired; please sign out and sign back in to continue.");
       }
     });
   } catch(e) {
@@ -1021,7 +1021,7 @@ function renderRow(i) {
 
   if (r.status === "pending") {
     statusHtml = `<span class="badge badge-blue">…</span>`;
-    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">-</span>`;
   } else if (r.status === "matched" || r.status === "chosen") {
     statusHtml = `<span class="badge badge-green">✓ Matched</span>`;
     emailHtml  = `<span class="mono text-xs">${r.email}</span>`;
@@ -1029,15 +1029,15 @@ function renderRow(i) {
   } else if (r.status === "ambiguous") {
     const n = r.candidates.length;
     statusHtml = `<span class="badge badge-amber">⚠ ${n} matches</span>`;
-    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">-</span>`;
     actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
   } else if (r.status === "notfound") {
     statusHtml = `<span class="badge badge-red">✕ Not found</span>`;
-    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">-</span>`;
     actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
   } else if (r.status === "skipped") {
-    statusHtml = `<span class="badge badge-grey">— Skipped</span>`;
-    emailHtml  = `<span style="color:var(--muted2)">—</span>`;
+    statusHtml = `<span class="badge badge-grey">○ Skipped</span>`;
+    emailHtml  = `<span style="color:var(--muted2)">-</span>`;
     actionHtml = `<button class="btn-retry" onclick="retryRow(${i})">↻</button>`;
   }
 
@@ -1098,7 +1098,7 @@ async function retryRow(i) {
 
   try {
     const candidates = await lookupName(st.rawNames[i], secs => {
-      showErr("s2Err", "Rate limit — retrying in " + secs + "s…");
+      showErr("s2Err", "Rate limit, retrying in " + secs + "s…");
     });
     if (candidates.length === 0) {
       st.results[i].status = "notfound";

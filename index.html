@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>IT Tools — M365 Admin Hub</title>
+<title>IT Tools: M365 Admin Hub</title>
 <script src="shared/msal-browser.min.js"></script>
 <script src="shared/auth.js"></script>
 <link rel="stylesheet" href="shared/styles.css"/>
@@ -38,11 +38,15 @@
   --shadow-sm:    0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
   --shadow-md:    0 8px 32px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.06);
 
-  --accent-blue:   #4c8dff;
-  --accent-green:  #34c76f;
-  --accent-purple: #a878f0;
-  --accent-amber:  #e2a13d;
-  --accent-red:    #ea6a60;
+  --accent-blue:    #3b6ec7;
+  --accent-green:   #299b57;
+  --accent-purple:  #835ebb;
+  --accent-amber:   #b07e30;
+  --accent-red:     #b7534b;
+  --accent-teal:    #258990;
+  --accent-rose:    #b34f70;
+  --accent-magenta: #a25099;
+  --accent-olive:   #80872d;
 }
 [data-theme="dark"] {
   --blue:         #4c8dff;
@@ -330,15 +334,22 @@ body::before {
 .tool-card.locked { opacity: .72 !important; cursor: default; }
 .tool-card.locked:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); opacity: .72 !important; }
 
-/* ── Icon square ── */
+/* ── Icon square — deep glass ── */
 .tool-icon-sq {
   width: 40px; height: 40px; border-radius: 12px;
-  background: var(--tool-accent, var(--blue));
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.30), rgba(255,255,255,0)),
+    color-mix(in srgb, var(--tool-accent, var(--blue)) 88%, white);
+  border: 1px solid color-mix(in srgb, var(--tool-accent, var(--blue)) 85%, black);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.40);
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 12px; flex-shrink: 0;
 }
 .tool-icon-sq svg { width: 20px; height: 20px; }
-.tool-icon-sq svg, .tool-icon-sq svg * { stroke: var(--icon-text) !important; fill: none !important; }
+.tool-icon-sq svg, .tool-icon-sq svg * {
+  stroke: #fff !important;
+  fill: none !important;
+}
 
 /* ── Tool name ── */
 .tool-name { font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.3; }
@@ -346,6 +357,7 @@ body::before {
 /* ── Inline description ── */
 .tool-desc {
   font-size: 12px; color: var(--ink-dim); line-height: 1.5; margin-top: 6px;
+  min-height: 54px; /* reserves 3 lines so every card matches height regardless of description length or grid row */
 }
 
 /* ── Status dot — bottom-right corner ── */
@@ -578,7 +590,7 @@ body::before {
 </div>
 
 <footer class="hub-footer">
-  <span>Built by Josh Garrett &middot; v2.2.0</span>
+  <span>Built by Josh Garrett &middot; v2.2.1</span>
   <div class="footer-links">
     <a href="https://learn.microsoft.com/en-us/graph/overview" target="_blank">Graph API docs</a>
     <a href="https://portal.azure.com" target="_blank">Entra admin</a>
@@ -677,6 +689,17 @@ const STATUS_DOT_LABELS = {
 // unlockCard) — passing the gate means "can see it," not "it's ready."
 const CLICKABLE_STATUSES = ["live", "beta"];
 
+// Preview site (it-tools-preview) is Josh's own build/test environment, not
+// real users — tools still marked coming-soon in config.json should stay
+// clickable there so work can continue, while production keeps them greyed
+// out. config.json itself is identical on both branches, so this is a
+// runtime override rather than a per-branch config value to keep in sync.
+const IS_PREVIEW = location.hostname === "jgdev-ch.github.io" &&
+  location.pathname.startsWith("/it-tools-preview/");
+function isClickableStatus(status) {
+  return CLICKABLE_STATUSES.includes(status) || IS_PREVIEW;
+}
+
 function statusDotHtml(status) {
   const label = STATUS_DOT_LABELS[status] || status;
   return `<div class="tool-status-dot dot-${status}">
@@ -730,7 +753,7 @@ function unlockCard(gateKey) {
       name:   locked.dataset.name,
       desc:   locked.dataset.desc,
     };
-    locked.outerHTML = CLICKABLE_STATUSES.includes(meta.status)
+    locked.outerHTML = isClickableStatus(meta.status)
       ? buildLiveCard(meta)
       : buildComingSoonCard(meta);
   });
@@ -934,7 +957,7 @@ async function loadTools() {
         return buildLockedCard({ gateKey: "reporting", ...meta });
       }
 
-      if (CLICKABLE_STATUSES.includes(tool.status) && tool.path) {
+      if (isClickableStatus(tool.status) && tool.path) {
         return buildLiveCard({
           path: tool.path, accent: tool.accent,
           icon: tool.icon, status: tool.status, name: tool.name,

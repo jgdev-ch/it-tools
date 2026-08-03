@@ -26,7 +26,7 @@
     {
       "id": "user-creation",
       "name": "User Creation",
-      "description": "Create new employee accounts from a CSV — assigns licenses and security groups, then finishes Exchange setup your way: automatically via Azure or a downloadable script you run yourself.",
+      "description": "Create new employee accounts from a CSV. Assigns licenses and security groups, then finishes Exchange setup your way: automatically via Azure or a downloadable script you run yourself.",
       "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#5b21b6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><line x1='19' y1='8' x2='19' y2='14'/><line x1='22' y1='11' x2='16' y2='11'/></svg>",
       "status": "beta",
       "path": "tools/user-creation/",
@@ -42,7 +42,7 @@
       "status": "beta",
       "path": "tools/name-resolver/",
       "permissions": ["User.Read.All", "Directory.Read.All"],
-      "accent": "var(--accent-blue)",
+      "accent": "var(--accent-rose)",
       "category": "daily-ops"
     },
     {
@@ -65,7 +65,7 @@
       "status": "beta",
       "path": "tools/guest-audit/",
       "permissions": ["User.Read.All", "User.ReadWrite.All", "Directory.Read.All", "AuditLog.Read.All"],
-      "accent": "var(--accent-purple)",
+      "accent": "var(--accent-magenta)",
       "category": "reporting-audit",
       "reportingOnly": true
     },
@@ -76,7 +76,7 @@
       "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#1a56db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='20' height='16' x='2' y='4' rx='2'/><path d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/></svg>",
       "status": "coming-soon",
       "path": "tools/exchange-audit/",
-      "accent": "var(--accent-blue)",
+      "accent": "var(--accent-teal)",
       "category": "reporting-audit",
       "reportingOnly": true
     },
@@ -88,7 +88,7 @@
       "status": "beta",
       "path": "tools/finance-dashboard/",
       "permissions": ["User.Read.All", "AuditLog.Read.All", "Directory.Read.All"],
-      "accent": "var(--accent-amber)",
+      "accent": "var(--accent-olive)",
       "financeOnly": true,
       "category": "reporting-audit"
     },
@@ -96,7 +96,7 @@
       "id": "adobe-license-monitor",
       "name": "Adobe License Monitor",
       "description": "Live Adobe seat utilization and Entra group sync status, showing purchased vs assigned seats across all Adobe products.",
-      "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#9a0000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='3' width='20' height='14' rx='2'/><line x1='8' y1='21' x2='16' y2='21'/><line x1='12' y1='17' x2='12' y2='21'/><path d='M9 8l2 2 4-4'/></svg>",
+      "icon": "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#9a0000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m9 10 2 2 4-4'/><rect width='20' height='14' x='2' y='3' rx='2'/><path d='M12 17v4'/><path d='M8 21h8'/></svg>",
       "status": "live",
       "path": "tools/adobe-license-monitor/",
       "permissions": ["User.Read", "GroupMember.Read.All"],

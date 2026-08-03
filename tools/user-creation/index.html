@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>User Creation — IT Tools Hub</title>
+  <title>User Creation: IT Tools Hub</title>
   <script src="../../shared/msal-browser.min.js"></script>
   <script src="../../shared/auth.js"></script>
   <script src="jszip.min.js"></script>
@@ -175,7 +175,7 @@
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
         <strong>How it works</strong>
-        Upload the standard NewAccounts CSV. Review and adjust per user. The hub creates accounts via Microsoft Graph, then you choose how the remaining Exchange mailbox steps finish — automatically via Azure, or a script you download and run yourself.
+        Upload the standard NewAccounts CSV. Review and adjust per user. The hub creates accounts via Microsoft Graph, then you choose how the remaining Exchange mailbox steps finish: automatically via Azure, or a script you download and run yourself.
       </div>
     </nav>
 
@@ -207,7 +207,7 @@
             <button class="file-loaded-clear" onclick="clearFile()" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
           </div>
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)">
-            New to the format? <a href="#" onclick="downloadTemplate();return false" style="color:var(--blue-mid);font-weight:600;text-decoration:none"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> Download CSV template</a> — the 13 columns this tool expects, with one example row to delete before uploading.
+            New to the format? <a href="#" onclick="downloadTemplate();return false" style="color:var(--blue-mid);font-weight:600;text-decoration:none"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> Download CSV template</a> (the 13 columns this tool expects, with one example row to delete before uploading).
           </div>
         </div>
         <div class="btn-row">
@@ -248,7 +248,7 @@
             <div class="bulk-field">
               <label>License for all</label>
               <select class="bulk-select" id="bulkLicense">
-                <option value="">— keep per-row values —</option>
+                <option value="">(keep per-row values)</option>
                 <option value="2GB">F3 (2 GB mailbox)</option>
                 <option value="50GB">F3+ (50 GB + Archive)</option>
                 <option value="E3">E3 (full suite)</option>
@@ -313,7 +313,7 @@
       <div class="section" id="step4">
         <div class="section-hdr">
           <h2>Complete Exchange Setup</h2>
-          <p>Accounts are created. Choose how the remaining Exchange-only steps (distribution groups, archive, retention, subcontractor attribute) get done. Either way, the credentials CSV downloads to your machine — passwords never leave your browser.</p>
+          <p>Accounts are created. Choose how the remaining Exchange-only steps (distribution groups, archive, retention, subcontractor attribute) get done. Either way, the credentials CSV downloads to your machine; passwords never leave your browser.</p>
         </div>
         <div class="banner error" id="s4Err" style="display:none"></div>
 
@@ -327,9 +327,9 @@
               <span class="path-title">Automated setup</span>
               <span class="path-tag" id="autoTag" style="display:none">Recommended</span>
             </div>
-            <p class="path-desc">Queue the Exchange steps to run automatically in Azure once each mailbox provisions. Results post to the <strong>[IT Automation]</strong> Teams channel — nothing to run yourself.</p>
+            <p class="path-desc">Queue the Exchange steps to run automatically in Azure once each mailbox provisions. Results post to the <strong>[IT Automation]</strong> Teams channel; there's nothing to run yourself.</p>
             <button class="btn btn-primary" id="autoBtn" onclick="queueExchangeSetup()">Queue Exchange Setup</button>
-            <div class="path-unavail" id="autoUnavail" style="display:none">Automated setup isn't wired up yet — use the ZIP option.</div>
+            <div class="path-unavail" id="autoUnavail" style="display:none">Automated setup isn't wired up yet. Use the ZIP option.</div>
           </div>
 
           <!-- Path ② Download ZIP -->
@@ -350,7 +350,7 @@
 
         <div style="margin-top:16px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
-          <strong style="color:var(--text)">Credentials download to your machine in both paths.</strong> Store them securely before distributing to new hires — passwords are never written to Azure or transmitted to any server.
+          <strong style="color:var(--text)">Credentials download to your machine in both paths.</strong> Store them securely before distributing to new hires; passwords are never written to Azure or transmitted to any server.
         </div>
       </div>
 
@@ -460,8 +460,8 @@ function renderCsvErrorTable(rows) {
         ${bad.map(r => `
           <tr class="row-err">
             <td style="color:var(--muted);font-size:12px">${r.num}</td>
-            <td>${(r.fn + " " + r.ln).trim() || "—"}</td>
-            <td style="color:var(--muted);font-size:12px">${r.eid || "—"}</td>
+            <td>${(r.fn + " " + r.ln).trim() || "-"}</td>
+            <td style="color:var(--muted);font-size:12px">${r.eid || "-"}</td>
             <td>${r.err}</td>
           </tr>
         `).join("")}
@@ -545,7 +545,7 @@ async function loadFile(file) {
     drop.classList.remove("file-reading");
     document.getElementById("fileIn").value = "";
     if (e.message === "AV_TIMEOUT") {
-      showErr("s1Err", "File took too long to read — Windows Defender may be scanning it. Wait a moment and try again.");
+      showErr("s1Err", "File took too long to read; Windows Defender may be scanning it. Wait a moment and try again.");
     } else {
       showErr("s1Err", "Could not read file. (" + e.message + ")");
     }
@@ -627,11 +627,11 @@ function parseAndRender(filename, text) {
   document.getElementById("fileCount").textContent = st.rows.length + " rows";
 
   if (hardErrors) {
-    showErr("s1Err", hardErrors + " row(s) have errors — fix the CSV and re-upload.");
+    showErr("s1Err", hardErrors + " row(s) have errors. Fix the CSV and re-upload.");
     renderCsvErrorTable(st.rows);
   } else {
     document.getElementById("s1Btn").disabled = false;
-    document.getElementById("s1Msg").textContent = st.rows.length + " rows ready — checking UPNs…";
+    document.getElementById("s1Msg").textContent = st.rows.length + " rows ready: checking UPNs…";
     checkUpns();
   }
 }
@@ -647,7 +647,7 @@ async function checkUpns() {
       );
       const exists = res && res.value && res.value.length > 0;
       row.status = exists ? "warn" : "ok";
-      row.warn   = exists ? "UPN already exists in Entra — will be skipped" : "";
+      row.warn   = exists ? "UPN already exists in Entra and will be skipped" : "";
     } catch(e) {
       row.status = "ok";  // fail open — don't block on Graph errors
     }
@@ -663,7 +663,7 @@ async function checkUpns() {
   if (errors > 0) {
     document.getElementById("s1Btn").disabled = true;
     document.getElementById("s1Msg").textContent = "";
-    showErr("s1Err", errors + " row(s) have errors — fix the CSV and re-upload.");
+    showErr("s1Err", errors + " row(s) have errors. Fix the CSV and re-upload.");
     renderCsvErrorTable(st.rows);
   } else {
     document.getElementById("s1Btn").disabled = false;
@@ -700,7 +700,7 @@ function renderReviewTable() {
         </select>
       </td>
       <td>
-        <label class="tog" title="Adds Microsoft 365 desktop apps (Word, Excel, PowerPoint). Does not include Outlook desktop — E3 required for that.">
+        <label class="tog" title="Adds Microsoft 365 desktop apps (Word, Excel, PowerPoint). Does not include Outlook desktop; E3 required for that.">
           <input type="checkbox" ${row.entApps?"checked":""} onchange="rowChanged(${idx},'entApps',this.checked)"/>
           <div class="track"></div>
         </label>
@@ -782,12 +782,12 @@ function showBulkModal() {
   const licLabel = lic === "2GB" ? "F3 (2 GB mailbox)"
                  : lic === "50GB" ? "F3+ (50 GB + Archive)"
                  : lic === "E3"   ? "E3 (full suite)"
-                 : "— no change —";
+                 : "(no change)";
 
   document.getElementById("bulkChangeList").innerHTML = `
     <div class="change-row"><span class="lbl">License:</span><strong>${licLabel}</strong></div>
-    <div class="change-row"><span class="lbl">Apps:</span><strong>${apps ? "On — desktop apps" : "Off — web apps only"}</strong></div>
-    <div class="change-row"><span class="lbl">Subcontractor:</span><strong>${sub ? "On — subcontractor group" : "Off — team member group"}</strong></div>
+    <div class="change-row"><span class="lbl">Apps:</span><strong>${apps ? "On (desktop apps)" : "Off (web apps only)"}</strong></div>
+    <div class="change-row"><span class="lbl">Subcontractor:</span><strong>${sub ? "On (subcontractor group)" : "Off (team member group)"}</strong></div>
   `;
   document.getElementById("bulkModalNote").textContent =
     warn > 0 ? `${warn} row(s) with UPN warnings will be skipped regardless.` : "";
@@ -919,7 +919,7 @@ async function createAccounts() {
       row.password = password;
       st.created.push(row);
       if (warnings && warnings.length) {
-        setProgStatus(row.num, IC.alert(13) + " Created — " + warnings.join("; ") + " (finish in Exchange step)", "var(--amber)");
+        setProgStatus(row.num, IC.alert(13) + " Created: " + warnings.join("; ") + " (finish in Exchange step)", "var(--amber)");
       } else {
         setProgStatus(row.num, IC.check(13) + " Done", "var(--green)");
       }
@@ -997,7 +997,7 @@ async function createUser(row, password) {
         "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`
       });
     } catch(e) {
-      warnings.push("security group add failed — " + ITTools.graph.friendlyError(e));
+      warnings.push("security group add failed: " + ITTools.graph.friendlyError(e));
     }
   }
   return warnings;
@@ -1018,7 +1018,7 @@ function buildExchangeScript() {
             Write-Detail "Added to: India O365 Login Access" Green
         } catch { Write-Detail "  India O365 Login Access: \$(\$_.Exception.Message)" Yellow }
     }` : `
-    # US E3 group: TBD — confirm group name with team before activating`;
+    # US E3 group: TBD, confirm group name with team before activating`;
 
   const userEntries = st.created.map(r =>
     `    @{ UPN="${r.upn}"; Size="${r.size}"; SubContractor=\$${r.subContractor}; InternalEmailOnly=\$${r.internalEmail} }`
@@ -1055,7 +1055,7 @@ Write-Step 1 "Connecting to Exchange Online..."
 \$installed  = Get-Module -ListAvailable -Name ExchangeOnlineManagement |
     Sort-Object Version -Descending | Select-Object -First 1
 if (\$null -eq \$installed -or \$installed.Version -lt \$minVersion) {
-    Write-Detail "ExchangeOnlineManagement not found — installing..." Yellow
+    Write-Detail "ExchangeOnlineManagement not found, installing..." Yellow
     Install-Module ExchangeOnlineManagement -Force -AllowClobber -Scope CurrentUser
 }
 
@@ -1256,12 +1256,12 @@ async function queueExchangeSetup() {
           <strong>Exchange setup queued for ${job.users.length} user${job.users.length !== 1 ? "s" : ""} (${st.region}).</strong><br/>
           Results will post to the <strong>[IT Automation]</strong> Teams channel when mailboxes finish
           provisioning (usually within a few hours). Job ID <code>${jobId}</code>.<br/>
-          The credentials CSV downloaded to your machine — store it securely.
+          The credentials CSV downloaded to your machine; store it securely.
         </div>
       </div>`;
     markDone(4, job.users.length + " queued");
   } catch(e) {
-    showErr("s4Err", "Could not queue the job: " + e.message + " — you can use Download ZIP instead.");
+    showErr("s4Err", "Could not queue the job: " + e.message + ". You can use Download ZIP instead.");
     btn.disabled = false;
     btn.textContent = "Queue Exchange Setup";
   }
