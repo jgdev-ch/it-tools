@@ -277,13 +277,16 @@ a:hover { text-decoration: underline; }
 
 /* Pills matched to a specific tool's own accent color (not the generic
    green/amber/blue set above) — use color-mix off the theme-invariant
-   --accent-* tokens. Light mode mixes toward white for a soft tint; dark
-   mode needs its own mix toward black (mirroring the amber/blue pattern
-   above) or these render as an almost-white chip against the dark panel. */
+   --accent-* tokens. Light mode mixes toward white for a soft tint. Dark
+   mode mixes toward TRANSPARENT, not black — mixing toward black blends
+   the pigment and mutes the hue (looked muddy/too dark); mixing toward
+   transparent just fades the true accent color onto the dark panel,
+   matching how the amber/blue pills already do it with a plain low-alpha
+   rgba() of the undarkened color. */
 .account-pill--olive   { background: color-mix(in srgb, var(--accent-olive) 14%, white);   border: 1px solid color-mix(in srgb, var(--accent-olive) 30%, white);   color: var(--accent-olive); }
 .account-pill--magenta { background: color-mix(in srgb, var(--accent-magenta) 14%, white); border: 1px solid color-mix(in srgb, var(--accent-magenta) 30%, white); color: var(--accent-magenta); }
-[data-theme="dark"] .account-pill--olive   { background: color-mix(in srgb, var(--accent-olive) 22%, black);   border-color: color-mix(in srgb, var(--accent-olive) 45%, black); }
-[data-theme="dark"] .account-pill--magenta { background: color-mix(in srgb, var(--accent-magenta) 22%, black); border-color: color-mix(in srgb, var(--accent-magenta) 45%, black); }
+[data-theme="dark"] .account-pill--olive   { background: color-mix(in srgb, var(--accent-olive) 24%, transparent);   border-color: color-mix(in srgb, var(--accent-olive) 45%, transparent); }
+[data-theme="dark"] .account-pill--magenta { background: color-mix(in srgb, var(--accent-magenta) 24%, transparent); border-color: color-mix(in srgb, var(--accent-magenta) 45%, transparent); }
 
 /* ── Tool-title access badges ──
    Sit next to the tool name in the topbar. Palette mirrors the account
