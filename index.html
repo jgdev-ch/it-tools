@@ -677,6 +677,17 @@ const STATUS_DOT_LABELS = {
 // unlockCard) — passing the gate means "can see it," not "it's ready."
 const CLICKABLE_STATUSES = ["live", "beta"];
 
+// Preview site (it-tools-preview) is Josh's own build/test environment, not
+// real users — tools still marked coming-soon in config.json should stay
+// clickable there so work can continue, while production keeps them greyed
+// out. config.json itself is identical on both branches, so this is a
+// runtime override rather than a per-branch config value to keep in sync.
+const IS_PREVIEW = location.hostname === "jgdev-ch.github.io" &&
+  location.pathname.startsWith("/it-tools-preview/");
+function isClickableStatus(status) {
+  return CLICKABLE_STATUSES.includes(status) || IS_PREVIEW;
+}
+
 function statusDotHtml(status) {
   const label = STATUS_DOT_LABELS[status] || status;
   return `<div class="tool-status-dot dot-${status}">
@@ -730,7 +741,7 @@ function unlockCard(gateKey) {
       name:   locked.dataset.name,
       desc:   locked.dataset.desc,
     };
-    locked.outerHTML = CLICKABLE_STATUSES.includes(meta.status)
+    locked.outerHTML = isClickableStatus(meta.status)
       ? buildLiveCard(meta)
       : buildComingSoonCard(meta);
   });
@@ -934,7 +945,7 @@ async function loadTools() {
         return buildLockedCard({ gateKey: "reporting", ...meta });
       }
 
-      if (CLICKABLE_STATUSES.includes(tool.status) && tool.path) {
+      if (isClickableStatus(tool.status) && tool.path) {
         return buildLiveCard({
           path: tool.path, accent: tool.accent,
           icon: tool.icon, status: tool.status, name: tool.name,
