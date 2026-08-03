@@ -264,11 +264,31 @@ body::before {
   margin-top: 3px;
 }
 
-/* ── Section label ── */
+/* ── Section label — now a collapse/expand toggle ── */
 .section-label {
+  display: flex; align-items: center; gap: 6px; width: 100%;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;
-  color: var(--ink-dim); margin-bottom: 13px; padding-left: 2px;
+  color: var(--ink-dim); margin-bottom: 13px; padding: 2px;
+  background: none; border: none; text-align: left; cursor: pointer; font-family: inherit;
+  transition: color .15s;
 }
+.section-label:hover { color: var(--ink); }
+.section-chevron { flex-shrink: 0; transition: transform .3s cubic-bezier(.4,0,.2,1); }
+.tool-section.collapsed .section-chevron { transform: rotate(-90deg); }
+
+/* ── Section collapse — smooth height via grid-template-rows, no JS measuring.
+   Content fades out first so it dissolves rather than getting clipped/wiped
+   by the shrinking box. ── */
+.section-collapse {
+  display: grid; grid-template-rows: 1fr;
+  transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
+}
+.tool-section.collapsed .section-collapse { grid-template-rows: 0fr; }
+.section-collapse-inner {
+  overflow: hidden; min-height: 0;
+  opacity: 1; transition: opacity .3s ease;
+}
+.tool-section.collapsed .section-collapse-inner { opacity: 0; }
 
 /* ── Tools grid ── */
 .tools-grid {
@@ -418,7 +438,8 @@ body::before {
   justify-content: flex-start; border-bottom-color: transparent;
 }
 .setup-toggle.open + .setup-card { border-radius: 0 0 14px 14px; border-top: none; }
-.setup-chevron { font-size: 10px; color: var(--ink-dim); margin-left: auto; }
+.setup-chevron { color: var(--ink-dim); margin-left: auto; flex-shrink: 0; transition: transform .3s cubic-bezier(.4,0,.2,1); }
+.setup-toggle.open .setup-chevron { transform: rotate(180deg); }
 .setup-card {
   background: var(--glass-fill); border: 1px solid var(--glass-border);
   backdrop-filter: blur(22px);
@@ -580,7 +601,7 @@ body::before {
   <button class="setup-toggle" id="setupToggle" onclick="toggleSetup()">
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     <span>Setup</span>
-    <span class="setup-chevron" id="setupChevron">▾</span>
+    <svg class="setup-chevron" id="setupChevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
   </button>
   <div class="setup-card" id="setupCard" hidden>
     <p>All tools share a single <strong>Entra ID app registration</strong>. Add the following redirect URI to your app under <em>Authentication &rarr; Single-page application</em>:</p>
@@ -988,12 +1009,24 @@ async function loadTools() {
 
     grid.innerHTML = allSections
       .filter(s => grouped[s.key]?.length)
-      .map(s => `
-        <div class="section-label">${s.label}</div>
-        <div class="tools-grid">
-          ${grouped[s.key].map(cardHtml).join("")}
+      .map(s => {
+        const collapsed = localStorage.getItem("it-tools-section-collapsed-" + s.key) === "true";
+        return `
+        <div class="tool-section${collapsed ? " collapsed" : ""}" data-section="${s.key}">
+          <button class="section-label" onclick="toggleSection('${s.key}')" aria-expanded="${!collapsed}">
+            <span>${s.label}</span>
+            <svg class="section-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="section-collapse">
+            <div class="section-collapse-inner">
+              <div class="tools-grid">
+                ${grouped[s.key].map(cardHtml).join("")}
+              </div>
+            </div>
+          </div>
         </div>
-      `).join("");
+      `;
+      }).join("");
 
     restoreFromLocalStorage();
     trySilentRestore();
@@ -1091,6 +1124,15 @@ function toggleDownloadsDropdown() {
   btn.setAttribute("aria-expanded", String(!isOpen));
 }
 
+// ── Category section collapse/expand ───────────────────────────────────────────
+function toggleSection(key) {
+  const el = document.querySelector(`.tool-section[data-section="${key}"]`);
+  if (!el) return;
+  const collapsed = el.classList.toggle("collapsed");
+  localStorage.setItem("it-tools-section-collapsed-" + key, String(collapsed));
+  el.querySelector(".section-label").setAttribute("aria-expanded", String(!collapsed));
+}
+
 // ── Setup toggle ──────────────────────────────────────────────────────────────
 function toggleSetup() {
   const open = localStorage.getItem('it-tools-setup-open') === 'true';
@@ -1102,10 +1144,8 @@ function toggleSetup() {
 function applySetupState(open) {
   const btn  = document.getElementById('setupToggle');
   const card = document.getElementById('setupCard');
-  const chev = document.getElementById('setupChevron');
   btn.classList.toggle('open', open);
   card.hidden = !open;
-  chev.textContent = open ? '▴' : '▾';
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
