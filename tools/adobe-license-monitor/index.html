@@ -117,8 +117,8 @@
   .entra-big.na { color: var(--muted2); font-size: 28px; }
   .entra-sub  { font-size: 10px; color: var(--blue-dark); opacity: .65; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .entra-sync { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; width: fit-content; }
-  .entra-sync.ok    { background: var(--green-light); color: var(--green);  border: 1px solid var(--green-border); }
-  .entra-sync.drift { background: var(--amber-light); color: var(--amber);  border: 1px solid var(--amber-border); }
+  .entra-sync.ok    { background: var(--green-light); color: var(--green);  border: 1px solid var(--green-border); cursor: help; }
+  .entra-sync.drift { background: var(--amber-light); color: var(--amber);  border: 1px solid var(--amber-border); cursor: help; }
   .entra-sync.na    { background: var(--surface2);    color: var(--muted2); border: 1px solid var(--border); }
 
   /* ── Shimmer skeletons ── */
@@ -568,9 +568,25 @@ function barClass(pct) {
 
 function driftStatus(assigned, entra) {
   if (assigned === null || entra === null) return null;
-  if (entra > assigned)  return { type: "drift", label: (entra - assigned) + " unprovisioned" };
-  if (entra < assigned)  return { type: "drift", label: (assigned - entra) + " orphaned seats" };
-  return { type: "ok", label: "In sync" };
+  if (entra > assigned) {
+    return {
+      type: "drift",
+      label: (entra - assigned) + " unprovisioned",
+      detail: "More members in the Entra group than seats assigned in Adobe — these users are expected to get a license but haven't been provisioned yet.",
+    };
+  }
+  if (entra < assigned) {
+    return {
+      type: "drift",
+      label: (assigned - entra) + " orphaned seats",
+      detail: "More seats assigned in Adobe than members in the Entra group — these users kept their Adobe license after leaving the group, so group-based provisioning won't catch or reclaim them.",
+    };
+  }
+  return {
+    type: "ok",
+    label: "In sync",
+    detail: "Adobe seat assignments match Entra group membership exactly.",
+  };
 }
 
 function renderSummary(results) {
@@ -626,7 +642,7 @@ function renderCards(results) {
         <div class="util-free-row ${bc}">${free !== null ? free + " seat" + (free !== 1 ? "s" : "") + " available" : ""}</div>`;
 
     const driftPill = drift
-      ? `<div class="entra-sync ${drift.type}">${drift.type === "ok" ? "✓" : "⚠"} ${drift.label}</div>`
+      ? `<div class="entra-sync ${drift.type}" title="${drift.detail}">${drift.type === "ok" ? "✓" : "⚠"} ${drift.label}</div>`
       : `<div class="entra-sync na">—</div>`;
 
     return `
