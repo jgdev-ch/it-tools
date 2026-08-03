@@ -572,14 +572,14 @@ function driftStatus(assigned, entra) {
     return {
       type: "drift",
       label: (entra - assigned) + " unprovisioned",
-      detail: "More members in the Entra group than seats assigned in Adobe — these users are expected to get a license but haven't been provisioned yet.",
+      detail: "More members in the Entra group than seats assigned in Adobe, so these users are expected to get a license but haven't been provisioned yet.",
     };
   }
   if (entra < assigned) {
     return {
       type: "drift",
       label: (assigned - entra) + " orphaned seats",
-      detail: "More seats assigned in Adobe than members in the Entra group — these users kept their Adobe license after leaving the group, so group-based provisioning won't catch or reclaim them.",
+      detail: "More seats assigned in Adobe than members in the Entra group, meaning these users kept their Adobe license after leaving the group, so group-based provisioning won't catch or reclaim them.",
     };
   }
   return {
