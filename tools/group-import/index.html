@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Group Administration — IT Tools</title>
+<title>Group Administration: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -114,7 +114,7 @@
       <div class="sidebar-lbl">About</div>
       <div class="sidebar-tip">
         <strong>Group Administration</strong>
-        Add, remove, or export members of Entra security groups and Microsoft 365 groups — live via Microsoft Graph. Distribution lists, mail-enabled security groups, and shared mailboxes generate a PowerShell script (coming soon).
+        Add, remove, or export members of Entra security groups and Microsoft 365 groups (live via Microsoft Graph). Distribution lists, mail-enabled security groups, and shared mailboxes generate a PowerShell script (coming soon).
       </div>
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
@@ -139,7 +139,7 @@
       <div id="wizard" style="display:none">
         <button class="btn btn-ghost" style="margin-bottom:1rem" onclick="backToLauncher()">← All object types</button>
         <div class="section-hdr">
-          <h2 id="wizTitle">—</h2>
+          <h2 id="wizTitle">-</h2>
           <p id="wizSub"></p>
         </div>
         <div id="wizBody"></div>
@@ -267,7 +267,7 @@ function renderLauncher() {
     <div class="type-card${t.enabled?"":" disabled"}" ${t.enabled?`onclick="openWizard('${t.id}')"`:""}>
       <div class="type-icon">${t.icon}</div>
       <div class="type-name">${t.label}</div>
-      <span class="type-tag ${t.backend==="graph"?"live":"script"}">${t.enabled?t.tag:"v2 — coming soon"}</span>
+      <span class="type-tag ${t.backend==="graph"?"live":"script"}">${t.enabled?t.tag:"v2, coming soon"}</span>
     </div>`;
   const live   = OBJECT_TYPES.filter(t => t.backend==="graph");
   const script = OBJECT_TYPES.filter(t => t.backend==="exchange");
@@ -293,7 +293,7 @@ function openWizard(typeId) {
   document.getElementById("launcher").style.display = "none";
   document.getElementById("wizard").style.display   = "block";
   document.getElementById("wizTitle").textContent = t.label;
-  document.getElementById("wizSub").textContent   = "Add, remove, or export members — live via Microsoft Graph.";
+  document.getElementById("wizSub").textContent   = "Add, remove, or export members (live via Microsoft Graph).";
   renderActionStep();
 }
 
@@ -464,7 +464,7 @@ async function loadExistingMembers() {
 
 async function opAdd(existing, user, isDry, entry) {
   if (existing[user.id]) { entry.action="Skipped"; entry.message="Already a member"; return; }
-  if (isDry) { entry.action="WouldAdd"; entry.message="Dry run — no change"; return; }
+  if (isDry) { entry.action="WouldAdd"; entry.message="Dry run: no change"; return; }
   try {
     await ITTools.graph.post(`/groups/${wiz.groupId}/members/$ref`, { "@odata.id":`https://graph.microsoft.com/v1.0/directoryObjects/${user.id}` });
     existing[user.id]=true; entry.action="Added"; entry.message="Success";
@@ -473,7 +473,7 @@ async function opAdd(existing, user, isDry, entry) {
 
 async function opRemove(existing, user, isDry, entry) {
   if (!existing[user.id]) { entry.action="Skipped"; entry.message="Not a member"; return; }
-  if (isDry) { entry.action="WouldRemove"; entry.message="Dry run — no change"; return; }
+  if (isDry) { entry.action="WouldRemove"; entry.message="Dry run: no change"; return; }
   try {
     await ITTools.graph.del(`/groups/${wiz.groupId}/members/${user.id}/$ref`);
     delete existing[user.id]; entry.action="Removed"; entry.message="Success";
@@ -569,7 +569,7 @@ async function loadFile(file) {
     drop.classList.remove("file-reading");
     document.getElementById("fileIn").value = "";
     if (e.message === "AV_TIMEOUT") {
-      showErr("s1Err", "File took too long to read — Windows Defender may be scanning it. Wait a moment and try again.");
+      showErr("s1Err", "File took too long to read; Windows Defender may be scanning it. Wait a moment and try again.");
     } else {
       showErr("s1Err", "Could not read file. (" + e.message + ")");
     }
@@ -662,7 +662,7 @@ function renderLog(log, isDry) {
     `<tr>
       <td><span class="status-pill ${pillMap[r.action]||""}">${r.action}</span></td>
       <td class="mono text-xs">${r.identifier}</td>
-      <td>${r.displayName||"—"}</td>
+      <td>${r.displayName||"-"}</td>
       <td class="muted text-xs">${r.message}</td>
     </tr>`
   ).join("");

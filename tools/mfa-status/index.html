@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>MFA Status Report — IT Tools</title>
+<title>MFA Status Report: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -452,7 +452,7 @@ async function graphWithRetry(fn, maxRetries = 5) {
       );
       if (!isRateLimit || attempt > maxRetries) throw e;
       const waitSec = Math.min(60, Math.pow(2, attempt));
-      setPhase(`Rate limited — retrying in ${waitSec}s…`);
+      setPhase(`Rate limited, retrying in ${waitSec}s…`);
       _pauseActiveTimer();
       await countdownEta(waitSec);
       _resumeActiveTimer();
@@ -484,7 +484,7 @@ function cancelScan() {
   _cancelled = true;
   setPhase(null);
   const warn = document.getElementById("infoBanner");
-  warn.textContent   = "⚠ Scan cancelled — partial results shown below.";
+  warn.textContent   = "⚠ Scan cancelled; partial results shown below.";
   warn.className     = "banner warn";
   warn.style.display = "block";
 }
@@ -595,7 +595,7 @@ async function startScan() {
     // the subsequent user-join pass can be slow above ~20k users
     if (users.length > 10000) {
       const warn = document.getElementById("scopeWarning");
-      warn.innerHTML = `⚠ <strong>${users.length.toLocaleString()} users found.</strong> Large tenant — fetching registration data in bulk. This should complete in under a minute. Use the department filter to narrow results, or click Cancel at any time to see partial results.`;
+      warn.innerHTML = `⚠ <strong>${users.length.toLocaleString()} users found.</strong> Large tenant: fetching registration data in bulk. This should complete in under a minute. Use the department filter to narrow results, or click Cancel at any time to see partial results.`;
       warn.style.display = "block";
     }
 
@@ -620,7 +620,7 @@ async function startScan() {
       try {
         methodMap = await fetchViaReportEndpoint(users.length);
       } catch(reportErr) {
-        updateScanLabel(`Report endpoint unavailable — switching to batch mode…`, null);
+        updateScanLabel(`Report endpoint unavailable, switching to batch mode…`, null);
         methodMap = null;
       }
     }
@@ -629,7 +629,7 @@ async function startScan() {
       try {
         methodMap = await fetchViaBatch(users);
       } catch(batchErr) {
-        updateScanLabel(`Batch mode failed — falling back to per-user calls…`, null);
+        updateScanLabel(`Batch mode failed, falling back to per-user calls…`, null);
         try {
           methodMap = await fetchPerUser(users);
         } catch(perUserErr) {
@@ -748,7 +748,7 @@ function _getActiveElapsedSec() {
 async function countdownEta(seconds) {
   const eta = document.getElementById("scanEta");
   for (let s = seconds; s > 0; s--) {
-    if (eta) eta.textContent = `Rate limited — resuming in ${s}s…`;
+    if (eta) eta.textContent = `Rate limited, resuming in ${s}s…`;
     await new Promise(r => setTimeout(r, 1000));
   }
 }
@@ -799,7 +799,7 @@ async function fetchViaReportEndpoint(expectedUsers) {
     throw new Error(`Report endpoint returned ${map.size} records for ${expectedUsers} expected users — insufficient coverage`);
   }
 
-  updateScanLabel(`Registration data loaded — ${map.size.toLocaleString()} records`, 100);
+  updateScanLabel(`Registration data loaded, ${map.size.toLocaleString()} records`, 100);
   return map;
 }
 
@@ -1044,7 +1044,7 @@ function clearMethodFilter() {
 function updateFilterNote() {
   const note = document.getElementById("filterNote");
   if (flaggedMethods.size === 0) {
-    note.textContent = "No methods flagged — showing all users";
+    note.textContent = "No methods flagged: showing all users";
   } else {
     const flagged = allUsers.filter(u => isUserFlagged(u)).length;
     note.textContent = `${flagged} user${flagged !== 1 ? "s" : ""} flagged with selected method${flaggedMethods.size !== 1 ? "s" : ""}`;
@@ -1160,11 +1160,11 @@ function userRow(u, isDisabled) {
       <div class="avatar ${rClass}">${init2}</div>
       <div><div class="user-name">${u.displayName || "Unknown"}</div><div class="user-upn">${u.upn}</div></div>
     </div></td>
-    <td style="font-size:12px;color:var(--muted)">${u.department || "—"}</td>
+    <td style="font-size:12px;color:var(--muted)">${u.department || "-"}</td>
     <td><span class="${riskBadge}">${riskLabel}</span></td>
     <td style="max-width:320px">${methodPills}</td>
     ${licenseCell}
-    <td style="font-size:12px;color:var(--muted)">${u.jobTitle || "—"}</td>
+    <td style="font-size:12px;color:var(--muted)">${u.jobTitle || "-"}</td>
   </tr>`;
 }
 

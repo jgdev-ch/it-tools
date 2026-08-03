@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>M365 License Audit — IT Tools</title>
+<title>M365 License Audit: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
@@ -479,7 +479,7 @@ async function loadCosts() {
   try {
     const res = await fetch("../../costs.json?v=" + Date.now());
     _costData = await res.json();
-  } catch(_) { ITTools.ui.banner("warnBanner", "Cost data unavailable — costs.json could not be loaded. Cost columns will be hidden.", "warn"); }
+  } catch(_) { ITTools.ui.banner("warnBanner", "Cost data unavailable because costs.json could not be loaded. Cost columns will be hidden.", "warn"); }
 }
 
 function getCost(sku) {
@@ -579,7 +579,7 @@ async function graphWithRetry(fn, maxRetries = 5) {
       );
       if (!isRate || attempt > maxRetries) throw e;
       const wait = Math.min(60, Math.pow(2, attempt));
-      setPhase(`Rate limited — retrying in ${wait}s…`);
+      setPhase(`Rate limited, retrying in ${wait}s…`);
       await new Promise(r => setTimeout(r, wait * 1000));
     }
   }
@@ -724,7 +724,7 @@ async function loadSkus() {
 
     select.disabled = false; runBtn.disabled = false;
   } catch(e) {
-    select.innerHTML    = `<option value="">Could not load — ${e.message}</option>`;
+    select.innerHTML    = `<option value="">Could not load: ${e.message}</option>`;
     metaTxt.textContent = "Failed to load licenses.";
   } finally {
     spinner.style.display = "none";
@@ -738,7 +738,7 @@ function rebuildDropdown() {
   const prev   = select.value;
   select.innerHTML = _tenantSkus.map(s => {
     const cost     = getCost(s.skuPartNumber);
-    const costHint = cost !== null && cost > 0 ? ` — ${formatCurrency(cost)}/user/mo` : cost === 0 ? " — Free" : "";
+    const costHint = cost !== null && cost > 0 ? ` (${formatCurrency(cost)}/user/mo)` : cost === 0 ? " (Free)" : "";
     return `<option value="${s.skuPartNumber}" data-skuid="${s.skuId}">${getFriendlyName(s.skuPartNumber)}${costHint}</option>`;
   }).join("");
   if (prev) select.value = prev;
@@ -881,7 +881,7 @@ async function runAudit() {
       for (let i = 0; i < total; i += BATCH) {
         const chunk    = inactive.slice(i, i + BATCH);
         const batchNum = Math.floor(i / BATCH) + 1;
-        setPhase(`Verifying via audit logs — ${Math.min(i + BATCH, total)} of ${total} users (batch ${batchNum} / ${batches})…`);
+        setPhase(`Verifying via audit logs, ${Math.min(i + BATCH, total)} of ${total} users (batch ${batchNum} / ${batches})…`);
 
         try {
           const batchRes = await graphWithRetry(() => ITTools.graph.post(
@@ -920,7 +920,7 @@ async function runAudit() {
 
       if (reclaimedCount > 0) {
         ITTools.ui.banner("warnBanner",
-          `Audit log check complete — ${reclaimedCount} user${reclaimedCount!==1?" were":" was"} removed from results as their sign-in was more recent than reported. ${verified.length} genuinely inactive user${verified.length!==1?"s":""} remain.`,
+          `Audit log check complete: ${reclaimedCount} user${reclaimedCount!==1?" were":" was"} removed from results as their sign-in was more recent than reported. ${verified.length} genuinely inactive user${verified.length!==1?"s":""} remain.`,
           "info"
         );
       }
@@ -1063,7 +1063,7 @@ function userRow(u, hasCost) {
 
   const costCell = hasCost
     ? `<td class="cost-cell ${u.monthlyCost !== null && u.monthlyCost > 0 ? "has-cost" : "no-cost"}">
-        ${u.monthlyCost !== null && u.monthlyCost > 0 ? formatCurrency(u.monthlyCost)+`<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span>` : "—"}
+        ${u.monthlyCost !== null && u.monthlyCost > 0 ? formatCurrency(u.monthlyCost)+`<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span>` : "-"}
        </td>`
     : "";
 
@@ -1071,7 +1071,7 @@ function userRow(u, hasCost) {
     ? `<td><span class="removed-badge">✓ Removed</span></td>`
     : _hasLicenseModifyAccess
       ? `<td><button class="btn-remove" onclick="openRemoveModal('${u.id}')" id="removebtn-${u.id}">Remove license</button></td>`
-      : `<td><button class="btn-remove" disabled title="Requires elevated access — contact your IT administrator">Remove license</button></td>`;
+      : `<td><button class="btn-remove" disabled title="Requires elevated access. Contact your IT administrator">Remove license</button></td>`;
 
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
@@ -1080,7 +1080,7 @@ function userRow(u, hasCost) {
       <div class="avatar ${stale?"stale":"ok"}">${initials}</div>
       <div><div class="user-name">${u.displayName||"Unknown"}</div><div class="user-upn">${u.upn}</div></div>
     </div></td>
-    <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
+    <td style="font-size:12px;color:var(--muted)">${u.department||"-"}</td>
     <td style="color:${stale?"var(--red)":"var(--muted)"};font-size:12px">${lastSeen}</td>
     <td><span class="${ageCls}">${ageLabel}</span></td>
     <td>${acct}</td>
@@ -1166,7 +1166,7 @@ async function confirmRemoval() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const msg  = body?.error?.message || `Graph error ${res.status}`;
-        if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented.");
+        if (res.status === 403) throw new Error("Permission denied. Ensure User.ReadWrite.All is consented.");
         throw new Error(msg);
       }
       user.removed = true;
@@ -1369,7 +1369,7 @@ function multiUserRow(u, hasCost) {
 
   const costCell = hasCost
     ? `<td class="cost-cell ${u.totalCost > 0 ? "has-cost" : "no-cost"}">
-        ${u.totalCost > 0 ? formatCurrency(u.totalCost)+`<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span>` : "—"}
+        ${u.totalCost > 0 ? formatCurrency(u.totalCost)+`<span style="font-size:10px;font-weight:400;color:var(--muted)">/mo</span>` : "-"}
        </td>`
     : "";
 
@@ -1377,7 +1377,7 @@ function multiUserRow(u, hasCost) {
     ? `<td><span class="removed-badge">✓ All removed</span></td>`
     : _hasLicenseModifyAccess
       ? `<td><button class="btn-manage" onclick="openManageModal('${u.id}')" id="managebtn-${u.id}">Manage licenses</button></td>`
-      : `<td><button class="btn-manage" disabled title="Requires elevated access — contact your IT administrator">Manage licenses</button></td>`;
+      : `<td><button class="btn-manage" disabled title="Requires elevated access. Contact your IT administrator">Manage licenses</button></td>`;
 
   const search = (u.displayName+" "+u.upn+" "+u.department).toLowerCase();
 
@@ -1389,7 +1389,7 @@ function multiUserRow(u, hasCost) {
         <div class="user-upn" title="${u.upn}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.upn}</div>
       </div>
     </div></td>
-    <td style="font-size:12px;color:var(--muted)">${u.department||"—"}</td>
+    <td style="font-size:12px;color:var(--muted)">${u.department||"-"}</td>
     <td style="font-size:12px;color:var(--muted)">${lastSeen}</td>
     <td><span class="multi-count-badge" style="margin-right:6px">${u.paidLicenses.length}</span>${licPills}</td>
     ${costCell}
@@ -1476,7 +1476,7 @@ function openManageModal(userId) {
     if (isRemoved) {
       meta = `<span class="lic-checkbox-removed">Removed</span>`;
     } else if (l.isGroupInherited) {
-      meta = `<span class="lic-checkbox-group-tag" title="Inherited from a group assignment — cannot be removed directly. Manage membership in Entra instead.">Via group</span>`;
+      meta = `<span class="lic-checkbox-group-tag" title="Inherited from a group assignment; cannot be removed directly. Manage membership in Entra instead.">Via group</span>`;
     } else {
       meta = costLabel;
     }
@@ -1533,7 +1533,7 @@ async function confirmManageRemoval() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const msg  = body?.error?.message || `Graph error ${res.status}`;
-        if (res.status === 403) throw new Error("Permission denied — ensure User.ReadWrite.All is consented.");
+        if (res.status === 403) throw new Error("Permission denied. Ensure User.ReadWrite.All is consented.");
         throw new Error(msg);
       }
       user.removedSkuIds.push(...selected);

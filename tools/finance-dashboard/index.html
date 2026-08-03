@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>License Spend — IT Tools</title>
+<title>License Spend: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
@@ -694,7 +694,7 @@
   <div class="finetune-bar" id="finetuneBar">
     <div class="finetune-top">
       <div class="step-spin" id="finetuneSpinner"></div>
-      <div class="finetune-title" id="finetuneTitle">Fine-tune pass — verifying inactive users</div>
+      <div class="finetune-title" id="finetuneTitle">Fine-tune pass: verifying inactive users</div>
       <div class="finetune-pct" id="finetunePct">0%</div>
     </div>
     <div class="finetune-detail" id="finetuneDetail">Checking audit logs for inactive candidates…</div>
@@ -709,12 +709,12 @@
   <div class="spend-hero" id="spendHero" style="display:none">
     <div>
       <div class="spend-hero-label">Total Monthly Spend</div>
-      <div class="spend-hero-value" id="heroMonthly">—</div>
-      <div class="spend-hero-sub" id="heroSub">—</div>
+      <div class="spend-hero-value" id="heroMonthly">-</div>
+      <div class="spend-hero-sub" id="heroSub">-</div>
     </div>
     <div class="spend-hero-right">
       <div class="spend-hero-label">Annual Projection</div>
-      <div class="spend-hero-annual" id="heroAnnual">—</div>
+      <div class="spend-hero-annual" id="heroAnnual">-</div>
     </div>
   </div>
 
@@ -807,7 +807,7 @@
     </div>
     <div class="card-body">
       <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">
-        Licensed users who have not signed in within the configured threshold — sorted by monthly cost impact.
+        Licensed users who have not signed in within the configured threshold, sorted by monthly cost impact.
       </p>
       <div id="inactiveTableWrap"></div>
     </div>
@@ -827,7 +827,7 @@
     </div>
     <div class="card-body">
       <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">
-        Licensed users who signed in within the threshold. Users with multiple paid licenses are flagged — these may represent cost bloat worth reviewing.
+        Licensed users who signed in within the threshold. Users with multiple paid licenses are flagged, since these may represent cost bloat worth reviewing.
       </p>
       <div id="activeTableWrap"></div>
     </div>
@@ -849,7 +849,7 @@ async function loadCosts() {
   try {
     const r  = await fetch("../../costs.json?v=" + Date.now());
     _costData = await r.json();
-  } catch(_) { ITTools.ui.banner("errBanner", "Cost data unavailable — costs.json could not be loaded. Cost figures will not display.", "warn"); }
+  } catch(_) { ITTools.ui.banner("errBanner", "Cost data unavailable because costs.json could not be loaded. Cost figures will not display.", "warn"); }
 }
 
 function getCost(sku) {
@@ -879,7 +879,7 @@ const SKU_NAMES = {
   "COPILOTSTUDIO":"Copilot Studio","VIRTUAL_AGENT_USL":"Copilot Studio",
   "FLOW_PER_USER":"Power Automate Premium","POWERAUTOMATE_ATTENDED_RPA":"Power Automate RPA",
   "VISIOCLIENT":"Visio Plan 2","VISIO_PLAN2_DEPT":"Visio Plan 2","VISIOONLINE_PLAN1":"Visio Plan 1",
-  "MCOPSTN5":"Teams Phone — India","POWER_BI_STANDARD":"Power BI Standard",
+  "MCOPSTN5":"Teams Phone (India)","POWER_BI_STANDARD":"Power BI Standard",
   "MCOMEETADV":"Teams Audio Conferencing","Microsoft_Teams_Audio_Conferencing_with_dial-out_to_US_CA":"Teams Audio Conferencing",
   "MCOPSTNC":"Teams Phone Resource Account","PHONESYSTEM_VIRTUALUSER":"Teams Phone Resource Account",
 };
@@ -915,7 +915,7 @@ async function gwr(fn, max = 5) {
       const rate = e.message && (e.message.includes("429") || e.message.includes("503"));
       if (!rate || attempt > max) throw e;
       const wait = Math.min(60, Math.pow(2, attempt));
-      setPhase(`Rate limited — retrying in ${wait}s…`);
+      setPhase(`Rate limited, retrying in ${wait}s…`);
       await new Promise(r => setTimeout(r, wait * 1000));
     }
   }
@@ -1391,7 +1391,7 @@ function updateBatchProgress(batchNum, totalBatches, processedUsers, waste) {
   if (fill)   fill.style.width  = pct + "%";
   if (pctEl)  pctEl.textContent = pct + "%";
   if (detail) detail.textContent =
-    `Batch ${batchNum} of ${totalBatches} — cross-checking sign-in audit logs…`;
+    `Batch ${batchNum} of ${totalBatches}, cross-checking sign-in audit logs…`;
 
   // Recalculate and update the three audit-dependent KPI values in-place
   const inactiveU    = processedUsers.filter(u => u.inactive && u.totalCost > 0);
@@ -1489,7 +1489,7 @@ function finaliseDashboard(reclaimedAudit) {
   // Show completion banner if users were reclassified
   if (reclaimedAudit > 0) {
     ITTools.ui.banner("errBanner",
-      `Audit scan complete — ${reclaimedAudit} user${reclaimedAudit !== 1 ? "s were" : " was"} reclassified as active. All figures confirmed.`,
+      `Audit scan complete: ${reclaimedAudit} user${reclaimedAudit !== 1 ? "s were" : " was"} reclassified as active. All figures confirmed.`,
       "info"
     );
   }
@@ -1519,7 +1519,7 @@ function renderCallout(monthly, waste, inactive, inactiveCount, days) {
       <div>
         <div class="callout-title">${fmt(saveable, true)}/month in recoverable spend identified</div>
         <div class="callout-body">
-          ${fmt(waste, true)}/mo from unassigned seats already being billed —
+          ${fmt(waste, true)}/mo from unassigned seats already being billed, plus
           ${fmt(inactive, true)}/mo from ${inactiveCount} license holder${inactiveCount!==1?"s":""} inactive &gt;${days} days.
           Addressing both would save approximately <strong>${fmt(annSavings, true)}/year</strong>.
         </div>
@@ -2093,7 +2093,7 @@ function _refreshActiveTable() {
     const init = (u.displayName||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
     const lastSeen = u.lastSignIn
       ? new Date(u.lastSignIn).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })
-      : "—";
+      : "-";
 
     const paidLicenses = u.licenses.filter(l => l.cost > 0);
     const multiFlag = paidLicenses.length > 1
@@ -2104,7 +2104,7 @@ function _refreshActiveTable() {
       `<span style="display:inline-block;background:var(--blue-light);color:var(--blue-dark);border-radius:4px;padding:2px 6px;font-size:10px;margin:1px;white-space:nowrap">${skuName(l.sku)}</span>`
     ).join("");
 
-    const daysLabel = u.daysSince != null ? `${u.daysSince}d` : "—";
+    const daysLabel = u.daysSince != null ? `${u.daysSince}d` : "-";
 
     return `<tr>
       <td>
@@ -2169,8 +2169,8 @@ function exportActive() {
       "UPN":             u.upn,
       "Department":      u.department,
       "Job Title":       u.jobTitle,
-      "Last Sign-In":    u.lastSignIn ? new Date(u.lastSignIn).toISOString().slice(0,10) : "—",
-      "Days Since":      u.daysSince ?? "—",
+      "Last Sign-In":    u.lastSignIn ? new Date(u.lastSignIn).toISOString().slice(0,10) : "-",
+      "Days Since":      u.daysSince ?? "-",
       "Paid Licenses":   u.licenses.filter(l=>l.cost>0).length,
       "License Names":   u.licenses.filter(l=>l.cost>0).map(l => skuName(l.sku)).join("; "),
       "Monthly Cost":    fmt(u.totalCost),
