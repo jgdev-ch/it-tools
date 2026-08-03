@@ -277,9 +277,13 @@ a:hover { text-decoration: underline; }
 
 /* Pills matched to a specific tool's own accent color (not the generic
    green/amber/blue set above) — use color-mix off the theme-invariant
-   --accent-* tokens so light/dark both just work with one rule. */
+   --accent-* tokens. Light mode mixes toward white for a soft tint; dark
+   mode needs its own mix toward black (mirroring the amber/blue pattern
+   above) or these render as an almost-white chip against the dark panel. */
 .account-pill--olive   { background: color-mix(in srgb, var(--accent-olive) 14%, white);   border: 1px solid color-mix(in srgb, var(--accent-olive) 30%, white);   color: var(--accent-olive); }
 .account-pill--magenta { background: color-mix(in srgb, var(--accent-magenta) 14%, white); border: 1px solid color-mix(in srgb, var(--accent-magenta) 30%, white); color: var(--accent-magenta); }
+[data-theme="dark"] .account-pill--olive   { background: color-mix(in srgb, var(--accent-olive) 22%, black);   border-color: color-mix(in srgb, var(--accent-olive) 45%, black); }
+[data-theme="dark"] .account-pill--magenta { background: color-mix(in srgb, var(--accent-magenta) 22%, black); border-color: color-mix(in srgb, var(--accent-magenta) 45%, black); }
 
 /* ── Tool-title access badges ──
    Sit next to the tool name in the topbar. Palette mirrors the account
