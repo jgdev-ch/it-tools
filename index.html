@@ -334,20 +334,22 @@ body::before {
 .tool-card.locked { opacity: .72 !important; cursor: default; }
 .tool-card.locked:hover { transform: none; background: var(--glass-fill); border-color: var(--glass-border); box-shadow: var(--shadow-sm); opacity: .72 !important; }
 
-/* ── Icon square — tinted glass ── */
+/* ── Icon square — deep glass ── */
 .tool-icon-sq {
   width: 40px; height: 40px; border-radius: 12px;
   background:
-    linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,.20)),
-    color-mix(in srgb, var(--tool-accent, var(--blue)) 22%, white);
-  border: 1px solid color-mix(in srgb, var(--tool-accent, var(--blue)) 35%, white);
-  box-shadow: 0 4px 14px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.6);
+    linear-gradient(160deg, rgba(255,255,255,.30), rgba(255,255,255,0)),
+    color-mix(in srgb, var(--tool-accent, var(--blue)) 88%, white);
+  border: 1px solid color-mix(in srgb, var(--tool-accent, var(--blue)) 85%, black);
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--tool-accent, var(--blue)) 45%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.40);
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 12px; flex-shrink: 0;
 }
 .tool-icon-sq svg { width: 20px; height: 20px; }
 .tool-icon-sq svg, .tool-icon-sq svg * {
-  stroke: color-mix(in srgb, var(--tool-accent, var(--blue)) 60%, black) !important;
+  stroke: #fff !important;
   fill: none !important;
 }
 
