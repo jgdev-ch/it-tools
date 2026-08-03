@@ -273,7 +273,7 @@ body::before {
   transition: color .15s;
 }
 .section-label:hover { color: var(--ink); }
-.section-chevron { font-size: 9px; transition: transform .3s cubic-bezier(.4,0,.2,1); }
+.section-chevron { flex-shrink: 0; transition: transform .3s cubic-bezier(.4,0,.2,1); }
 .tool-section.collapsed .section-chevron { transform: rotate(-90deg); }
 
 /* ── Section collapse — smooth height via grid-template-rows, no JS measuring ── */
@@ -1008,7 +1008,7 @@ async function loadTools() {
         <div class="tool-section${collapsed ? " collapsed" : ""}" data-section="${s.key}">
           <button class="section-label" onclick="toggleSection('${s.key}')" aria-expanded="${!collapsed}">
             <span>${s.label}</span>
-            <span class="section-chevron">&#9662;</span>
+            <svg class="section-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div class="section-collapse">
             <div class="section-collapse-inner">
