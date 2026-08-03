@@ -60,18 +60,6 @@ button, input, select, textarea { font-family: inherit; }
   --purple:      #5b21b6;
   --purple-light:#ede9fe;
 
-  /* Tool accent palette (hub icon badges + permission pills) — theme-invariant,
-     never redefined under [data-theme="dark"] */
-  --accent-blue:    #3b6ec7;
-  --accent-green:   #299b57;
-  --accent-purple:  #835ebb;
-  --accent-amber:   #b07e30;
-  --accent-red:     #b7534b;
-  --accent-teal:    #258990;
-  --accent-rose:    #b34f70;
-  --accent-magenta: #a25099;
-  --accent-olive:   #80872d;
-
   /* Glass */
   --glass-fill:   rgba(255,255,255,.55);
   --glass-border: rgba(255,255,255,.65);
@@ -270,22 +258,12 @@ a:hover { text-decoration: underline; }
   font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   width: fit-content;
 }
-.account-pill--amber   { background: rgba(146,64,14,.10); border: 1px solid rgba(146,64,14,.22); color: var(--amber); }
-.account-pill--blue    { background: rgba(26,86,219,.10); border: 1px solid rgba(26,86,219,.20); color: var(--blue);  }
+.account-pill--green { background: rgba(4,120,87,.10);  border: 1px solid rgba(4,120,87,.22);  color: var(--green); }
+.account-pill--amber { background: rgba(146,64,14,.10); border: 1px solid rgba(146,64,14,.22); color: var(--amber); }
+.account-pill--blue  { background: rgba(26,86,219,.10); border: 1px solid rgba(26,86,219,.20); color: var(--blue);  }
+[data-theme="dark"] .account-pill--green { background: rgba(52,199,111,.12); border-color: rgba(52,199,111,.25); }
 [data-theme="dark"] .account-pill--amber { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25);  }
 [data-theme="dark"] .account-pill--blue  { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25);  }
-
-/* Pills matched to a specific tool's own accent color (not the generic
-   green/amber/blue set above) — use color-mix off the theme-invariant
-   --accent-* tokens. Light mode mixes toward white for a soft tint (matches
-   the amber/blue pills' light-mode style). Dark mode instead uses a deep,
-   near-solid fill with white text — a low-alpha tint here read as barely
-   colored at all against the already-dark panel, so this mirrors the same
-   confident, solid-fill treatment the tool icon badges use instead. */
-.account-pill--olive   { background: color-mix(in srgb, var(--accent-olive) 14%, white);   border: 1px solid color-mix(in srgb, var(--accent-olive) 30%, white);   color: var(--accent-olive); }
-.account-pill--magenta { background: color-mix(in srgb, var(--accent-magenta) 14%, white); border: 1px solid color-mix(in srgb, var(--accent-magenta) 30%, white); color: var(--accent-magenta); }
-[data-theme="dark"] .account-pill--olive   { background: color-mix(in srgb, var(--accent-olive) 75%, black);   border-color: color-mix(in srgb, var(--accent-olive) 90%, black);   color: #fff; }
-[data-theme="dark"] .account-pill--magenta { background: color-mix(in srgb, var(--accent-magenta) 75%, black); border-color: color-mix(in srgb, var(--accent-magenta) 90%, black); color: #fff; }
 
 /* ── Tool-title access badges ──
    Sit next to the tool name in the topbar. Palette mirrors the account
