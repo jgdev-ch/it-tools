@@ -264,11 +264,25 @@ body::before {
   margin-top: 3px;
 }
 
-/* ── Section label ── */
+/* ── Section label — now a collapse/expand toggle ── */
 .section-label {
+  display: flex; align-items: center; gap: 6px; width: 100%;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;
-  color: var(--ink-dim); margin-bottom: 13px; padding-left: 2px;
+  color: var(--ink-dim); margin-bottom: 13px; padding: 2px;
+  background: none; border: none; text-align: left; cursor: pointer; font-family: inherit;
+  transition: color .15s;
 }
+.section-label:hover { color: var(--ink); }
+.section-chevron { font-size: 9px; transition: transform .3s cubic-bezier(.4,0,.2,1); }
+.tool-section.collapsed .section-chevron { transform: rotate(-90deg); }
+
+/* ── Section collapse — smooth height via grid-template-rows, no JS measuring ── */
+.section-collapse {
+  display: grid; grid-template-rows: 1fr;
+  transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
+}
+.tool-section.collapsed .section-collapse { grid-template-rows: 0fr; }
+.section-collapse-inner { overflow: hidden; min-height: 0; }
 
 /* ── Tools grid ── */
 .tools-grid {
@@ -988,12 +1002,24 @@ async function loadTools() {
 
     grid.innerHTML = allSections
       .filter(s => grouped[s.key]?.length)
-      .map(s => `
-        <div class="section-label">${s.label}</div>
-        <div class="tools-grid">
-          ${grouped[s.key].map(cardHtml).join("")}
+      .map(s => {
+        const collapsed = localStorage.getItem("it-tools-section-collapsed-" + s.key) === "true";
+        return `
+        <div class="tool-section${collapsed ? " collapsed" : ""}" data-section="${s.key}">
+          <button class="section-label" onclick="toggleSection('${s.key}')" aria-expanded="${!collapsed}">
+            <span>${s.label}</span>
+            <span class="section-chevron">&#9662;</span>
+          </button>
+          <div class="section-collapse">
+            <div class="section-collapse-inner">
+              <div class="tools-grid">
+                ${grouped[s.key].map(cardHtml).join("")}
+              </div>
+            </div>
+          </div>
         </div>
-      `).join("");
+      `;
+      }).join("");
 
     restoreFromLocalStorage();
     trySilentRestore();
@@ -1089,6 +1115,15 @@ function toggleDownloadsDropdown() {
   const isOpen = panel.style.display !== "none";
   panel.style.display = isOpen ? "none" : "block";
   btn.setAttribute("aria-expanded", String(!isOpen));
+}
+
+// ── Category section collapse/expand ───────────────────────────────────────────
+function toggleSection(key) {
+  const el = document.querySelector(`.tool-section[data-section="${key}"]`);
+  if (!el) return;
+  const collapsed = el.classList.toggle("collapsed");
+  localStorage.setItem("it-tools-section-collapsed-" + key, String(collapsed));
+  el.querySelector(".section-label").setAttribute("aria-expanded", String(!collapsed));
 }
 
 // ── Setup toggle ──────────────────────────────────────────────────────────────
