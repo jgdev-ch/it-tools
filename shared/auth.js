@@ -241,6 +241,7 @@ ITTools.ui = (() => {
     reporting:         "cea8f0fe-a3d5-4f8a-9f77-e9ce6fdf7b8d",
     gsd:               "3e1a4757-8189-4908-a611-b6029399e69e",
     "license-modify":  "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8",
+    security:          "0df94db1-7166-4e65-9108-6298cb0cadfd",
   };
 
   const PILL_DEFS = {
@@ -263,6 +264,11 @@ ITTools.ui = (() => {
       label: "License Admin",
       cls:   "account-pill--amber",
       icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+    },
+    "security": {
+      label: "Security Access",
+      cls:   "account-pill--slate",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
     },
   };
 
