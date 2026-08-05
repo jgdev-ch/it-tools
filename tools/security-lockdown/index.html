@@ -463,6 +463,40 @@ function exportResultsCsv() {
   })));
 }
 
+const SIDEBAR_ICONS = {
+  success: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34c76f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+  failed:  `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ea6a60" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+};
+
+// A sidebar action badge only leaves "pending" once every account in the
+// queue has reached a terminal state (success/failed) for that specific
+// action. Accounts are locked down one at a time, in full, before the next
+// account starts (see executeLockdown's nested loop), so an aggregate
+// "any account still mid-run" badge would otherwise flicker per account
+// instead of reflecting the whole queue.
+function renderSidebarProgress() {
+  ACTION_ORDER.forEach((key, idx) => {
+    const num = document.getElementById("sidebarNum-" + key);
+    if (!num) return;
+    num.classList.remove("success", "failed");
+    const allTerminal = st.results.length > 0 &&
+      st.results.every(r => r.actions[key].status === "success" || r.actions[key].status === "failed");
+    if (!allTerminal) {
+      num.textContent = idx + 1;
+      return;
+    }
+    const anyFailed = st.results.some(r => r.actions[key].status === "failed");
+    num.classList.add(anyFailed ? "failed" : "success");
+    num.innerHTML = anyFailed ? SIDEBAR_ICONS.failed : SIDEBAR_ICONS.success;
+  });
+
+  const tally = document.getElementById("sidebarTally");
+  if (!st.results.length) { tally.style.display = "none"; return; }
+  const fullyDone = st.results.filter(r => ACTION_ORDER.every(k => r.actions[k].status === "success")).length;
+  tally.style.display = "block";
+  tally.textContent = `${fullyDone} of ${st.results.length} account(s) fully locked down`;
+}
+
 function statusBadge(action) {
   return `<span class="action-status action-status--${action.status}">${action.status}</span>` +
     (action.error ? `<div style="font-size:10px;color:var(--red);margin-top:2px">${esc(action.error)}</div>` : "");
@@ -495,6 +529,7 @@ function renderResults() {
   const allAccountsDone = st.results.length > 0 &&
     st.results.every(row => ACTION_ORDER.every(k => row.actions[k].status === "success" || row.actions[k].status === "failed"));
   document.getElementById("csvExportBtn").disabled = !allAccountsDone;
+  renderSidebarProgress();
 }
 
 function addCandidateFromJson(el) {
