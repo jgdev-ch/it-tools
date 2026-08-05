@@ -161,6 +161,20 @@ const st = {
 
 // Avoids visually ambiguous characters (0/O, 1/l/I) since a tech may need to
 // read this aloud over the phone when handing it back to the account owner.
+// Graph has no single "delete all MFA methods" call — each authentication
+// method type has its own delete sub-path. passwordAuthenticationMethod is
+// intentionally excluded: it can't be removed this way (it IS the password,
+// handled separately by the resetPassword action) and isn't a second factor.
+const MFA_METHOD_ENDPOINTS = {
+  "#microsoft.graph.phoneAuthenticationMethod":                    "phoneMethods",
+  "#microsoft.graph.microsoftAuthenticatorAuthenticationMethod":   "microsoftAuthenticatorMethods",
+  "#microsoft.graph.softwareOathAuthenticationMethod":             "softwareOathMethods",
+  "#microsoft.graph.fido2AuthenticationMethod":                    "fido2Methods",
+  "#microsoft.graph.emailAuthenticationMethod":                    "emailMethods",
+  "#microsoft.graph.temporaryAccessPassAuthenticationMethod":      "temporaryAccessPassMethods",
+  "#microsoft.graph.windowsHelloForBusinessAuthenticationMethod":  "windowsHelloForBusinessMethods",
+};
+
 function generateTempPassword() {
   const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
   const lower = "abcdefghjkmnpqrstuvwxyz";
@@ -268,6 +282,92 @@ function goToStep2() {
 function checkConfirmText() {
   const val = document.getElementById("confirmInput").value.trim();
   document.getElementById("executeBtn").disabled = (val !== "LOCKDOWN");
+}
+
+async function actionRevokeSessions(accountId) {
+  await ITTools.graph.post(`/users/${accountId}/revokeSignInSessions`, {});
+}
+
+async function actionResetPassword(accountId) {
+  const password = generateTempPassword();
+  await ITTools.graph.patch(`/users/${accountId}`, {
+    passwordProfile: { password, forceChangePasswordNextSignIn: true },
+  });
+  return password;
+}
+
+async function actionResetMfa(accountId) {
+  const methods = await ITTools.graph.get(`/users/${accountId}/authentication/methods`);
+  const list = methods.value || [];
+  let removed = 0, skipped = 0;
+  for (const m of list) {
+    const type = m["@odata.type"];
+    if (type === "#microsoft.graph.passwordAuthenticationMethod") { continue; }
+    const endpoint = MFA_METHOD_ENDPOINTS[type];
+    if (!endpoint) { skipped++; continue; }
+    await ITTools.graph.del(`/users/${accountId}/authentication/${endpoint}/${m.id}`);
+    removed++;
+  }
+  return { removed, skipped };
+}
+
+async function actionBlockSignIn(accountId) {
+  await ITTools.graph.patch(`/users/${accountId}`, { accountEnabled: false });
+}
+
+// One (account, action) pair. Called both during the initial run and by
+// retry, so retry can target a single failed action without touching the
+// others.
+async function runAction(account, actionKey) {
+  const row = st.results.find(r => r.id === account.id);
+  row.actions[actionKey].status = "running";
+  renderResults();
+  try {
+    if (actionKey === "revokeSessions") {
+      await actionRevokeSessions(account.id);
+    } else if (actionKey === "resetPassword") {
+      row.tempPassword = await actionResetPassword(account.id);
+    } else if (actionKey === "resetMfa") {
+      await actionResetMfa(account.id);
+    } else if (actionKey === "blockSignIn") {
+      await actionBlockSignIn(account.id);
+    }
+    row.actions[actionKey].status = "success";
+    row.actions[actionKey].error  = null;
+  } catch(e) {
+    row.actions[actionKey].status = "failed";
+    row.actions[actionKey].error  = ITTools.graph.friendlyError(e);
+  }
+  renderResults();
+}
+
+const ACTION_ORDER = ["revokeSessions", "resetPassword", "resetMfa", "blockSignIn"];
+
+async function executeLockdown() {
+  document.getElementById("executeBtn").disabled = true;
+  st.results = st.queue.map(a => ({
+    id: a.id, displayName: a.displayName, upn: a.upn,
+    tempPassword: null,
+    actions: Object.fromEntries(ACTION_ORDER.map(k => [k, { status: "pending", error: null }])),
+  }));
+  markDone(2, `${st.queue.length} account(s) confirmed`);
+  gotoStep(3);
+  renderResults();
+
+  for (const account of st.queue) {
+    for (const actionKey of ACTION_ORDER) {
+      await runAction(account, actionKey);
+    }
+  }
+}
+
+async function retryFailedActions(accountId) {
+  const account = st.queue.find(a => a.id === accountId);
+  const row     = st.results.find(r => r.id === accountId);
+  const failed  = ACTION_ORDER.filter(k => row.actions[k].status === "failed");
+  for (const actionKey of failed) {
+    await runAction(account, actionKey);
+  }
 }
 
 function addCandidateFromJson(el) {
