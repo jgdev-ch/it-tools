@@ -45,7 +45,10 @@
   .queue-table    { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
   .queue-table th, .queue-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
   .queue-remove   { color: var(--red); cursor: pointer; background: none; border: none; font-size: 12px; font-weight: 600; }
-  /* TASK9: step 2 (review & confirm) CSS goes here */
+  .review-table    { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  .review-table th, .review-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .confirm-input   { font-family: monospace; letter-spacing: 2px; text-transform: uppercase; }
+  .confirm-warning { background: var(--red-light); border: 1px solid var(--red-border); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
   /* TASK11: step 3 (results) CSS goes here */
 </style>
 </head>
@@ -123,7 +126,20 @@
     </div>
 
     <div class="section" id="step2">
-      <!-- TASK9: review list + type-to-confirm goes here -->
+      <h2>Review &amp; Confirm</h2>
+      <div class="confirm-warning">
+        This will revoke sessions, reset the password, reset MFA, and block sign-in for every account below. This cannot be undone from this tool.
+      </div>
+      <table class="review-table">
+        <thead><tr><th>Name</th><th>UPN</th></tr></thead>
+        <tbody id="reviewBody"></tbody>
+      </table>
+      <p class="label">Type <strong>LOCKDOWN</strong> to enable the button below</p>
+      <input type="text" id="confirmInput" class="input confirm-input" placeholder="LOCKDOWN" oninput="checkConfirmText()">
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="gotoStep(1)">&larr; Back</button>
+        <button class="btn btn-danger" id="executeBtn" disabled onclick="executeLockdown()">Lock Down <span id="executeCount">0</span> Account(s)</button>
+      </div>
     </div>
 
     <div class="section" id="step3">
@@ -216,6 +232,23 @@ async function doSearch() {
   } catch(e) {
     resultsEl.innerHTML = `<p style="font-size:12px;color:var(--red)">${esc(e.message)}</p>`;
   }
+}
+
+function goToStep2() {
+  if (!st.queue.length) return;
+  document.getElementById("reviewBody").innerHTML = st.queue.map(a => `
+    <tr><td>${esc(a.displayName)}</td><td>${esc(a.upn)}</td></tr>
+  `).join("");
+  document.getElementById("executeCount").textContent = st.queue.length;
+  document.getElementById("confirmInput").value = "";
+  document.getElementById("executeBtn").disabled = true;
+  markDone(1, `${st.queue.length} account(s) added`);
+  gotoStep(2);
+}
+
+function checkConfirmText() {
+  const val = document.getElementById("confirmInput").value.trim();
+  document.getElementById("executeBtn").disabled = (val !== "LOCKDOWN");
 }
 
 function addCandidateFromJson(el) {
