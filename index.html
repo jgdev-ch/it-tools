@@ -424,40 +424,6 @@ body::before {
 }
 @keyframes hub-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 
-/* ── Setup card ── */
-.setup-toggle {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: var(--glass-fill); border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  border-radius: 20px; padding: 6px 16px 6px 12px;
-  font-size: 12px; font-weight: 600; color: var(--ink-dim);
-  cursor: pointer; font-family: inherit;
-  transition: border-color .15s, color .15s, background .15s;
-}
-.setup-toggle:hover { border-color: var(--border-mid); color: var(--ink); background: rgba(255,255,255,.55); }
-[data-theme="dark"] .setup-toggle:hover { background: rgba(255,255,255,.10); }
-.setup-toggle.open {
-  border-radius: 12px 12px 0 0; width: 100%;
-  justify-content: flex-start; border-bottom-color: transparent;
-}
-.setup-toggle.open + .setup-card { border-radius: 0 0 14px 14px; border-top: none; }
-.setup-chevron { color: var(--ink-dim); margin-left: auto; flex-shrink: 0; transition: transform .3s cubic-bezier(.4,0,.2,1); }
-.setup-toggle.open .setup-chevron { transform: rotate(180deg); }
-.setup-card {
-  background: var(--glass-fill); border: 1px solid var(--glass-border);
-  backdrop-filter: blur(22px);
-  border-radius: 14px; padding: 1.25rem;
-  font-size: 13px; line-height: 1.7; color: var(--ink-dim);
-}
-.setup-card strong { color: var(--ink); }
-.setup-uri {
-  font-family: 'Cascadia Code','Consolas',monospace; font-size: 12px;
-  background: rgba(255,255,255,.35); border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm); padding: 8px 12px; color: var(--ink);
-  word-break: break-all; margin: .75rem 0;
-}
-[data-theme="dark"] .setup-uri { background: rgba(255,255,255,.05); }
-
 /* ── Footer ── */
 .hub-footer {
   border-top: 1px solid var(--glass-border); padding: 1.5rem 1.75rem;
@@ -601,16 +567,6 @@ body::before {
     </div>
   </div>
 
-  <button class="setup-toggle" id="setupToggle" onclick="toggleSetup()">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-    <span>Setup</span>
-    <svg class="setup-chevron" id="setupChevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-  </button>
-  <div class="setup-card" id="setupCard" hidden>
-    <p>All tools share a single <strong>Entra ID app registration</strong>. Add the following redirect URI to your app under <em>Authentication &rarr; Single-page application</em>:</p>
-    <div class="setup-uri" id="baseUri"></div>
-    <p>Each tool will automatically use its own sub-path as the redirect URI. You only need one registration for the whole hub.</p>
-  </div>
 </div>
 
 <footer class="hub-footer">
@@ -1156,25 +1112,8 @@ function toggleSection(key) {
   el.querySelector(".section-label").setAttribute("aria-expanded", String(!collapsed));
 }
 
-// ── Setup toggle ──────────────────────────────────────────────────────────────
-function toggleSetup() {
-  const open = localStorage.getItem('it-tools-setup-open') === 'true';
-  const next = !open;
-  localStorage.setItem('it-tools-setup-open', String(next));
-  applySetupState(next);
-}
-
-function applySetupState(open) {
-  const btn  = document.getElementById('setupToggle');
-  const card = document.getElementById('setupCard');
-  btn.classList.toggle('open', open);
-  card.hidden = !open;
-}
-
 // ── Boot ──────────────────────────────────────────────────────────────────────
-document.getElementById("baseUri").textContent = ITTools.auth.redirectUri();
 initTheme();
-applySetupState(localStorage.getItem('it-tools-setup-open') === 'true');
 
 // ── Account dropdown toggle and dismiss ───────────────────────────────────────
 function toggleAccountDropdown() {
