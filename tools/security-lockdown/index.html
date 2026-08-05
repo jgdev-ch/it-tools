@@ -49,7 +49,16 @@
   .review-table th, .review-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
   .confirm-input   { font-family: monospace; letter-spacing: 2px; text-transform: uppercase; }
   .confirm-warning { background: var(--red-light); border: 1px solid var(--red-border); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
-  /* TASK11: step 3 (results) CSS goes here */
+  .results-table   { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+  .results-table th, .results-table td { padding: 8px 8px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .action-status          { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .action-status--success { background: var(--green-light); color: var(--green); }
+  .action-status--failed  { background: var(--red-light);   color: var(--red); }
+  .action-status--pending, .action-status--running { background: var(--surface2); color: var(--muted); }
+  .overall-badge          { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; }
+  .overall-badge--full    { background: var(--green-light); color: var(--green); }
+  .overall-badge--partial { background: var(--amber-light); color: var(--amber); }
+  .retry-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: var(--blue); font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; }
 </style>
 </head>
 <body>
@@ -143,7 +152,17 @@
     </div>
 
     <div class="section" id="step3">
-      <!-- TASK11/TASK12: results table + CSV export go here -->
+      <h2>Results</h2>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Name</th><th>UPN</th><th>Sessions</th><th>Password</th>
+            <th>MFA</th><th>Sign-In</th><th>Overall</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+      <button class="btn btn-secondary" id="csvExportBtn" disabled onclick="exportResultsCsv()">Download Results CSV</button>
     </div>
 
   </div>
@@ -368,6 +387,40 @@ async function retryFailedActions(accountId) {
   for (const actionKey of failed) {
     await runAction(account, actionKey);
   }
+}
+
+function statusBadge(action) {
+  return `<span class="action-status action-status--${action.status}">${action.status}</span>` +
+    (action.error ? `<div style="font-size:10px;color:var(--red);margin-top:2px">${esc(action.error)}</div>` : "");
+}
+
+function renderResults() {
+  const body = document.getElementById("resultsBody");
+  body.innerHTML = st.results.map(row => {
+    const allDone   = ACTION_ORDER.every(k => row.actions[k].status === "success" || row.actions[k].status === "failed");
+    const anyFailed = ACTION_ORDER.some(k => row.actions[k].status === "failed");
+    const overall   = !allDone ? "" :
+      anyFailed
+        ? `<span class="overall-badge overall-badge--partial">Partial &mdash; needs attention</span>`
+        : `<span class="overall-badge overall-badge--full">Fully locked down</span>`;
+    const retry = (allDone && anyFailed)
+      ? `<button class="retry-btn" onclick="retryFailedActions('${row.id}')">&#8635; Retry failed actions</button>`
+      : "";
+    return `<tr>
+      <td>${esc(row.displayName)}</td>
+      <td>${esc(row.upn)}</td>
+      <td>${statusBadge(row.actions.revokeSessions)}</td>
+      <td>${statusBadge(row.actions.resetPassword)}</td>
+      <td>${statusBadge(row.actions.resetMfa)}</td>
+      <td>${statusBadge(row.actions.blockSignIn)}</td>
+      <td>${overall}</td>
+      <td>${retry}</td>
+    </tr>`;
+  }).join("");
+
+  const allAccountsDone = st.results.length > 0 &&
+    st.results.every(row => ACTION_ORDER.every(k => row.actions[k].status === "success" || row.actions[k].status === "failed"));
+  document.getElementById("csvExportBtn").disabled = !allAccountsDone;
 }
 
 function addCandidateFromJson(el) {
