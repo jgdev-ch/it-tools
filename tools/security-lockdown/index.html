@@ -389,6 +389,21 @@ async function retryFailedActions(accountId) {
   }
 }
 
+function exportResultsCsv() {
+  if (!st.results.length) return;
+  const today = new Date().toISOString().slice(0, 10);
+  ITTools.csv.download(`AccountLockdown_Results_${today}.csv`, st.results.map(row => ({
+    "Display Name":     row.displayName,
+    "UPN":               row.upn,
+    "Sessions Revoked":  row.actions.revokeSessions.status,
+    "Password Reset":    row.actions.resetPassword.status,
+    "MFA Reset":         row.actions.resetMfa.status,
+    "Sign-In Blocked":   row.actions.blockSignIn.status,
+    "Temp Password":     row.actions.resetPassword.status === "success" ? row.tempPassword : "",
+    "Timestamp":         new Date().toISOString(),
+  })));
+}
+
 function statusBadge(action) {
   return `<span class="action-status action-status--${action.status}">${action.status}</span>` +
     (action.error ? `<div style="font-size:10px;color:var(--red);margin-top:2px">${esc(action.error)}</div>` : "");
