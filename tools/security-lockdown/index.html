@@ -159,6 +159,25 @@ const st = {
   results: [],   // { id, displayName, upn, actions: {...}, tempPassword } — after execution
 };
 
+// Avoids visually ambiguous characters (0/O, 1/l/I) since a tech may need to
+// read this aloud over the phone when handing it back to the account owner.
+function generateTempPassword() {
+  const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digit = "23456789";
+  const symbol = "!@#$%^&*-_=+";
+  const all = upper + lower + digit + symbol;
+  const pick = set => set[Math.floor(Math.random() * set.length)];
+
+  let pw = [pick(upper), pick(lower), pick(digit), pick(symbol)];
+  for (let i = pw.length; i < 16; i++) pw.push(pick(all));
+  for (let i = pw.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pw[i], pw[j]] = [pw[j], pw[i]];
+  }
+  return pw.join("");
+}
+
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
