@@ -49,10 +49,17 @@ Extends the existing `#1c1f26` dark-glass header (`.lockdown-header`) rather tha
 - The single red element in the whole tool remains the "cannot be undone" callout at the bottom of the sidebar — same red tokens already used by `.confirm-warning` in Step 2 (`var(--red-light)` / `var(--red-border)`). Red is not used anywhere else in the sidebar or header.
 - Everything outside the header/sidebar (search box, queue table, buttons, results table) is unchanged — still normal hub glass, preserving the original spec's intent that the tool still feels part of the hub rather than a bolted-on separate app.
 
+**Icons — Lucide only, no unicode glyphs.** This hub has an existing convention (see the chevron collapse/expand toggles elsewhere in the hub) of using real Lucide SVGs instead of unicode symbols or emoji, for consistent stroke width/weight across the UI. This pass follows the same rule everywhere it touches icons:
+- The header's lock icon is already a genuine Lucide `lock` SVG (unchanged) — just recoloring its badge text to match.
+- The sidebar's "cannot be undone" callout uses Lucide's `triangle-alert` icon (not a ⚠ emoji character).
+- The Step-3 dynamic status badges use Lucide's `check` icon (success) and `x` icon (failed) at small size (~10px), replacing any unicode ✓/✗. The "pending" state has no icon — it's the plain amber-tinted number, same as Steps 1–2.
+- The four numbered sidebar rows (①②③④) stay as plain digits, not icons — a "1/2/3/4" numbered list isn't an icon and doesn't need a Lucide equivalent; only actual symbolic glyphs (warning, check, x) are in scope for this rule.
+
 ## Implementation Notes
 
 - New CSS: `.lockdown-sidebar`, `.sidebar-step`, `.sidebar-step .num` (three visual states: pending/success/failed), `.sidebar-warning`, `.sidebar-tally`. Shell/header CSS (`.shell`, `.lockdown-header`, `.lockdown-badge`) gets adjusted, not replaced.
 - New JS: `renderSidebarProgress()` — reads `st.results`, updates the four badge states + tally text. No new state object; purely a render function over existing data.
+- Icons (`triangle-alert`, `check`, `x`) are inline SVGs copied directly from lucide.dev, matching the stroke-width/size conventions already used by every other inline icon in this file (`stroke-width="2.5"`, sized ~10–13px for badges/inline use) — same pattern as the existing header lock icon and the pill icons in `shared/auth.js`, not a new icon-loading mechanism.
 - No changes to any Graph call, action logic, retry logic, or CSV export — this pass is presentation-only.
 
 ## Testing
