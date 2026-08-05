@@ -241,6 +241,7 @@ ITTools.ui = (() => {
     reporting:         "cea8f0fe-a3d5-4f8a-9f77-e9ce6fdf7b8d",
     gsd:               "3e1a4757-8189-4908-a611-b6029399e69e",
     "license-modify":  "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8",
+    security:          "0df94db1-7166-4e65-9108-6298cb0cadfd",
   };
 
   const PILL_DEFS = {
