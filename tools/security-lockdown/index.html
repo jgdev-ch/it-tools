@@ -83,7 +83,7 @@
   .confirm-warning { background: var(--red-light); border: 1px solid var(--red-border); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
   .results-table   { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
   .results-table th, .results-table td { padding: 8px 8px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
-  .action-status          { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .action-status          { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
   .action-status--success { background: var(--green-light); color: var(--green); }
   .action-status--failed  { background: var(--red-light);   color: var(--red); }
   .action-status--pending, .action-status--running { background: var(--surface2); color: var(--muted); }
@@ -507,7 +507,13 @@ function renderSidebarProgress() {
 }
 
 function statusBadge(action) {
-  return `<span class="action-status action-status--${action.status}">${action.status}</span>` +
+  // Only terminal states (success/failed) get an icon — pending/running
+  // stay text-only since there's nothing confirmed yet to put a check or
+  // x next to.
+  const icon = action.status === "success" ? SIDEBAR_ICONS.success
+             : action.status === "failed"  ? SIDEBAR_ICONS.failed
+             : "";
+  return `<span class="action-status action-status--${action.status}">${icon}${action.status}</span>` +
     (action.error ? `<div style="font-size:10px;color:var(--red);margin-top:2px">${esc(action.error)}</div>` : "");
 }
 
