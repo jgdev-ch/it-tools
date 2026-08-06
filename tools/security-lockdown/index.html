@@ -91,6 +91,10 @@
   .overall-badge--full    { background: var(--green-light); color: var(--green); }
   .overall-badge--partial { background: var(--amber-light); color: var(--amber); }
   .retry-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: var(--blue); font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; }
+  .progress-bar-wrap  { margin: 12px 0 16px; }
+  .progress-bar-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .progress-bar-track { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill  { height: 100%; width: 0%; background: #e2a13d; border-radius: 4px; transition: width .3s; }
 </style>
 </head>
 <body>
@@ -188,6 +192,10 @@
 
     <div class="section" id="step3">
       <h2>Results</h2>
+      <div class="progress-bar-wrap" id="progressBarWrap" style="display:none">
+        <div class="progress-bar-label" id="progressBarLabel"></div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+      </div>
       <table class="results-table">
         <thead>
           <tr>
@@ -506,6 +514,28 @@ function renderSidebarProgress() {
   tally.textContent = `${fullyDone} of ${st.results.length} account(s) fully locked down`;
 }
 
+// Counts accounts that have reached a terminal state (success OR failed)
+// for every one of the four actions — i.e. "done being processed", not
+// "fully succeeded". This is deliberately different from
+// renderSidebarProgress()'s fullyDone (which requires all-success, for its
+// "N fully locked down" wording) — the progress bar tracks queue-wide
+// completion, not queue-wide success.
+function renderProgressBar() {
+  const wrap  = document.getElementById("progressBarWrap");
+  const label = document.getElementById("progressBarLabel");
+  const fill  = document.getElementById("progressBarFill");
+  if (!st.results.length) { wrap.style.display = "none"; return; }
+
+  const processedCount = st.results.filter(row =>
+    ACTION_ORDER.every(k => row.actions[k].status === "success" || row.actions[k].status === "failed")
+  ).length;
+  if (processedCount === st.results.length) { wrap.style.display = "none"; return; }
+
+  wrap.style.display = "block";
+  label.textContent = `Locking down ${processedCount} of ${st.results.length} account(s)…`;
+  fill.style.width = `${Math.round((processedCount / st.results.length) * 100)}%`;
+}
+
 function statusBadge(action) {
   // Only terminal states (success/failed) get an icon — pending/running
   // stay text-only since there's nothing confirmed yet to put a check or
@@ -545,6 +575,7 @@ function renderResults() {
     st.results.every(row => ACTION_ORDER.every(k => row.actions[k].status === "success" || row.actions[k].status === "failed"));
   document.getElementById("csvExportBtn").disabled = !allAccountsDone;
   renderSidebarProgress();
+  renderProgressBar();
 }
 
 function addCandidateFromJson(el) {
