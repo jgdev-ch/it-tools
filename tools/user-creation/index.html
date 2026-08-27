@@ -830,7 +830,7 @@ function generatePassword() {
   pwd += lower  [bytes[1]  % lower.length];
   pwd += digits [bytes[2]  % digits.length];
   pwd += symbols[bytes[3]  % symbols.length];
-  for (let i = 4; i < 16; i++) pwd += all[bytes[i] % all.length];
+  for (let i = 4; i < 12; i++) pwd += all[bytes[i] % all.length];
   const chars = pwd.split("");
   for (let i = chars.length - 1; i > 0; i--) {
     const j = bytes[i % bytes.length] % (i + 1);
