@@ -284,7 +284,7 @@ body::before {
 .changelog-badge {
   position: absolute; top: 4px; right: 4px;
   width: 7px; height: 7px; border-radius: 50%;
-  background: var(--blue);
+  background: var(--red);
 }
 
 /* ── Page shell ── */
@@ -1170,7 +1170,7 @@ async function loadChangelog() {
     renderChangelog();
     document.getElementById("changelogBtn").style.display = "flex";
     const lastSeen = localStorage.getItem("it-tools-changelog-last-seen");
-    if (lastSeen && _changelogEntries[0].date > lastSeen) {
+    if (!lastSeen || _changelogEntries[0].date > lastSeen) {
       document.getElementById("changelogBadge").style.display = "block";
     }
   } catch(_) {}
