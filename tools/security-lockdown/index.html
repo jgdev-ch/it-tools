@@ -36,7 +36,7 @@
   }
   .lockdown-step.active { opacity: 1; }
   .lockdown-step.done   { opacity: .7; }
-  .shell { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+  .shell { max-width: 1300px; margin: 0 auto; padding: 24px 16px; }
   .wizard-layout { display: flex; gap: 24px; align-items: flex-start; }
   .wizard-main   { flex: 1; min-width: 0; }
   .lockdown-sidebar {
@@ -70,6 +70,10 @@
   .cand-row:hover { background: var(--surface2); }
   .cand-name      { font-size: 13px; font-weight: 600; }
   .cand-meta      { font-size: 11px; color: var(--muted); }
+  .search-results-clear { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .search-clear-btn     { color: var(--muted); cursor: pointer; background: none; border: none; font-size: 11px; font-weight: 600; padding: 0; }
+  .search-clear-btn:hover { color: var(--blue); }
+  .search-results-box   { max-height: 320px; overflow-y: auto; margin-top: 2px; }
   .queue-table    { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
   .queue-table th, .queue-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
   .queue-remove   { color: var(--red); cursor: pointer; background: none; border: none; font-size: 12px; font-weight: 600; }
@@ -79,7 +83,7 @@
   .confirm-warning { background: var(--red-light); border: 1px solid var(--red-border); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
   .results-table   { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
   .results-table th, .results-table td { padding: 8px 8px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
-  .action-status          { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .action-status          { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
   .action-status--success { background: var(--green-light); color: var(--green); }
   .action-status--failed  { background: var(--red-light);   color: var(--red); }
   .action-status--pending, .action-status--running { background: var(--surface2); color: var(--muted); }
@@ -87,6 +91,10 @@
   .overall-badge--full    { background: var(--green-light); color: var(--green); }
   .overall-badge--partial { background: var(--amber-light); color: var(--amber); }
   .retry-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: var(--blue); font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; }
+  .progress-bar-wrap  { margin: 12px 0 16px; }
+  .progress-bar-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .progress-bar-track { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill  { height: 100%; width: 0%; background: #e2a13d; border-radius: 4px; transition: width .3s; }
 </style>
 </head>
 <body>
@@ -184,6 +192,10 @@
 
     <div class="section" id="step3">
       <h2>Results</h2>
+      <div class="progress-bar-wrap" id="progressBarWrap" style="display:none">
+        <div class="progress-bar-label" id="progressBarLabel"></div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+      </div>
       <table class="results-table">
         <thead>
           <tr>
@@ -331,15 +343,20 @@ async function doSearch() {
       resultsEl.innerHTML = `<p style="font-size:12px;color:var(--red)">No matches found.</p>`;
       return;
     }
-    resultsEl.innerHTML = candidates.map(c => `
-      <div class="cand-row" onclick='addCandidateFromJson(this)' data-account='${esc(JSON.stringify(c))}'>
-        <div style="flex:1">
-          <div class="cand-name">${esc(c.displayName)}</div>
-          <div class="cand-meta">${esc(c.userPrincipalName)}${c.department ? " &middot; " + esc(c.department) : ""}</div>
-        </div>
-        <span style="font-size:11px;font-weight:600;color:var(--blue)">Add</span>
+    resultsEl.innerHTML = `
+      <div class="search-results-clear"><button class="search-clear-btn" onclick="clearSearchResults()">Clear</button></div>
+      <div class="search-results-box">
+        ${candidates.map(c => `
+          <div class="cand-row" onclick='addCandidateFromJson(this)' data-account='${esc(JSON.stringify(c))}'>
+            <div style="flex:1">
+              <div class="cand-name">${esc(c.displayName)}</div>
+              <div class="cand-meta">${esc(c.userPrincipalName)}${c.department ? " &middot; " + esc(c.department) : ""}</div>
+            </div>
+            <span style="font-size:11px;font-weight:600;color:var(--blue)">Add</span>
+          </div>
+        `).join("")}
       </div>
-    `).join("");
+    `;
   } catch(e) {
     resultsEl.innerHTML = `<p style="font-size:12px;color:var(--red)">${esc(e.message)}</p>`;
   }
@@ -497,8 +514,36 @@ function renderSidebarProgress() {
   tally.textContent = `${fullyDone} of ${st.results.length} account(s) fully locked down`;
 }
 
+// Counts accounts that have reached a terminal state (success OR failed)
+// for every one of the four actions — i.e. "done being processed", not
+// "fully succeeded". This is deliberately different from
+// renderSidebarProgress()'s fullyDone (which requires all-success, for its
+// "N fully locked down" wording) — the progress bar tracks queue-wide
+// completion, not queue-wide success.
+function renderProgressBar() {
+  const wrap  = document.getElementById("progressBarWrap");
+  const label = document.getElementById("progressBarLabel");
+  const fill  = document.getElementById("progressBarFill");
+  if (!st.results.length) { wrap.style.display = "none"; return; }
+
+  const processedCount = st.results.filter(row =>
+    ACTION_ORDER.every(k => row.actions[k].status === "success" || row.actions[k].status === "failed")
+  ).length;
+  if (processedCount === st.results.length) { wrap.style.display = "none"; return; }
+
+  wrap.style.display = "block";
+  label.textContent = `Locking down ${processedCount} of ${st.results.length} account(s)…`;
+  fill.style.width = `${Math.round((processedCount / st.results.length) * 100)}%`;
+}
+
 function statusBadge(action) {
-  return `<span class="action-status action-status--${action.status}">${action.status}</span>` +
+  // Only terminal states (success/failed) get an icon — pending/running
+  // stay text-only since there's nothing confirmed yet to put a check or
+  // x next to.
+  const icon = action.status === "success" ? SIDEBAR_ICONS.success
+             : action.status === "failed"  ? SIDEBAR_ICONS.failed
+             : "";
+  return `<span class="action-status action-status--${action.status}">${icon}${action.status}</span>` +
     (action.error ? `<div style="font-size:10px;color:var(--red);margin-top:2px">${esc(action.error)}</div>` : "");
 }
 
@@ -530,13 +575,25 @@ function renderResults() {
     st.results.every(row => ACTION_ORDER.every(k => row.actions[k].status === "success" || row.actions[k].status === "failed"));
   document.getElementById("csvExportBtn").disabled = !allAccountsDone;
   renderSidebarProgress();
+  renderProgressBar();
 }
 
 function addCandidateFromJson(el) {
   const account = JSON.parse(el.dataset.account);
   addToQueue(account);
-  document.getElementById("searchInput").value = "";
+  const box = el.parentElement;
+  el.remove();
+  // If that was the last remaining match, collapse back to the pre-search
+  // state (no empty box, no dangling Clear link) instead of leaving an
+  // empty scrollable box behind.
+  if (box && box.classList.contains("search-results-box") && !box.children.length) {
+    document.getElementById("searchResults").innerHTML = "";
+  }
+}
+
+function clearSearchResults() {
   document.getElementById("searchResults").innerHTML = "";
+  document.getElementById("searchInput").value = "";
 }
 
 function handleBulkFile(e) {

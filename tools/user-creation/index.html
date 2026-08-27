@@ -53,8 +53,8 @@
     .val-pill { display:flex; align-items:center; gap:5px; font-size:12px; padding:4px 10px; border-radius:20px; font-weight:600; }
     .val-pill .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
     .val-pill.ok   { background:var(--green-light); color:var(--green); }
-    .val-pill.warn { background:#451a03; color:#fbbf24; }
-    .val-pill.err  { background:#450a0a; color:#fca5a5; }
+    .val-pill.warn { background:var(--amber-light); color:var(--amber); }
+    .val-pill.err  { background:var(--red-light);   color:var(--red); }
 
     /* ── Bulk settings bar ── */
     .bulk-bar           { border:1px solid var(--border); border-radius:10px; margin-bottom:14px; overflow:hidden; }
@@ -62,6 +62,8 @@
     .bulk-header:hover  { filter:brightness(1.1); }
     .bulk-title         { font-size:12px; font-weight:700; color:var(--text); }
     .bulk-subtitle      { font-size:11px; color:var(--muted); margin-left:auto; }
+    .bulk-chevron       { display:inline-flex; color:var(--muted); transition:transform .2s; transform:rotate(-90deg); }
+    .bulk-chevron.open  { transform:rotate(0deg); }
     .bulk-body          { padding:16px; border-top:1px solid var(--border); display:flex; align-items:flex-end; gap:24px; flex-wrap:wrap; }
     .bulk-field         { display:flex; flex-direction:column; gap:6px; }
     .bulk-field label   { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
@@ -80,16 +82,16 @@
     /* ── Review table ── */
     .review-tbl th { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:9px 12px; white-space:nowrap; text-align:left; }
     .review-tbl td { padding:8px 12px; vertical-align:middle; border-top:1px solid var(--border); }
-    .review-tbl tr.row-warn { background:rgba(69,26,3,.10); }
-    .review-tbl tr.row-err  { background:rgba(69,10,10,.14); }
+    .review-tbl tr.row-warn { background:var(--amber-light); }
+    .review-tbl tr.row-err  { background:var(--red-light); }
     .inline-sel  { background:var(--surface); border:1px solid var(--border); color:var(--text); font-size:12px; padding:3px 6px; border-radius:5px; cursor:pointer; }
     .upn-cell    { font-family:monospace; font-size:11px; color:var(--blue-mid); }
 
     /* ── Status pills ── */
     .spill        { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 8px; border-radius:12px; font-weight:600; white-space:nowrap; }
     .spill.ok     { background:var(--green-light); color:var(--green); }
-    .spill.warn   { background:#451a03; color:#fcd34d; }
-    .spill.err    { background:#450a0a; color:#fca5a5; }
+    .spill.warn   { background:var(--amber-light); color:var(--amber); }
+    .spill.err    { background:var(--red-light);   color:var(--red); }
 
     /* ── Modal ── */
     .modal-overlay { position:fixed; inset:0; background:#00000099; display:flex; align-items:center; justify-content:center; z-index:200; }
@@ -120,7 +122,7 @@
     .path-title         { font-size:14px; font-weight:700; color:var(--text); }
     .path-tag           { margin-left:auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--green); background:var(--green-light); padding:3px 8px; border-radius:12px; }
     .path-desc          { font-size:12px; color:var(--muted); line-height:1.6; flex:1; margin:0; }
-    .path-unavail       { font-size:11px; color:#fbbf24; }
+    .path-unavail       { font-size:11px; color:var(--amber); }
     .s4-done            { display:flex; align-items:flex-start; gap:10px; padding:14px 16px; background:var(--green-light); border:1px solid var(--green-border); border-radius:10px; font-size:13px; color:var(--text); line-height:1.6; }
     @media (max-width:720px){ .path-choice { grid-template-columns:1fr; } }
   </style>
@@ -240,7 +242,9 @@
         <!-- Bulk settings -->
         <div class="bulk-bar" id="bulkBar">
           <div class="bulk-header" onclick="toggleBulk()">
-            <span id="bulkChevron" style="color:var(--muted);font-size:10px">▶</span>
+            <span id="bulkChevron" class="bulk-chevron">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
             <span class="bulk-title">Bulk Settings</span>
             <span class="bulk-subtitle" id="bulkSubtitle">Apply the same license &amp; flags to all users at once</span>
           </div>
@@ -584,7 +588,7 @@ function parseAndRender(filename, text) {
   }
 
   // Build enriched rows
-  const upnRe = /^[a-zA-Z]+\.[a-zA-Z]+@corrohealth\.com$/i;
+  const upnRe = /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+@corrohealth\.com$/i;
   st.rows = parsed.rows.map((r, i) => {
     const fn  = (r.Firstname  || "").trim();
     const ln  = (r.Lastname   || "").trim();
@@ -690,7 +694,7 @@ function renderReviewTable() {
     tr.innerHTML = `
       <td style="color:var(--muted);font-size:12px">${row.num}</td>
       <td>${row.fn} ${row.ln}</td>
-      <td class="upn-cell" style="${row.status==="warn"?"color:#fca5a5":""}">${row.upn}</td>
+      <td class="upn-cell" style="${row.status==="warn"?"color:var(--amber)":""}">${row.upn}</td>
       <td style="color:var(--muted);font-size:12px">${row.eid}</td>
       <td>
         <select class="inline-sel" onchange="rowChanged(${idx},'size',this.value)">
@@ -769,8 +773,8 @@ function toggleBulk() {
   const body    = document.getElementById("bulkBody");
   const chevron = document.getElementById("bulkChevron");
   const open    = body.style.display !== "none";
-  body.style.display    = open ? "none" : "flex";
-  chevron.textContent   = open ? "▶" : "▼";
+  body.style.display = open ? "none" : "flex";
+  chevron.classList.toggle("open", !open);
 }
 
 function showBulkModal() {
@@ -924,7 +928,7 @@ async function createAccounts() {
         setProgStatus(row.num, IC.check(13) + " Done", "var(--green)");
       }
     } catch(e) {
-      setProgStatus(row.num, IC.x(13) + " " + ITTools.graph.friendlyError(e), "#fca5a5");
+      setProgStatus(row.num, IC.x(13) + " " + ITTools.graph.friendlyError(e), "var(--red)");
     }
   }
 
