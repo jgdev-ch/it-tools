@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "version": "2.3.3",
+      "date": "2026-08-27",
+      "notes": [
+        "User Creation: numeric UPN support, chevron/theme-color polish",
+        "Account Lockdown: wizard width, search-and-add fix, status badge icons, progress bar",
+        "Hub: Recent Updates panel and glass-styled scrollbars"
+      ]
+    },
+    {
+      "version": "2.3.2",
+      "date": "2026-08-05",
+      "notes": ["Account Lockdown: initial ship and visual polish"]
+    }
+  ]
+}

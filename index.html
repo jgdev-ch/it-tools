@@ -249,6 +249,38 @@ body::before {
   max-height: 70vh; overflow-y: auto;
 }
 
+/* ── Recent Updates dropdown panel ── */
+.changelog-panel {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  background: var(--panel-fill);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: var(--shadow-md);
+  width: 380px; height: 420px; max-width: calc(100vw - 32px);
+  z-index: 200; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.changelog-panel-head {
+  padding: 12px 14px 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--ink-dim); flex-shrink: 0;
+}
+.changelog-panel-date { font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.changelog-panel-list {
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto; flex: 1;
+}
+.changelog-entry { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+/* :last-of-type = "last div among all siblings" — when there are no month
+   buckets after it, this removes the trailing border; when there are, it
+   correctly leaves a divider before the grouped-months section. */
+.changelog-entry:last-of-type { border-bottom: none; padding-bottom: 0; }
+.changelog-entry-hdr { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+.changelog-date { font-size: 11px; color: var(--ink-dim); }
+.changelog-entry ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--ink-dim); line-height: 1.6; }
+
 /* ── Page shell ── */
 .hub-shell { max-width: 1300px; margin: 0 auto; padding: 2.25rem 1.5rem; position: relative; z-index: 1; }
 
@@ -506,6 +538,19 @@ body::before {
     </button>
 
     <div style="position:relative">
+      <button type="button" class="btn-icon" id="changelogBtn" onclick="toggleChangelogPanel()" title="Recent Updates" aria-label="Recent Updates" aria-expanded="false" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg>
+      </button>
+      <div class="changelog-panel" id="changelogPanel" style="display:none">
+        <div class="changelog-panel-head">
+          <span>Recent Updates</span>
+          <span class="changelog-panel-date" id="changelogPanelDate"></span>
+        </div>
+        <div class="changelog-panel-list" id="changelogPanelList"></div>
+      </div>
+    </div>
+
+    <div style="position:relative">
       <button type="button" class="btn-icon" id="downloadsBtn" onclick="toggleDownloadsDropdown()" title="Scripts &amp; Downloads" aria-label="Scripts and Downloads" aria-expanded="false" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
@@ -570,7 +615,7 @@ body::before {
 </div>
 
 <footer class="hub-footer">
-  <span>Built by Josh Garrett &middot; v2.3.2</span>
+  <span>Built by Josh Garrett &middot; v2.3.3</span>
   <div class="footer-links">
     <a href="https://learn.microsoft.com/en-us/graph/overview" target="_blank">Graph API docs</a>
     <a href="https://portal.azure.com" target="_blank">Entra admin</a>
@@ -1103,6 +1148,88 @@ function toggleDownloadsDropdown() {
   btn.setAttribute("aria-expanded", String(!isOpen));
 }
 
+// ── Recent Updates changelog panel ────────────────────────────────────────────
+let _changelogEntries = [];
+
+async function loadChangelog() {
+  try {
+    const res  = await fetch("changelog.json?v=" + Date.now());
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    _changelogEntries = data.entries || [];
+    if (!_changelogEntries.length) return;
+    document.getElementById("changelogPanelDate").textContent =
+      "Last updated " + formatChangelogDate(_changelogEntries[0].date);
+    renderChangelog();
+    document.getElementById("changelogBtn").style.display = "flex";
+  } catch(_) {}
+}
+
+function formatChangelogDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function changelogEntryHtml(entry) {
+  return `
+    <div class="changelog-entry">
+      <div class="changelog-entry-hdr"><strong>v${entry.version}</strong><span class="changelog-date">${formatChangelogDate(entry.date)}</span></div>
+      <ul>${entry.notes.map(n => `<li>${n}</li>`).join("")}</ul>
+    </div>`;
+}
+
+function renderChangelog() {
+  const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recent = [];
+  const monthGroups = new Map(); // "2026-07" -> entries[]
+
+  for (const entry of _changelogEntries) {
+    const entryMs = new Date(entry.date + "T00:00:00").getTime();
+    if (entryMs >= cutoffMs) {
+      recent.push(entry);
+    } else {
+      const key = entry.date.slice(0, 7);
+      if (!monthGroups.has(key)) monthGroups.set(key, []);
+      monthGroups.get(key).push(entry);
+    }
+  }
+
+  const monthHtml = [...monthGroups.entries()].map(([key, entries]) => {
+    const [y, m] = key.split("-").map(Number);
+    const label = new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return `
+    <div class="tool-section collapsed changelog-month" data-month="${key}">
+      <button class="section-label" onclick="toggleChangelogMonth('${key}')" aria-expanded="false">
+        <span>${label} (${entries.length} update${entries.length !== 1 ? "s" : ""})</span>
+        <svg class="section-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="section-collapse">
+        <div class="section-collapse-inner">
+          ${entries.map(changelogEntryHtml).join("")}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("changelogPanelList").innerHTML =
+    recent.map(changelogEntryHtml).join("") + monthHtml;
+}
+
+function toggleChangelogMonth(key) {
+  const el = document.querySelector(`.changelog-month[data-month="${key}"]`);
+  if (!el) return;
+  const collapsed = el.classList.toggle("collapsed");
+  el.querySelector(".section-label").setAttribute("aria-expanded", String(!collapsed));
+}
+
+function toggleChangelogPanel() {
+  const panel = document.getElementById("changelogPanel");
+  const btn   = document.getElementById("changelogBtn");
+  const isOpen = panel.style.display !== "none";
+  panel.style.display = isOpen ? "none" : "flex";
+  btn.setAttribute("aria-expanded", String(!isOpen));
+}
+
 // ── Category section collapse/expand ───────────────────────────────────────────
 function toggleSection(key) {
   const el = document.querySelector(`.tool-section[data-section="${key}"]`);
@@ -1143,6 +1270,14 @@ document.addEventListener("click", e => {
       dlBtn.setAttribute("aria-expanded", "false");
     }
   }
+  const clPanel = document.getElementById("changelogPanel");
+  const clBtn   = document.getElementById("changelogBtn");
+  if (clPanel && clPanel.style.display !== "none") {
+    if (!clPanel.contains(e.target) && !clBtn.contains(e.target)) {
+      clPanel.style.display = "none";
+      clBtn.setAttribute("aria-expanded", "false");
+    }
+  }
 });
 
 document.addEventListener("keydown", e => {
@@ -1159,9 +1294,16 @@ document.addEventListener("keydown", e => {
     dlPanel.style.display = "none";
     if (dlBtn) dlBtn.setAttribute("aria-expanded", "false");
   }
+  const clPanel = document.getElementById("changelogPanel");
+  const clBtn   = document.getElementById("changelogBtn");
+  if (clPanel && clPanel.style.display !== "none") {
+    clPanel.style.display = "none";
+    if (clBtn) clBtn.setAttribute("aria-expanded", "false");
+  }
 });
 
 loadTools();
+loadChangelog();
 </script>
 </body>
 </html>
