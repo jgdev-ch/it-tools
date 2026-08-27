@@ -280,6 +280,12 @@ body::before {
 .changelog-entry-hdr { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--ink); margin-bottom: 4px; }
 .changelog-date { font-size: 11px; color: var(--ink-dim); }
 .changelog-entry ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--ink-dim); line-height: 1.6; }
+#changelogBtn { position: relative; }
+.changelog-badge {
+  position: absolute; top: 4px; right: 4px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--blue);
+}
 
 /* ── Page shell ── */
 .hub-shell { max-width: 1300px; margin: 0 auto; padding: 2.25rem 1.5rem; position: relative; z-index: 1; }
@@ -540,6 +546,7 @@ body::before {
     <div style="position:relative">
       <button type="button" class="btn-icon" id="changelogBtn" onclick="toggleChangelogPanel()" title="Recent Updates" aria-label="Recent Updates" aria-expanded="false" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg>
+        <span class="changelog-badge" id="changelogBadge" style="display:none"></span>
       </button>
       <div class="changelog-panel" id="changelogPanel" style="display:none">
         <div class="changelog-panel-head">
@@ -1162,6 +1169,10 @@ async function loadChangelog() {
       "Last updated " + formatChangelogDate(_changelogEntries[0].date);
     renderChangelog();
     document.getElementById("changelogBtn").style.display = "flex";
+    const lastSeen = localStorage.getItem("it-tools-changelog-last-seen");
+    if (lastSeen && _changelogEntries[0].date > lastSeen) {
+      document.getElementById("changelogBadge").style.display = "block";
+    }
   } catch(_) {}
 }
 
@@ -1228,6 +1239,10 @@ function toggleChangelogPanel() {
   const isOpen = panel.style.display !== "none";
   panel.style.display = isOpen ? "none" : "flex";
   btn.setAttribute("aria-expanded", String(!isOpen));
+  if (!isOpen && _changelogEntries.length) {
+    localStorage.setItem("it-tools-changelog-last-seen", _changelogEntries[0].date);
+    document.getElementById("changelogBadge").style.display = "none";
+  }
 }
 
 // ── Category section collapse/expand ───────────────────────────────────────────
