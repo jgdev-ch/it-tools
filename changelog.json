@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "2.3.4",
+      "date": "2026-08-27",
+      "notes": [
+        "Hub: unread badge on the Recent Updates icon",
+        "User Creation: temp password shortened to 12 characters for easier first-login entry"
+      ]
+    },
+    {
       "version": "2.3.3",
       "date": "2026-08-27",
       "notes": [
