@@ -1148,6 +1148,88 @@ function toggleDownloadsDropdown() {
   btn.setAttribute("aria-expanded", String(!isOpen));
 }
 
+// ── Recent Updates changelog panel ────────────────────────────────────────────
+let _changelogEntries = [];
+
+async function loadChangelog() {
+  try {
+    const res  = await fetch("changelog.json?v=" + Date.now());
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    _changelogEntries = data.entries || [];
+    if (!_changelogEntries.length) return;
+    document.getElementById("changelogPanelDate").textContent =
+      "Last updated " + formatChangelogDate(_changelogEntries[0].date);
+    renderChangelog();
+    document.getElementById("changelogBtn").style.display = "flex";
+  } catch(_) {}
+}
+
+function formatChangelogDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function changelogEntryHtml(entry) {
+  return `
+    <div class="changelog-entry">
+      <div class="changelog-entry-hdr"><strong>v${entry.version}</strong><span class="changelog-date">${formatChangelogDate(entry.date)}</span></div>
+      <ul>${entry.notes.map(n => `<li>${n}</li>`).join("")}</ul>
+    </div>`;
+}
+
+function renderChangelog() {
+  const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recent = [];
+  const monthGroups = new Map(); // "2026-07" -> entries[]
+
+  for (const entry of _changelogEntries) {
+    const entryMs = new Date(entry.date + "T00:00:00").getTime();
+    if (entryMs >= cutoffMs) {
+      recent.push(entry);
+    } else {
+      const key = entry.date.slice(0, 7);
+      if (!monthGroups.has(key)) monthGroups.set(key, []);
+      monthGroups.get(key).push(entry);
+    }
+  }
+
+  const monthHtml = [...monthGroups.entries()].map(([key, entries]) => {
+    const [y, m] = key.split("-").map(Number);
+    const label = new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return `
+    <div class="tool-section collapsed changelog-month" data-month="${key}">
+      <button class="section-label" onclick="toggleChangelogMonth('${key}')" aria-expanded="false">
+        <span>${label} (${entries.length} update${entries.length !== 1 ? "s" : ""})</span>
+        <svg class="section-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="section-collapse">
+        <div class="section-collapse-inner">
+          ${entries.map(changelogEntryHtml).join("")}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("changelogPanelList").innerHTML =
+    recent.map(changelogEntryHtml).join("") + monthHtml;
+}
+
+function toggleChangelogMonth(key) {
+  const el = document.querySelector(`.changelog-month[data-month="${key}"]`);
+  if (!el) return;
+  const collapsed = el.classList.toggle("collapsed");
+  el.querySelector(".section-label").setAttribute("aria-expanded", String(!collapsed));
+}
+
+function toggleChangelogPanel() {
+  const panel = document.getElementById("changelogPanel");
+  const btn   = document.getElementById("changelogBtn");
+  const isOpen = panel.style.display !== "none";
+  panel.style.display = isOpen ? "none" : "flex";
+  btn.setAttribute("aria-expanded", String(!isOpen));
+}
+
 // ── Category section collapse/expand ───────────────────────────────────────────
 function toggleSection(key) {
   const el = document.querySelector(`.tool-section[data-section="${key}"]`);
@@ -1188,6 +1270,14 @@ document.addEventListener("click", e => {
       dlBtn.setAttribute("aria-expanded", "false");
     }
   }
+  const clPanel = document.getElementById("changelogPanel");
+  const clBtn   = document.getElementById("changelogBtn");
+  if (clPanel && clPanel.style.display !== "none") {
+    if (!clPanel.contains(e.target) && !clBtn.contains(e.target)) {
+      clPanel.style.display = "none";
+      clBtn.setAttribute("aria-expanded", "false");
+    }
+  }
 });
 
 document.addEventListener("keydown", e => {
@@ -1204,9 +1294,16 @@ document.addEventListener("keydown", e => {
     dlPanel.style.display = "none";
     if (dlBtn) dlBtn.setAttribute("aria-expanded", "false");
   }
+  const clPanel = document.getElementById("changelogPanel");
+  const clBtn   = document.getElementById("changelogBtn");
+  if (clPanel && clPanel.style.display !== "none") {
+    clPanel.style.display = "none";
+    if (clBtn) clBtn.setAttribute("aria-expanded", "false");
+  }
 });
 
 loadTools();
+loadChangelog();
 </script>
 </body>
 </html>
