@@ -78,6 +78,10 @@
   .type-tag   { display:inline-block; margin-top:8px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
   .type-tag.live   { background:var(--green-light); color:var(--green); }
   .type-tag.script { background:var(--surface3); color:var(--muted); }
+
+  /* ── Generated script preview ── */
+  .script-pre  { max-height:320px; overflow:auto; background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:12px; font-family:'Cascadia Code','Consolas',monospace; font-size:11px; line-height:1.5; white-space:pre; margin:0; }
+  .gen-files   { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); margin-top:10px; }
 </style>
 </head>
 <body>
@@ -240,6 +244,13 @@ const ICONS = {
   userPlus:    _svg(`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>`),
   userMinus:   _svg(`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" x2="16" y1="11" y2="11"/>`),
   download:    _svg(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`),
+};
+
+const _svgSm = p => `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px">${p}</svg>`;
+const ICONS_SM = {
+  download: _svgSm(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`),
+  fileText: _svgSm(`<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>`),
+  terminal: _svgSm(`<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>`),
 };
 
 // ── Object-type registry ───────────────────────────────────────
@@ -721,6 +732,112 @@ async function runExport() {
         Mail:m.mail||"", UserType:m.userType||"", Id:m.id
       })));
   } catch(e) { showErr("s3Err","Export failed: "+ITTools.graph.friendlyError(e)); }
+}
+
+// ── Generate step (Exchange types) ──────────────────────────────
+function exoContext() {
+  const t = getType(wiz.typeId);
+  const acct = ITTools.auth.getAccount();
+  return ExoScripts.buildContext({
+    typeId:        wiz.typeId,
+    typeLabel:     t.label,
+    op:            wiz.op,
+    target:        wiz.targetIdentity,
+    targetDisplay: wiz.groupName || wiz.targetIdentity,
+    identities:    wiz.validIdentifiers,
+    perms:         { full: wiz.perms.full, sendAs: wiz.perms.sendAs, onBehalf: wiz.perms.onBehalf },
+    autoMapping:   wiz.autoMapping,
+    tech:          (acct && acct.username) || "unknown",
+  });
+}
+
+function renderGenerateStep() {
+  const t = getType(wiz.typeId);
+  const isExport = wiz.op === "export";
+  const checked  = isExport ? { valid: [], invalid: [] } : validateIdentities(wiz.identifiers);
+  wiz.validIdentifiers = checked.valid;
+
+  const permNames = [];
+  if (wiz.perms.full)     permNames.push("Full Access" + (wiz.autoMapping ? " (AutoMapping on)" : " (AutoMapping off)"));
+  if (wiz.perms.sendAs)   permNames.push("Send As");
+  if (wiz.perms.onBehalf) permNames.push("Send on Behalf");
+
+  const backFn = isExport
+    ? "renderTargetStep()"
+    : "renderSourceStep()";
+
+  const invalidBlock = checked.invalid.length ? `
+    <div class="banner warn" style="display:block">
+      ${checked.invalid.length} row(s) are not valid email addresses and are left out of the script:
+      <span class="mono text-xs">${checked.invalid.slice(0, 10).join(", ")}${checked.invalid.length > 10 ? ", …" : ""}</span>
+    </div>` : "";
+
+  const unverifiedBlock = wiz.targetVerified ? "" : `
+    <div class="banner warn" style="display:block">The target was not verified in Entra ID. The script verifies it in Exchange Online with a lookup before it changes anything.</div>`;
+
+  document.getElementById("wizBody").innerHTML = `
+    ${unverifiedBlock}${invalidBlock}
+    <div class="banner error" id="genErr" style="display:none"></div>
+    <div class="card"><div class="card-title">Summary</div>
+      <div class="run-summary">
+        <div class="run-summary-item"><span>Object type</span><span>${t.label}</span></div>
+        <div class="run-summary-item"><span>Action</span><span>${OP_META[t.source][wiz.op].label}</span></div>
+        <div class="run-summary-item"><span>Target</span><span style="color:var(--blue-dark)">${wiz.groupName}</span></div>
+        <div class="run-summary-item"><span>Identity used</span><span class="mono text-xs">${wiz.targetIdentity}</span></div>
+        ${isExport ? "" : `<div class="run-summary-item"><span>${t.source === "permissions" ? "Users" : "Members"}</span><span>${checked.valid.length}</span></div>`}
+        ${t.source === "permissions" && !isExport ? `<div class="run-summary-item"><span>Permissions</span><span>${permNames.join(", ")}</span></div>` : ""}
+      </div>
+      <div class="gen-files"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">${ICONS_SM.terminal}Generated script</div>
+      <pre class="script-pre" id="scriptPreview"></pre>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="${backFn}">← Back</button>
+      <button class="btn btn-success" id="genBtn" onclick="downloadScriptBundle()">${ICONS_SM.download}Download script bundle (.zip)</button>
+    </div>`;
+
+  if (!isExport && !checked.valid.length) {
+    showErr("genErr", "None of the CSV rows are valid email addresses. Fix the CSV and upload it again.");
+    document.getElementById("genBtn").disabled = true;
+    document.getElementById("scriptPreview").textContent = "";
+    return;
+  }
+
+  let ctx;
+  try {
+    ctx = exoContext();
+    document.getElementById("scriptPreview").textContent = ExoScripts.buildScript(ctx);
+    document.querySelector(".gen-files").innerHTML =
+      `<div>${ICONS_SM.fileText}<span class="mono text-xs">${ctx.scriptName}</span></div>` +
+      `<div>${ICONS_SM.terminal}<span class="mono text-xs">${ctx.batName}</span></div>` +
+      `<div>${ICONS_SM.download}<span class="mono text-xs">${ctx.zipName}</span></div>`;
+  } catch(e) {
+    showErr("genErr", "Could not build the script: " + e.message);
+    document.getElementById("genBtn").disabled = true;
+  }
+}
+
+async function downloadScriptBundle() {
+  const btn = document.getElementById("genBtn");
+  const label = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "Building…";
+  try {
+    const ctx  = exoContext();
+    const blob = await ExoScripts.buildZip(ctx);
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement("a"), { href: url, download: ctx.zipName });
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.innerHTML = label;
+    btn.disabled = false;
+  } catch(e) {
+    showErr("genErr", "Could not build the script bundle: " + e.message);
+    btn.innerHTML = label;
+    btn.disabled = false;
+  }
 }
 
 // ── Error banner ──────────────────────────────────────────────
