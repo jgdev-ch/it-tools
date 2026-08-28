@@ -199,8 +199,117 @@ Stop-Transcript | Out-Null
 `;
   }
 
+  // ── Distribution list / mail-enabled security group ───────────
+  function buildGroupMemberScript(ctx) {
+    const memberBlock = ctx.identities.length
+      ? "$Members = @(\n" + ctx.identities.map(v => "    " + psStr(v)).join(",\n") + "\n)"
+      : "$Members = @()";
+
+    const inputs = `
+# --- Inputs -------------------------------------------------------
+$Target = ${psStr(ctx.target)}
+${memberBlock}
+`;
+
+    const verify = `
+# --- Verify the target --------------------------------------------
+Write-Head "Verifying the target in Exchange Online..."
+try {
+    $group = Get-DistributionGroup -Identity $Target -ErrorAction Stop
+    Write-Item ("Found: " + $group.DisplayName + " <" + $group.PrimarySmtpAddress + "> [" + $group.RecipientTypeDetails + "]") Green
+} catch {
+    Write-Item ("ERROR: Could not find '$Target' in Exchange Online. " + $_.Exception.Message) Red
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Stop-Transcript | Out-Null
+    exit 1
+}
+`;
+    // Export is read-only: no dry run, no confirmation gate, writes a CSV next to the script.
+    if (ctx.op === "export") {
+      const exportBody = `
+# --- Export members -----------------------------------------------
+Write-Head "Reading current members..."
+$outFile = Join-Path $PSScriptRoot (${psStr(ctx.logBase + "-" + ctx.targetSlug)} + "-" + $stamp + ".csv")
+$count = 0
+try {
+    $members = Get-DistributionGroupMember -Identity $Target -ResultSize Unlimited -ErrorAction Stop
+    $count = @($members).Count
+    if ($count -eq 0) {
+        Write-Item "This group has no members. No CSV was written." Yellow
+    } else {
+        $members | Select-Object DisplayName, PrimarySmtpAddress, RecipientTypeDetails, Alias | Export-Csv -Path $outFile -NoTypeInformation -Encoding UTF8
+        Write-Item ("Exported " + $count + " members to:") Green
+        Write-Item $outFile
+    }
+} catch {
+    Write-Item ("ERROR: Could not read members. " + $_.Exception.Message) Red
+}
+`;
+      return psPrologue(ctx, []) + inputs + psConnect() + verify + exportBody +
+             psEpilogue(ctx, 'Write-Item ("Members read: " + $count)\n');
+    }
+
+    const isAdd     = ctx.op === "add";
+    const cmdlet    = isAdd ? "Add-DistributionGroupMember" : "Remove-DistributionGroupMember";
+    const liveArgs  = isAdd ? "-BypassSecurityGroupManagerCheck" : "-BypassSecurityGroupManagerCheck -Confirm:$false";
+    const wouldWord = isAdd ? "WOULD ADD" : "WOULD REMOVE";
+    const didWord   = isAdd ? "ADDED" : "REMOVED";
+
+    const body = `
+# --- Dry run (-WhatIf, nothing changes) ---------------------------
+Write-Head "Dry run. Showing what would change. No changes are made yet."
+foreach ($m in $Members) {
+    try {
+        ${cmdlet} -Identity $Target -Member $m ${liveArgs} -WhatIf -ErrorAction Stop
+        Write-Item ("${wouldWord}: " + $m) Yellow
+    } catch {
+        Write-Item ("WOULD FAIL: " + $m + " - " + $_.Exception.Message) Red
+    }
+}
+
+# --- Confirm ------------------------------------------------------
+Write-Host ""
+$answer = Read-Host "  Type YES to apply these changes for real (anything else aborts)"
+if ($answer -ne "YES") {
+    Write-Item "Aborted. No changes were made." Yellow
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Stop-Transcript | Out-Null
+    exit 0
+}
+
+# --- Live run -----------------------------------------------------
+Write-Head "Applying changes..."
+$ok = 0
+$failed = 0
+foreach ($m in $Members) {
+    try {
+        ${cmdlet} -Identity $Target -Member $m ${liveArgs} -ErrorAction Stop
+        Write-Item ("${didWord}: " + $m) Green
+        $ok++
+    } catch {
+        Write-Item ("FAILED: " + $m + " - " + $_.Exception.Message) Red
+        $failed++
+    }
+}
+`;
+
+    const summary = 'Write-Item ("Succeeded : " + $ok)\nWrite-Item ("Failed    : " + $failed)\n';
+
+    return psPrologue(ctx, ["#  Members     : " + ctx.identities.length]) +
+           inputs + psConnect() + verify + body + psEpilogue(ctx, summary);
+  }
+
+  /** Dispatch on object type. */
+  function buildScript(ctx) {
+    if (ctx.typeId === "distribution-list" || ctx.typeId === "mail-security-group") {
+      return crlf(buildGroupMemberScript(ctx));
+    }
+    throw new Error("Script generation is not implemented for object type: " + ctx.typeId);
+  }
+
   root.ExoScripts = {
     buildContext: buildContext,
+    buildScript: buildScript,
     _psStr: psStr,
     _slug: slug,
     _crlf: crlf,
