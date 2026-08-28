@@ -551,11 +551,21 @@ function afterTarget() {
 }
 
 // ── Source CSV step (Add / Remove) ──────────────────────────────
+// ── Source CSV step (add / remove / grant) ──────────────────────
+function sourceTitle() {
+  const t = getType(wiz.typeId);
+  if (t.source === "permissions") return wiz.op === "grant" ? "Users to grant access (CSV)" : "Users to remove access (CSV)";
+  return wiz.op === "add" ? "Members to add (CSV)" : "Members to remove (CSV)";
+}
+
 function renderSourceStep() {
+  const t = getType(wiz.typeId);
+  const backFn   = t.source === "permissions" ? "renderPermStep()" : "renderTargetStep()";
+  const nextText = t.backend === "exchange" ? "Continue to Generate →" : "Continue to Run →";
   document.getElementById("wizBody").innerHTML = `
     <div class="banner error" id="s1Err" style="display:none"></div>
     <div class="card">
-      <div class="card-title">${wiz.op === "add" ? "Members to add" : "Members to remove"} (CSV)</div>
+      <div class="card-title">${sourceTitle()}</div>
       <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
         <div class="file-drop-idle"><div style="margin-bottom:8px;color:var(--muted2);display:flex;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
           <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p></div>
@@ -573,14 +583,26 @@ function renderSourceStep() {
       <div id="previewWrap" style="display:none;margin-top:12px"><div class="preview-list" id="previewList"></div></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-ghost" onclick="renderTargetStep()">← Back</button>
-      <button class="btn btn-primary" id="s1Btn" onclick="sourceNext()" disabled>Continue to Run →</button>
+      <button class="btn btn-ghost" onclick="${backFn}">← Back</button>
+      <button class="btn btn-primary" id="s1Btn" onclick="sourceNext()" disabled>${nextText}</button>
     </div>`;
 }
+
+// Exchange scripts cannot resolve a typo the way the live Graph path can, so
+// identities are format-validated in the browser before a script is generated.
+const IDENTITY_RE = /^[^\s@,;]+@[^\s@,;]+\.[A-Za-z]{2,}$/;
+
+function validateIdentities(list) {
+  const valid = [], invalid = [];
+  (list || []).forEach(v => (IDENTITY_RE.test(v) ? valid : invalid).push(v));
+  return { valid, invalid };
+}
+
 function sourceNext() {
   wiz.identifiers = getPrimed();
   if (!wiz.identifiers.length) { showErr("s1Err","No identifiers found."); return; }
-  renderRunStep();
+  const t = getType(wiz.typeId);
+  if (t.backend === "exchange") renderGenerateStep(); else renderRunStep();
 }
 
 // ── Run step + operations ───────────────────────────────────────
