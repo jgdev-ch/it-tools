@@ -363,20 +363,28 @@ const KIND_LABELS = {
 
 function renderTargetStep() {
   const t = getType(wiz.typeId);
-  const wantUnified = t.graphKind === "unified";
-  const lbl = wantUnified ? "Group name, email, or GUID" : "Group name or GUID";
-  const ph  = wantUnified ? "e.g. Marketing Team, group@domain.com, or a GUID" : "e.g. IT-Security-Team or a GUID";
+  const isMailbox = t.graphKind === "mailbox";
+  const lbl = isMailbox ? "Mailbox email address" : "Name, email address, or GUID";
+  const ph  = isMailbox
+    ? "e.g. helpdesk@corrohealth.com"
+    : (t.graphKind === "security" ? "e.g. IT-Security-Team or a GUID" : "e.g. IT All, it-all@corrohealth.com, or a GUID");
+  const lookupFn = isMailbox ? "mailboxLookup()" : "wizLookup()";
+  const manualBlock = t.backend === "exchange" ? `
+      <div id="wManualWrap" style="display:none;margin-top:10px">
+        <div class="banner warn" style="display:block">Not found in Entra ID. You can still continue with the identity exactly as typed. The generated script verifies it in Exchange Online before it changes anything.</div>
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="useTargetAsTyped()">Use the identity as typed</button>
+      </div>` : "";
   document.getElementById("wizBody").innerHTML = `
     <div class="banner error" id="wErr" style="display:none"></div>
     <div class="card">
       <div class="card-title">Target ${t.label.toLowerCase()}</div>
       <div class="field"><label class="field-label">${lbl}</label>
         <div class="input-row">
-          <input type="text" id="wGroupIn" placeholder="${ph}" onkeydown="if(event.key==='Enter')wizLookup()"/>
-          <button class="btn btn-secondary" id="wLookupBtn" onclick="wizLookup()" style="white-space:nowrap">Look up</button>
+          <input type="text" id="wGroupIn" placeholder="${ph}" onkeydown="if(event.key==='Enter')${lookupFn}"/>
+          <button class="btn btn-secondary" id="wLookupBtn" onclick="${lookupFn}" style="white-space:nowrap">Look up</button>
         </div>
       </div>
-      <div class="group-ok" id="wGroupOk"><div class="group-ok-name" id="wGroupOkName"></div><div class="group-ok-id" id="wGroupOkId"></div></div>
+      <div class="group-ok" id="wGroupOk"><div class="group-ok-name" id="wGroupOkName"></div><div class="group-ok-id" id="wGroupOkId"></div></div>${manualBlock}
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="renderActionStep()">← Back</button>
@@ -426,9 +434,74 @@ async function wizLookup() {
   }
 }
 
+// Shared mailboxes exist in Entra as (disabled) user objects, so Graph can read them.
+// Graph exposes no mailbox-type field, so "is it really shared" is checked by the
+// generated script via Get-Mailbox -RecipientTypeDetails.
+async function mailboxLookup() {
+  const input = document.getElementById("wGroupIn").value.trim();
+  const err = document.getElementById("wErr");
+  if (!input) { err.textContent = "Enter the mailbox email address."; err.style.display="block"; return; }
+  err.style.display = "none";
+  try {
+    await ITTools.ui.withButtonSpinner(document.getElementById("wLookupBtn"), async () => {
+      let user = null;
+      const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(input)}?$select=id,displayName,mail,userPrincipalName`,
+        { headers: { Authorization: "Bearer " + (await ITTools.auth.getToken()) } });
+      if (r.ok) {
+        user = await r.json();
+      } else {
+        const esc = input.replace(/'/g, "''");
+        const res = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(esc)}'&$select=id,displayName,mail,userPrincipalName`);
+        user = (res.value || [])[0] || null;
+      }
+      if (!user) throw new Error(`No mailbox found for "${input}".`);
+      wiz.groupId        = user.id;
+      wiz.groupName      = user.displayName || input;
+      wiz.targetIdentity = user.mail || user.userPrincipalName || input;
+      wiz.targetVerified = true;
+      document.getElementById("wGroupOkName").textContent = wiz.groupName;
+      document.getElementById("wGroupOkId").textContent   = wiz.targetIdentity;
+      document.getElementById("wGroupOk").style.display   = "block";
+      document.getElementById("wManualWrap").style.display = "none";
+      document.getElementById("wTargetNext").disabled     = false;
+    }, "Looking up…", [document.getElementById("wGroupIn")]);
+  } catch(e) {
+    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block";
+    wiz.groupId = ""; wiz.targetIdentity = ""; wiz.targetVerified = false;
+    document.getElementById("wManualWrap").style.display = "block";
+  }
+}
+
+const TARGET_RE = /^[A-Za-z0-9][A-Za-z0-9 ._'()-]{1,63}(@[^\s@]+\.[A-Za-z]{2,})?$/;
+
+function useTargetAsTyped() {
+  const input = document.getElementById("wGroupIn").value.trim();
+  const err = document.getElementById("wErr");
+  if (!TARGET_RE.test(input)) {
+    err.textContent = "That does not look like a valid name or email address. Fix it before continuing.";
+    err.style.display = "block";
+    return;
+  }
+  err.style.display = "none";
+  wiz.groupId        = "";
+  wiz.groupName      = input;
+  wiz.targetIdentity = input;
+  wiz.targetVerified = false;
+  document.getElementById("wGroupOkName").textContent = input;
+  document.getElementById("wGroupOkId").textContent   = "Not verified in Entra ID. The script verifies it in Exchange Online.";
+  document.getElementById("wGroupOk").style.display   = "block";
+  document.getElementById("wTargetNext").disabled     = false;
+}
+
 function afterTarget() {
-  if (!wiz.groupId) return;
-  if (wiz.op === "export") { renderRunStep(); } else { renderSourceStep(); }
+  const t = getType(wiz.typeId);
+  if (!wiz.targetIdentity) return;
+  if (wiz.op === "export") {
+    if (t.backend === "exchange") renderGenerateStep(); else renderRunStep();
+    return;
+  }
+  if (t.source === "permissions") { renderPermStep(); return; }
+  renderSourceStep();
 }
 
 // ── Source CSV step (Add / Remove) ──────────────────────────────
