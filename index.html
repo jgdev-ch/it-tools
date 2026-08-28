@@ -419,6 +419,11 @@ body::before {
 .tool-desc {
   font-size: 12px; color: var(--ink-dim); line-height: 1.5; margin-top: 6px;
   min-height: 54px; /* reserves 3 lines so every card matches height regardless of description length or grid row */
+  /* min-height alone is only a floor: a longer description still grows the
+     card (and its whole grid row) taller. Clamp to the same 3 lines as a
+     hard ceiling so no future description can break row uniformity again. */
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ── Status dot — bottom-right corner ── */

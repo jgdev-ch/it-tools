@@ -5,7 +5,8 @@
       "date": "2026-08-28",
       "notes": [
         "Hub: fixed the page scrollbar rendering as a blank white stripe in dark mode",
-        "Hub: account panel now matches the same solid-glass look as the downloads and Recent Updates panels"
+        "Hub: account panel now matches the same solid-glass look as the downloads and Recent Updates panels",
+        "Hub: card descriptions are now capped at three lines so every card stays the same height"
       ]
     },
     {
