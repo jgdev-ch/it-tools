@@ -315,7 +315,19 @@ function chooseOp(op) {
 }
 
 // ── Target lookup (Graph, kind-filtered) ────────────────────────
-function isUnified(group){ return (group.groupTypes || []).includes("Unified"); }
+// Graph can READ all four group kinds; only security + M365 groups are enabled here (v1).
+function graphKindOf(group) {
+  if ((group.groupTypes || []).includes("Unified")) return "unified";
+  if (group.mailEnabled && group.securityEnabled)   return "mailSecurity";
+  if (group.mailEnabled && !group.securityEnabled)  return "distribution";
+  return "security";
+}
+const KIND_LABELS = {
+  unified:      "Microsoft 365 group",
+  security:     "Entra security group",
+  distribution: "distribution list",
+  mailSecurity: "mail-enabled security group",
+};
 
 function renderTargetStep() {
   const t = getType(wiz.typeId);
@@ -346,20 +358,22 @@ async function wizLookup() {
   if (!input) { err.textContent = "Enter a group name, email, or GUID."; err.style.display="block"; return; }
   err.style.display = "none";
   const t = getType(wiz.typeId);
-  const wantUnified = t.graphKind === "unified";
+  const wantKind = t.graphKind;
+  const select = "id,displayName,groupTypes,mailEnabled,securityEnabled";
   try {
     await ITTools.ui.withButtonSpinner(document.getElementById("wLookupBtn"), async () => {
       let group;
       if (/^[0-9a-f-]{36}$/i.test(input)) {
-        group = await ITTools.graph.get(`/groups/${input}?$select=id,displayName,groupTypes`);
-        if (isUnified(group) !== wantUnified)
-          throw new Error(`That group is a ${isUnified(group) ? "Microsoft 365" : "security"} group, not a ${t.label}.`);
+        group = await ITTools.graph.get(`/groups/${input}?$select=${select}`);
+        const got = graphKindOf(group);
+        if (got !== wantKind)
+          throw new Error(`That group is a ${KIND_LABELS[got]}, not a ${t.label.toLowerCase()}.`);
       } else {
         const esc = input.replace(/'/g, "''");
         const byEmail = input.includes("@");
         const field = byEmail ? "mail" : "displayName";
-        const res = await ITTools.graph.get(`/groups?$filter=${field} eq '${encodeURIComponent(esc)}'&$select=id,displayName,groupTypes&$count=true&$top=20`);
-        const matches = (res.value || []).filter(g => isUnified(g) === wantUnified);
+        const res = await ITTools.graph.get(`/groups?$filter=${field} eq '${encodeURIComponent(esc)}'&$select=${select}&$count=true&$top=20`);
+        const matches = (res.value || []).filter(g => graphKindOf(g) === wantKind);
         if (!matches.length) throw new Error(`No ${t.label} found ${byEmail ? `with email "${input}"` : `named "${input}"`}.`);
         group = matches[0];
       }
