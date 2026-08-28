@@ -67,15 +67,15 @@
   .gsd-badge { display: inline-flex; }
 
   /* ── Launcher card grid ── */
-  .type-grid  { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; }
-  .type-card  { width:200px; padding:18px 16px; border:1px solid var(--glass-border); border-radius:12px; background:var(--glass-fill); cursor:pointer; transition:transform .12s, box-shadow .12s; }
+  .type-grid  { display:flex; flex-wrap:wrap; gap:16px; margin-top:10px; }
+  .type-card  { width:260px; padding:22px 20px; border:1px solid var(--glass-border); border-radius:14px; background:var(--glass-fill); cursor:pointer; transition:transform .12s, box-shadow .12s; }
   .type-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.08); }
   .type-card.disabled { opacity:.55; cursor:not-allowed; }
   .type-card.disabled:hover { transform:none; box-shadow:none; }
-  .type-icon  { font-size:26px; color:var(--accent-green); }
+  .type-icon  { font-size:32px; color:var(--accent-green); }
   .type-card.disabled .type-icon { color:var(--muted); }
-  .type-name  { font-size:15px; font-weight:700; margin-top:8px; }
-  .type-tag   { display:inline-block; margin-top:8px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
+  .type-name  { font-size:16px; font-weight:700; margin-top:10px; line-height:1.3; }
+  .type-tag   { display:inline-block; margin-top:10px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
   .type-tag.live   { background:var(--green-light); color:var(--green); }
   .type-tag.script { background:var(--surface3); color:var(--muted); }
 
