@@ -78,6 +78,10 @@
   .type-tag   { display:inline-block; margin-top:10px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
   .type-tag.live   { background:var(--green-light); color:var(--green); }
   .type-tag.script { background:var(--surface3); color:var(--muted); }
+  /* Wizard step cards (e.g. the action step) nest .type-grid inside a .card,
+     whose own padding leaves too little room for fixed-width launcher cards
+     and forces a wrap. Let these grow/shrink to fill the row evenly instead. */
+  .card > .type-grid > .type-card { flex:1 1 220px; width:auto; }
 
   /* ── Generated script preview ── */
   .script-pre  { max-height:320px; overflow:auto; background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:12px; font-family:'Cascadia Code','Consolas',monospace; font-size:11px; line-height:1.5; white-space:pre; margin:0; }
