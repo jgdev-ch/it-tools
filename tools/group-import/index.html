@@ -91,7 +91,7 @@
   <div class="auth-card">
     <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></div>
     <h1>Group Administration</h1>
-    <p>Sign in with your M365 admin account to add, remove, or export group members.</p>
+    <p>Sign in with your M365 admin account to manage group members and shared mailbox access.</p>
     <button class="btn-ms" onclick="doSignIn()">
       <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
@@ -115,7 +115,7 @@
       <div class="sidebar-lbl">About</div>
       <div class="sidebar-tip">
         <strong>Group Administration</strong>
-        Add, remove, or export members of Entra security groups and Microsoft 365 groups (live via Microsoft Graph). Distribution lists, mail-enabled security groups, and shared mailboxes generate a PowerShell script (coming soon).
+        Add, remove, or export members of Entra security groups and Microsoft 365 groups live via Microsoft Graph. Distribution lists, mail-enabled security groups, and shared mailbox access download as a ready-to-run PowerShell script.
       </div>
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
@@ -130,7 +130,7 @@
       <div id="launcher">
         <div class="section-hdr">
           <h2>Group Administration</h2>
-          <p>Pick what you're working with. Security and Microsoft 365 groups run live here; the Exchange types generate a PowerShell script (coming soon).</p>
+          <p>Pick what you're working with. Security and Microsoft 365 groups run live here; the Exchange types generate a PowerShell script you download and run yourself.</p>
         </div>
         <div id="launcherLive"></div>
         <div id="launcherScript" style="margin-top:1.25rem"></div>
@@ -151,6 +151,7 @@
 </div>
 
 <script src="../../shared/auth.js"></script>
+<script src="exo-scripts.js"></script>
 <script>
 const GSD_GROUP_ID = "3e1a4757-8189-4908-a611-b6029399e69e";
 let _hasGsdAccess  = false;
@@ -242,8 +243,9 @@ const ICONS = {
 };
 
 // ── Object-type registry ───────────────────────────────────────
-// backend: "graph" (live) | "exchange" (v2 script-gen, disabled in v1)
+// backend: "graph" (live in browser) | "exchange" (generates a PowerShell script)
 // source:  "members" | "permissions"
+// graphKind: "security" | "unified" | "distribution" | "mailSecurity" | "mailbox"
 const OBJECT_TYPES = [
   { id:"security-group", label:"Security Group", backend:"graph", source:"members",
     icon:ICONS.shield, tag:"Live · Graph", enabled:true,
@@ -254,11 +256,14 @@ const OBJECT_TYPES = [
     graphKind:"unified",
     ops:["add","remove","export"] },
   { id:"distribution-list", label:"Distribution List", backend:"exchange", source:"members",
-    icon:ICONS.mail, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+    icon:ICONS.mail, tag:"Script · EXO", enabled:true, graphKind:"distribution",
+    ops:["add","remove","export"] },
   { id:"mail-security-group", label:"Mail-enabled Security Group", backend:"exchange", source:"members",
-    icon:ICONS.shieldCheck, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+    icon:ICONS.shieldCheck, tag:"Script · EXO", enabled:true, graphKind:"mailSecurity",
+    ops:["add","remove","export"] },
   { id:"shared-mailbox", label:"Shared Mailbox", backend:"exchange", source:"permissions",
-    icon:ICONS.inbox, tag:"Script · EXO", enabled:false, ops:["grant","remove","export"] },
+    icon:ICONS.inbox, tag:"Script · EXO", enabled:true, graphKind:"mailbox",
+    ops:["grant","remove","export"] },
 ];
 function getType(id){ return OBJECT_TYPES.find(t => t.id === id) || null; }
 
@@ -285,16 +290,24 @@ function backToLauncher() {
 }
 
 // ── Wizard ──────────────────────────────────────────────────────
-const wiz = { typeId:"", op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] };
+const wiz = { typeId:"", op:"", groupId:"", groupName:"", targetIdentity:"", targetVerified:false,
+              identifiers:[], validIdentifiers:[], perms:{ full:true, sendAs:false, onBehalf:false },
+              autoMapping:true, csvName:"", dryDone:false, lastLog:[] };
 
 function openWizard(typeId) {
   const t = getType(typeId);
   if (!t || !t.enabled) return;
-  Object.assign(wiz, { typeId, op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] });
+  Object.assign(wiz, { typeId, op:"", groupId:"", groupName:"", targetIdentity:"", targetVerified:false,
+                       identifiers:[], validIdentifiers:[], perms:{ full:true, sendAs:false, onBehalf:false },
+                       autoMapping:true, csvName:"", dryDone:false, lastLog:[] });
   document.getElementById("launcher").style.display = "none";
   document.getElementById("wizard").style.display   = "block";
   document.getElementById("wizTitle").textContent = t.label;
-  document.getElementById("wizSub").textContent   = "Add, remove, or export members (live via Microsoft Graph).";
+  document.getElementById("wizSub").textContent = t.backend === "graph"
+    ? "Add, remove, or export members, live via Microsoft Graph."
+    : (t.source === "permissions"
+        ? "Build a PowerShell script that grants, removes, or exports shared mailbox access in Exchange Online."
+        : "Build a PowerShell script that adds, removes, or exports members in Exchange Online.");
   renderActionStep();
 }
 
@@ -360,7 +373,7 @@ async function wizLookup() {
   err.style.display = "none";
   const t = getType(wiz.typeId);
   const wantKind = t.graphKind;
-  const select = "id,displayName,groupTypes,mailEnabled,securityEnabled";
+  const select = "id,displayName,mail,groupTypes,mailEnabled,securityEnabled";
   try {
     await ITTools.ui.withButtonSpinner(document.getElementById("wLookupBtn"), async () => {
       let group;
@@ -378,14 +391,20 @@ async function wizLookup() {
         if (!matches.length) throw new Error(`No ${t.label} found ${byEmail ? `with email "${input}"` : `named "${input}"`}.`);
         group = matches[0];
       }
-      wiz.groupId = group.id; wiz.groupName = group.displayName;
+      wiz.groupId        = group.id;
+      wiz.groupName      = group.displayName;
+      wiz.targetIdentity = group.mail || group.displayName;
+      wiz.targetVerified = true;
       document.getElementById("wGroupOkName").textContent = group.displayName;
-      document.getElementById("wGroupOkId").textContent   = group.id;
-      document.getElementById("wGroupOk").style.display    = "block";
-      document.getElementById("wTargetNext").disabled      = false;
+      document.getElementById("wGroupOkId").textContent   = wiz.targetIdentity + "  ·  " + group.id;
+      document.getElementById("wGroupOk").style.display   = "block";
+      document.getElementById("wTargetNext").disabled     = false;
     }, "Looking up…", [document.getElementById("wGroupIn")]);
   } catch(e) {
-    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block"; wiz.groupId = "";
+    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block";
+    wiz.groupId = ""; wiz.targetIdentity = ""; wiz.targetVerified = false;
+    const manual = document.getElementById("wManualWrap");
+    if (manual) manual.style.display = "block";
   }
 }
 
