@@ -7,7 +7,7 @@
         "Hub: fixed the page scrollbar rendering as a blank white stripe in dark mode",
         "Hub: account panel now matches the same solid-glass look as the downloads and Recent Updates panels",
         "Hub: card descriptions are now capped at three lines so every card stays the same height",
-        "Group Administration: object-type cards are larger so longer labels like Mail-enabled Security Group no longer wrap awkwardly"
+        "Group Administration: object-type cards are larger so longer labels like Mail-enabled Security Group no longer wrap awkwardly, and wizard step cards now stay in one even row instead of wrapping"
       ]
     },
     {
