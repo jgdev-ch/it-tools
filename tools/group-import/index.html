@@ -311,15 +311,33 @@ function openWizard(typeId) {
   renderActionStep();
 }
 
+const OP_META = {
+  members: {
+    add:    { label:"Add members",    hint:"Import a CSV of members into this group",  icon:"userPlus"  },
+    remove: { label:"Remove members", hint:"Remove a CSV of members from this group",  icon:"userMinus" },
+    export: { label:"Export members", hint:"Download the current membership as CSV",   icon:"download"  },
+  },
+  permissions: {
+    grant:  { label:"Grant access",       hint:"Give users access to this mailbox",     icon:"userPlus"  },
+    remove: { label:"Remove access",      hint:"Take access away from users",           icon:"userMinus" },
+    export: { label:"Export access list", hint:"List who has access to this mailbox",   icon:"download"  },
+  },
+};
+
 function renderActionStep() {
   wiz.op = "";
+  const t = getType(wiz.typeId);
+  const meta = OP_META[t.source];
   document.getElementById("wizBody").innerHTML = `
     <div class="card">
       <div class="card-title">What do you want to do?</div>
       <div class="type-grid">
-        <div class="type-card" onclick="chooseOp('add')"><div class="type-icon">${ICONS.userPlus}</div><div class="type-name">Add members</div><p class="step-sub">Import a CSV into this group</p></div>
-        <div class="type-card" onclick="chooseOp('remove')"><div class="type-icon">${ICONS.userMinus}</div><div class="type-name">Remove members</div><p class="step-sub">Remove a CSV of users from this group</p></div>
-        <div class="type-card" onclick="chooseOp('export')"><div class="type-icon">${ICONS.download}</div><div class="type-name">Export members</div><p class="step-sub">Download current membership as CSV</p></div>
+        ${t.ops.map(op => `
+        <div class="type-card" onclick="chooseOp('${op}')">
+          <div class="type-icon">${ICONS[meta[op].icon]}</div>
+          <div class="type-name">${meta[op].label}</div>
+          <p class="step-sub">${meta[op].hint}</p>
+        </div>`).join("")}
       </div>
     </div>`;
 }
