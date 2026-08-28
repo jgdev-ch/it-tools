@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "2.4.0",
+      "date": "2026-08-28",
+      "notes": [
+        "Group Administration: distribution lists and mail-enabled security groups can now add, remove, and export members",
+        "Group Administration: shared mailbox access for Full Access, Send As, and Send on Behalf, with an AutoMapping toggle",
+        "Group Administration: Exchange actions download a PowerShell script plus a double-click launcher in one zip, with a dry run before any change"
+      ]
+    },
+    {
       "version": "2.3.5",
       "date": "2026-08-28",
       "notes": [
