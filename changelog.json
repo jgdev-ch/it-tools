@@ -1,6 +1,13 @@
 {
   "entries": [
     {
+      "version": "2.3.5",
+      "date": "2026-08-28",
+      "notes": [
+        "Group Administration: fixed a lookup bug where a distribution list or mail-enabled security group could incorrectly match a Security Group or Microsoft 365 Group search"
+      ]
+    },
+    {
       "version": "2.3.4",
       "date": "2026-08-27",
       "notes": [
