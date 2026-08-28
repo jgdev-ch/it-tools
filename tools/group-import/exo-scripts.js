@@ -299,17 +299,322 @@ foreach ($m in $Members) {
            inputs + psConnect() + verify + body + psEpilogue(ctx, summary);
   }
 
+  // ── Shared mailbox access permissions ─────────────────────────
+  function buildMailboxPermissionScript(ctx) {
+    const isGrant = ctx.op === "grant";
+
+    const trusteeBlock = ctx.identities.length
+      ? "$Trustees = @(\n" + ctx.identities.map(v => "    " + psStr(v)).join(",\n") + "\n)"
+      : "$Trustees = @()";
+
+    const inputs = `
+# --- Inputs -------------------------------------------------------
+$Mailbox = ${psStr(ctx.target)}
+${trusteeBlock}
+$DoFullAccess   = $${ctx.perms.full}
+$DoSendAs       = $${ctx.perms.sendAs}
+$DoSendOnBehalf = $${ctx.perms.onBehalf}
+$AutoMapping    = $${ctx.autoMapping}
+`;
+
+    const verify = `
+# --- Verify the mailbox -------------------------------------------
+Write-Head "Verifying the mailbox in Exchange Online..."
+try {
+    $mbx = Get-Mailbox -Identity $Mailbox -ErrorAction Stop
+    Write-Item ("Found: " + $mbx.DisplayName + " <" + $mbx.PrimarySmtpAddress + "> [" + $mbx.RecipientTypeDetails + "]") Green
+    if ($mbx.RecipientTypeDetails -ne "SharedMailbox") {
+        Write-Item "WARNING: this is not a shared mailbox. Continue only if that is intentional." Yellow
+    }
+} catch {
+    Write-Item ("ERROR: Could not find mailbox '$Mailbox'. " + $_.Exception.Message) Red
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Stop-Transcript | Out-Null
+    exit 1
+}
+`;
+
+    // Export branch: combines Get-MailboxPermission, Get-RecipientPermission, and
+    // GrantSendOnBehalfTo into one CSV. Read-only, no dry run, no confirmation gate.
+    if (ctx.op === "export") {
+      const exportBody = `
+# --- Export access list -------------------------------------------
+Write-Head "Reading access permissions..."
+$outFile = Join-Path $PSScriptRoot (${psStr(ctx.logBase + "-" + ctx.targetSlug)} + "-" + $stamp + ".csv")
+$rows = New-Object System.Collections.Generic.List[object]
+
+try {
+    Get-MailboxPermission -Identity $Mailbox -ErrorAction Stop |
+        Where-Object { $_.User -notlike "NT AUTHORITY\\*" -and -not $_.IsInherited -and $_.User -ne $Mailbox } |
+        ForEach-Object {
+            $rows.Add([pscustomobject]@{
+                Mailbox    = $Mailbox
+                Trustee    = [string]$_.User
+                Permission = (@($_.AccessRights) -join ";")
+                Deny       = [bool]$_.Deny
+            })
+        }
+    Write-Item "Mailbox permissions read." Green
+} catch {
+    Write-Item ("Could not read mailbox permissions. " + $_.Exception.Message) Red
+}
+
+try {
+    Get-RecipientPermission -Identity $Mailbox -ErrorAction Stop |
+        Where-Object { $_.Trustee -ne "NT AUTHORITY\\SELF" } |
+        ForEach-Object {
+            $rows.Add([pscustomobject]@{
+                Mailbox    = $Mailbox
+                Trustee    = [string]$_.Trustee
+                Permission = (@($_.AccessRights) -join ";")
+                Deny       = ($_.AccessControlType -eq "Deny")
+            })
+        }
+    Write-Item "Send As permissions read." Green
+} catch {
+    Write-Item ("Could not read Send As permissions. " + $_.Exception.Message) Red
+}
+
+try {
+    foreach ($sob in $mbx.GrantSendOnBehalfTo) {
+        $rows.Add([pscustomobject]@{
+            Mailbox    = $Mailbox
+            Trustee    = [string]$sob
+            Permission = "SendOnBehalf"
+            Deny       = $false
+        })
+    }
+    Write-Item "Send on Behalf permissions read." Green
+} catch {
+    Write-Item ("Could not read Send on Behalf permissions. " + $_.Exception.Message) Red
+}
+
+if ($rows.Count -eq 0) {
+    Write-Item "No explicit access entries found. No CSV was written." Yellow
+} else {
+    $rows | Export-Csv -Path $outFile -NoTypeInformation -Encoding UTF8
+    Write-Item ("Exported " + $rows.Count + " access entries to:") Green
+    Write-Item $outFile
+}
+`;
+      return psPrologue(ctx, []) + inputs + psConnect() + verify + exportBody +
+             psEpilogue(ctx, 'Write-Item ("Access entries: " + $rows.Count)\n');
+    }
+
+    // Per-permission blocks. -WhatIf preview and live call are emitted side by side
+    // so the dry run exercises exactly the cmdlet the live run will use.
+    const fullBlock = isGrant
+      ? `    if ($DoFullAccess) {
+        try {
+            if ($Preview) {
+                Add-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -AutoMapping $AutoMapping -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
+                Write-Item ("WOULD GRANT FullAccess (AutoMapping " + $AutoMapping + "): " + $Trustee) Yellow
+            } else {
+                Add-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -AutoMapping $AutoMapping -Confirm:$false -ErrorAction Stop | Out-Null
+                Write-Item ("GRANTED FullAccess (AutoMapping " + $AutoMapping + "): " + $Trustee) Green
+                $script:ok++
+            }
+        } catch {
+            Write-Item ("FullAccess FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
+            if (-not $Preview) { $script:failed++ }
+        }
+    }`
+      : `    if ($DoFullAccess) {
+        try {
+            if ($Preview) {
+                Remove-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
+                Write-Item ("WOULD REMOVE FullAccess: " + $Trustee) Yellow
+            } else {
+                Remove-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -Confirm:$false -ErrorAction Stop | Out-Null
+                Write-Item ("REMOVED FullAccess: " + $Trustee) Green
+                $script:ok++
+            }
+        } catch {
+            Write-Item ("FullAccess FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
+            if (-not $Preview) { $script:failed++ }
+        }
+    }`;
+
+    const sendAsBlock = isGrant
+      ? `    if ($DoSendAs) {
+        try {
+            if ($Preview) {
+                Add-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
+                Write-Item ("WOULD GRANT SendAs: " + $Trustee) Yellow
+            } else {
+                Add-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -ErrorAction Stop | Out-Null
+                Write-Item ("GRANTED SendAs: " + $Trustee) Green
+                $script:ok++
+            }
+        } catch {
+            Write-Item ("SendAs FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
+            if (-not $Preview) { $script:failed++ }
+        }
+    }`
+      : `    if ($DoSendAs) {
+        try {
+            if ($Preview) {
+                Remove-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
+                Write-Item ("WOULD REMOVE SendAs: " + $Trustee) Yellow
+            } else {
+                Remove-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -ErrorAction Stop | Out-Null
+                Write-Item ("REMOVED SendAs: " + $Trustee) Green
+                $script:ok++
+            }
+        } catch {
+            Write-Item ("SendAs FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
+            if (-not $Preview) { $script:failed++ }
+        }
+    }`;
+
+    const onBehalfBlock = isGrant
+      ? `    if ($DoSendOnBehalf) {
+        try {
+            if ($Preview) {
+                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Add=$Trustee} -WhatIf -ErrorAction Stop
+                Write-Item ("WOULD GRANT SendOnBehalf: " + $Trustee) Yellow
+            } else {
+                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Add=$Trustee} -ErrorAction Stop
+                Write-Item ("GRANTED SendOnBehalf: " + $Trustee) Green
+                $script:ok++
+            }
+        } catch {
+            Write-Item ("SendOnBehalf FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
+            if (-not $Preview) { $script:failed++ }
+        }
+    }`
+      : `    if ($DoSendOnBehalf) {
+        try {
+            if ($Preview) {
+                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Remove=$Trustee} -WhatIf -ErrorAction Stop
+                Write-Item ("WOULD REMOVE SendOnBehalf: " + $Trustee) Yellow
+            } else {
+                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Remove=$Trustee} -ErrorAction Stop
+                Write-Item ("REMOVED SendOnBehalf: " + $Trustee) Green
+                $script:ok++
+            }
+        } catch {
+            Write-Item ("SendOnBehalf FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
+            if (-not $Preview) { $script:failed++ }
+        }
+    }`;
+
+    const body = `
+# --- Access change worker -----------------------------------------
+$script:ok = 0
+$script:failed = 0
+
+function Invoke-AccessChange {
+    param([string]$Trustee, [bool]$Preview)
+
+${fullBlock}
+
+${sendAsBlock}
+
+${onBehalfBlock}
+}
+
+# --- Dry run (-WhatIf, nothing changes) ---------------------------
+Write-Head "Dry run. Showing what would change. No changes are made yet."
+foreach ($t in $Trustees) { Invoke-AccessChange -Trustee $t -Preview $true }
+
+# --- Confirm ------------------------------------------------------
+Write-Host ""
+$answer = Read-Host "  Type YES to apply these changes for real (anything else aborts)"
+if ($answer -ne "YES") {
+    Write-Item "Aborted. No changes were made." Yellow
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Stop-Transcript | Out-Null
+    exit 0
+}
+
+# --- Live run -----------------------------------------------------
+Write-Head "Applying changes..."
+foreach ($t in $Trustees) { Invoke-AccessChange -Trustee $t -Preview $false }
+`;
+
+    const permNames = [];
+    if (ctx.perms.full)     permNames.push("Full Access" + (ctx.autoMapping ? " (AutoMapping on)" : " (AutoMapping off)"));
+    if (ctx.perms.sendAs)   permNames.push("Send As");
+    if (ctx.perms.onBehalf) permNames.push("Send on Behalf");
+
+    const extraHeader = [
+      "#  Permissions : " + (permNames.length ? permNames.join(", ") : "none selected"),
+      "#  Users       : " + ctx.identities.length,
+    ];
+
+    const summary = 'Write-Item ("Succeeded : " + $script:ok)\nWrite-Item ("Failed    : " + $script:failed)\n';
+
+    return psPrologue(ctx, extraHeader) + inputs + psConnect() + verify + body + psEpilogue(ctx, summary);
+  }
+
   /** Dispatch on object type. */
   function buildScript(ctx) {
     if (ctx.typeId === "distribution-list" || ctx.typeId === "mail-security-group") {
       return crlf(buildGroupMemberScript(ctx));
     }
+    if (ctx.typeId === "shared-mailbox") {
+      return crlf(buildMailboxPermissionScript(ctx));
+    }
     throw new Error("Script generation is not implemented for object type: " + ctx.typeId);
+  }
+
+  // ── Self-running batch launcher ───────────────────────────────
+  function buildBat(ctx) {
+    const readOnly = ctx.op === "export";
+    const blurb = readOnly
+      ? [
+          "echo  This connects to Exchange Online and writes a CSV",
+          "echo  next to this file. It does not change anything.",
+        ]
+      : [
+          "echo  This connects to Exchange Online, shows a dry run first,",
+          "echo  then asks you to type YES before changing anything.",
+        ];
+    const countLine = readOnly ? "" : "echo  Users     : " + ctx.identities.length + "\n";
+
+    return crlf(`@echo off
+echo ==========================================================
+echo  ${ctx.title}
+echo  Generated by IT Tools Hub
+echo ==========================================================
+echo.
+echo  Target    : ${ctx.target}
+echo  Action    : ${ctx.opLabel}
+${countLine}echo  Generated : ${ctx.dateOnly}
+echo.
+${blurb.join("\n")}
+echo.
+pause
+where pwsh.exe >nul 2>nul
+if %ERRORLEVEL%==0 (
+    pwsh.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0${ctx.scriptName}"
+) else (
+    echo.
+    echo  WARNING: PowerShell 7 not found ^(pwsh.exe^). Falling back to
+    echo  Windows PowerShell 5.1. Install PowerShell 7 for best results:
+    echo  https://aka.ms/powershell-release?tag=stable
+    echo.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0${ctx.scriptName}"
+)
+pause
+`);
+  }
+
+  /** Bundle the .ps1 + .bat into one zip Blob. Requires the JSZip global. */
+  async function buildZip(ctx) {
+    if (typeof JSZip === "undefined") throw new Error("JSZip did not load. Refresh the page and try again.");
+    const zip = new JSZip();
+    zip.file(ctx.scriptName, buildScript(ctx));
+    zip.file(ctx.batName, buildBat(ctx));
+    return zip.generateAsync({ type: "blob", compression: "DEFLATE" });
   }
 
   root.ExoScripts = {
     buildContext: buildContext,
     buildScript: buildScript,
+    buildBat: buildBat,
+    buildZip: buildZip,
     _psStr: psStr,
     _slug: slug,
     _crlf: crlf,
