@@ -493,6 +493,52 @@ function useTargetAsTyped() {
   document.getElementById("wTargetNext").disabled     = false;
 }
 
+// ── Permission type step (shared mailbox only) ──────────────────
+function renderPermStep() {
+  const isGrant = wiz.op === "grant";
+  const verb = isGrant ? "grant" : "remove";
+  document.getElementById("wizBody").innerHTML = `
+    <div class="banner error" id="pErr" style="display:none"></div>
+    <div class="card">
+      <div class="card-title">Permission type</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Pick every permission to ${verb}. You can select more than one.</p>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input type="checkbox" id="permFull" ${wiz.perms.full?"checked":""} onchange="permChanged()"/> Full Access <span class="muted text-xs">&nbsp;open the mailbox and read its mail</span></label>
+        <label class="checkbox-label"><input type="checkbox" id="permSendAs" ${wiz.perms.sendAs?"checked":""} onchange="permChanged()"/> Send As <span class="muted text-xs">&nbsp;send mail as the mailbox itself</span></label>
+        <label class="checkbox-label"><input type="checkbox" id="permOnBehalf" ${wiz.perms.onBehalf?"checked":""} onchange="permChanged()"/> Send on Behalf <span class="muted text-xs">&nbsp;recipients see it was sent on behalf of the mailbox</span></label>
+      </div>
+    </div>
+    <div class="card" id="autoCard" style="display:none">
+      <div class="card-title">AutoMapping</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Full Access only. When this is on, the mailbox appears in Outlook automatically for each user. Leave it on unless this mailbox is known to cause Outlook mapping problems.</p>
+      <label class="checkbox-label"><input type="checkbox" id="permAuto" ${wiz.autoMapping?"checked":""} onchange="permChanged()"/> Add the mailbox to Outlook automatically</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="renderTargetStep()">← Back</button>
+      <button class="btn btn-primary" id="permNextBtn" onclick="permNext()">Continue →</button>
+    </div>`;
+  permChanged();
+}
+
+function permChanged() {
+  wiz.perms.full     = document.getElementById("permFull").checked;
+  wiz.perms.sendAs   = document.getElementById("permSendAs").checked;
+  wiz.perms.onBehalf = document.getElementById("permOnBehalf").checked;
+  const autoEl = document.getElementById("permAuto");
+  if (autoEl) wiz.autoMapping = autoEl.checked;
+  document.getElementById("autoCard").style.display = wiz.perms.full ? "block" : "none";
+  const any = wiz.perms.full || wiz.perms.sendAs || wiz.perms.onBehalf;
+  document.getElementById("permNextBtn").disabled = !any;
+}
+
+function permNext() {
+  if (!(wiz.perms.full || wiz.perms.sendAs || wiz.perms.onBehalf)) {
+    showErr("pErr", "Pick at least one permission type.");
+    return;
+  }
+  renderSourceStep();
+}
+
 function afterTarget() {
   const t = getType(wiz.typeId);
   if (!wiz.targetIdentity) return;
