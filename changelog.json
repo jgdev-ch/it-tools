@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "2.4.2",
+      "date": "2026-09-01",
+      "notes": [
+        "User Creation: India-region accounts now automatically join two universal security groups (AVD Global O365 Access, P-SG-CAP-DeviceAccess), with a Security Groups panel on Step 2 to opt out if needed",
+        "User Creation: the downloaded Credentials.csv now shows whether each universal group was added successfully for every new account"
+      ]
+    },
+    {
       "version": "2.4.1",
       "date": "2026-08-28",
       "notes": [
