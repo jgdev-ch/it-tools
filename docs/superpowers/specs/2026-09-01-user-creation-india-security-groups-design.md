@@ -51,20 +51,52 @@ A second collapsible bar, styled and behaving identically to the existing "Bulk 
 
 ## Group-add logic: Step 3, `createUser()`
 
-Extends the existing non-fatal group-add block (`tools/user-creation/index.html`, ~line 993–1004). After the existing `subContractor`/`teamMember`/`disableOutlook` adds:
+Extends the existing non-fatal group-add block (`tools/user-creation/index.html`, ~line 993–1004). The existing loop adds `subContractor`/`teamMember`/`disableOutlook` from a plain array of group IDs with one shared, generic warning message. For the two universal groups we need a **per-group, per-row result** (to populate the CSV columns below), so those two are tracked individually rather than folded into the same anonymous array:
 
 ```js
 if (st.region === "India") {
-  if (st.indiaUniversalGroups.avdAccess)    groupIds.push(INDIA_UNIVERSAL_GROUPS.avdAccess.id);
-  if (st.indiaUniversalGroups.deviceAccess) groupIds.push(INDIA_UNIVERSAL_GROUPS.deviceAccess.id);
+  for (const [key, grp] of Object.entries(INDIA_UNIVERSAL_GROUPS)) {
+    if (!st.indiaUniversalGroups[key]) { row[key + "Result"] = "Skipped"; continue; }
+    try {
+      await ITTools.graph.post(`/groups/${grp.id}/members/$ref`, {
+        "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`
+      });
+      row[key + "Result"] = "Added";
+    } catch(e) {
+      row[key + "Result"] = "Failed";
+      warnings.push(`${grp.name} add failed: ` + ITTools.graph.friendlyError(e));
+    }
+  }
+} else {
+  for (const key of Object.keys(INDIA_UNIVERSAL_GROUPS)) row[key + "Result"] = "N/A";
 }
 ```
 
-Added to the same `groupIds` array already looped for the Graph `POST /groups/{id}/members/$ref` call, so it inherits the existing per-group try/catch: a failed add on either group surfaces as a warning on that row ("Created: security group add failed: ... (finish in Exchange step)") without discarding the created account. No new error-handling path needed.
+This runs alongside (not instead of) the existing `subContractor`/`teamMember`/`disableOutlook` loop, which is untouched — those three still share the generic warning message since they don't get their own CSV columns. A failed add on either universal group still surfaces as a warning on that row and does not discard the created account, matching the existing non-fatal pattern.
+
+`row.avdAccessResult` / `row.deviceAccessResult` end up one of: `"Added"`, `"Skipped"` (checkbox was unchecked for the batch), `"Failed"` (Graph error — detail is in the row's warning text), or `"N/A"` (US region, group doesn't apply).
+
+## CSV export: two new result columns
+
+`buildCredentialsCsv()` (`tools/user-creation/index.html`, ~line 1159) currently emits `DisplayName,UPN,TempPassword`. Add two trailing columns so a tech can see, per newly created user, whether each universal group add actually succeeded — without having to scroll back through the Step 3 progress list:
+
+```js
+function buildCredentialsCsv() {
+  const lines = ["DisplayName,UPN,TempPassword,AVD Global O365 Access,P-SG-CAP-DeviceAccess"];
+  st.created.forEach(r => {
+    const display = `${r.fn} ${r.ln}`.replace(/,/g, "");
+    lines.push(`${display},${r.upn},${r.password},${r.avdAccessResult},${r.deviceAccessResult}`);
+  });
+  return lines.join("\r\n");
+}
+```
+
+Both the ZIP path and the direct-download path (`downloadCredentialsCsv()`) share this function, so both pick up the new columns automatically — no separate change needed for either.
 
 ## Testing Notes
 
 - Verify both checkboxes default checked, and the panel disappears on toggling to US region and reappears (reset to checked) on toggling back to India.
 - Verify an India-mode account created with both boxes checked ends up in `subContractor`/`teamMember` (as today) plus both universal groups.
 - Verify unchecking one box before Step 3 results in that group being skipped for all rows in the batch, with the other group and existing groups unaffected.
+- Verify the exported `Credentials.csv` (both the ZIP path and the direct-download path) has the two new trailing columns populated with the correct value (`Added`/`Skipped`/`Failed`/`N/A`) for every row in `st.created`.
 - No live-test path exists for a failed add on these two groups specifically (would require simulating a Graph error) — rely on the existing shared try/catch already proven for `disableOutlook`.
