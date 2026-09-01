@@ -1230,10 +1230,10 @@ pause
 }
 
 function buildCredentialsCsv() {
-  const lines = ["DisplayName,UPN,TempPassword"];
+  const lines = ["DisplayName,UPN,TempPassword,AVD Global O365 Access,P-SG-CAP-DeviceAccess"];
   st.created.forEach(r => {
     const display = `${r.fn} ${r.ln}`.replace(/,/g, "");
-    lines.push(`${display},${r.upn},${r.password}`);
+    lines.push(`${display},${r.upn},${r.password},${r.avdAccessResult},${r.deviceAccessResult}`);
   });
   return lines.join("\r\n");
 }
