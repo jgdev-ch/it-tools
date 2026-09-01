@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Group Administration: IT Tools</title>
 <script src="../../shared/msal-browser.min.js"></script>
+<script src="jszip.min.js"></script>
 <link rel="stylesheet" href="../../shared/styles.css"/>
 <style>
   .app-body    { display:flex; min-height:calc(100vh - var(--topbar-h)); }
@@ -66,17 +67,25 @@
   .gsd-badge { display: inline-flex; }
 
   /* ── Launcher card grid ── */
-  .type-grid  { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; }
-  .type-card  { width:200px; padding:18px 16px; border:1px solid var(--glass-border); border-radius:12px; background:var(--glass-fill); cursor:pointer; transition:transform .12s, box-shadow .12s; }
+  .type-grid  { display:flex; flex-wrap:wrap; gap:16px; margin-top:10px; }
+  .type-card  { width:288px; padding:20px 16px; border:1px solid var(--glass-border); border-radius:14px; background:var(--glass-fill); cursor:pointer; transition:transform .12s, box-shadow .12s; }
   .type-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.08); }
   .type-card.disabled { opacity:.55; cursor:not-allowed; }
   .type-card.disabled:hover { transform:none; box-shadow:none; }
-  .type-icon  { font-size:26px; color:var(--accent-green); }
+  .type-icon  { font-size:32px; color:var(--accent-green); }
   .type-card.disabled .type-icon { color:var(--muted); }
-  .type-name  { font-size:15px; font-weight:700; margin-top:8px; }
-  .type-tag   { display:inline-block; margin-top:8px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
+  .type-name  { font-size:16px; font-weight:700; margin-top:10px; line-height:1.3; }
+  .type-tag   { display:inline-block; margin-top:10px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:20px; }
   .type-tag.live   { background:var(--green-light); color:var(--green); }
   .type-tag.script { background:var(--surface3); color:var(--muted); }
+  /* Wizard step cards (e.g. the action step) nest .type-grid inside a .card,
+     whose own padding leaves too little room for fixed-width launcher cards
+     and forces a wrap. Let these grow/shrink to fill the row evenly instead. */
+  .card > .type-grid > .type-card { flex:1 1 220px; width:auto; }
+
+  /* ── Generated script preview ── */
+  .script-pre  { max-height:320px; overflow:auto; background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:12px; font-family:'Cascadia Code','Consolas',monospace; font-size:11px; line-height:1.5; white-space:pre; margin:0; }
+  .gen-files   { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); margin-top:10px; }
 </style>
 </head>
 <body>
@@ -90,7 +99,7 @@
   <div class="auth-card">
     <div style="width:44px;height:44px;background:var(--blue-light);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></div>
     <h1>Group Administration</h1>
-    <p>Sign in with your M365 admin account to add, remove, or export group members.</p>
+    <p>Sign in with your M365 admin account to manage group members and shared mailbox access.</p>
     <button class="btn-ms" onclick="doSignIn()">
       <svg viewBox="0 0 21 21" width="17" height="17" fill="none">
         <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
@@ -114,7 +123,7 @@
       <div class="sidebar-lbl">About</div>
       <div class="sidebar-tip">
         <strong>Group Administration</strong>
-        Add, remove, or export members of Entra security groups and Microsoft 365 groups (live via Microsoft Graph). Distribution lists, mail-enabled security groups, and shared mailboxes generate a PowerShell script (coming soon).
+        Add, remove, or export members of Entra security groups and Microsoft 365 groups live via Microsoft Graph. Distribution lists, mail-enabled security groups, and shared mailbox access download as a ready-to-run PowerShell script.
       </div>
       <div class="sidebar-divider"></div>
       <div class="sidebar-tip">
@@ -123,13 +132,13 @@
       </div>
     </nav>
 
-    <main class="main-content" style="max-width:900px">
+    <main class="main-content" style="max-width:960px">
 
       <!-- LAUNCHER -->
       <div id="launcher">
         <div class="section-hdr">
           <h2>Group Administration</h2>
-          <p>Pick what you're working with. Security and Microsoft 365 groups run live here; the Exchange types generate a PowerShell script (coming soon).</p>
+          <p>Pick what you're working with. Security and Microsoft 365 groups run live here; the Exchange types generate a PowerShell script you download and run yourself.</p>
         </div>
         <div id="launcherLive"></div>
         <div id="launcherScript" style="margin-top:1.25rem"></div>
@@ -150,6 +159,7 @@
 </div>
 
 <script src="../../shared/auth.js"></script>
+<script src="exo-scripts.js"></script>
 <script>
 const GSD_GROUP_ID = "3e1a4757-8189-4908-a611-b6029399e69e";
 let _hasGsdAccess  = false;
@@ -240,9 +250,17 @@ const ICONS = {
   download:    _svg(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`),
 };
 
+const _svgSm = p => `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px">${p}</svg>`;
+const ICONS_SM = {
+  download: _svgSm(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`),
+  fileText: _svgSm(`<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>`),
+  terminal: _svgSm(`<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>`),
+};
+
 // ── Object-type registry ───────────────────────────────────────
-// backend: "graph" (live) | "exchange" (v2 script-gen, disabled in v1)
+// backend: "graph" (live in browser) | "exchange" (generates a PowerShell script)
 // source:  "members" | "permissions"
+// graphKind: "security" | "unified" | "distribution" | "mailSecurity" | "mailbox"
 const OBJECT_TYPES = [
   { id:"security-group", label:"Security Group", backend:"graph", source:"members",
     icon:ICONS.shield, tag:"Live · Graph", enabled:true,
@@ -253,11 +271,14 @@ const OBJECT_TYPES = [
     graphKind:"unified",
     ops:["add","remove","export"] },
   { id:"distribution-list", label:"Distribution List", backend:"exchange", source:"members",
-    icon:ICONS.mail, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+    icon:ICONS.mail, tag:"Script · EXO", enabled:true, graphKind:"distribution",
+    ops:["add","remove","export"] },
   { id:"mail-security-group", label:"Mail-enabled Security Group", backend:"exchange", source:"members",
-    icon:ICONS.shieldCheck, tag:"Script · EXO", enabled:false, ops:["add","remove","export"] },
+    icon:ICONS.shieldCheck, tag:"Script · EXO", enabled:true, graphKind:"mailSecurity",
+    ops:["add","remove","export"] },
   { id:"shared-mailbox", label:"Shared Mailbox", backend:"exchange", source:"permissions",
-    icon:ICONS.inbox, tag:"Script · EXO", enabled:false, ops:["grant","remove","export"] },
+    icon:ICONS.inbox, tag:"Script · EXO", enabled:true, graphKind:"mailbox",
+    ops:["grant","remove","export"] },
 ];
 function getType(id){ return OBJECT_TYPES.find(t => t.id === id) || null; }
 
@@ -284,28 +305,54 @@ function backToLauncher() {
 }
 
 // ── Wizard ──────────────────────────────────────────────────────
-const wiz = { typeId:"", op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] };
+const wiz = { typeId:"", op:"", groupId:"", groupName:"", targetIdentity:"", targetVerified:false,
+              identifiers:[], validIdentifiers:[], perms:{ full:true, sendAs:false, onBehalf:false },
+              autoMapping:true, csvName:"", dryDone:false, lastLog:[] };
 
 function openWizard(typeId) {
   const t = getType(typeId);
   if (!t || !t.enabled) return;
-  Object.assign(wiz, { typeId, op:"", groupId:"", groupName:"", identifiers:[], csvName:"", dryDone:false, lastLog:[] });
+  Object.assign(wiz, { typeId, op:"", groupId:"", groupName:"", targetIdentity:"", targetVerified:false,
+                       identifiers:[], validIdentifiers:[], perms:{ full:true, sendAs:false, onBehalf:false },
+                       autoMapping:true, csvName:"", dryDone:false, lastLog:[] });
   document.getElementById("launcher").style.display = "none";
   document.getElementById("wizard").style.display   = "block";
   document.getElementById("wizTitle").textContent = t.label;
-  document.getElementById("wizSub").textContent   = "Add, remove, or export members (live via Microsoft Graph).";
+  document.getElementById("wizSub").textContent = t.backend === "graph"
+    ? "Add, remove, or export members, live via Microsoft Graph."
+    : (t.source === "permissions"
+        ? "Build a PowerShell script that grants, removes, or exports shared mailbox access in Exchange Online."
+        : "Build a PowerShell script that adds, removes, or exports members in Exchange Online.");
   renderActionStep();
 }
 
+const OP_META = {
+  members: {
+    add:    { label:"Add members",    hint:"Import a CSV of members into this group",  icon:"userPlus"  },
+    remove: { label:"Remove members", hint:"Remove a CSV of members from this group",  icon:"userMinus" },
+    export: { label:"Export members", hint:"Download the current membership as CSV",   icon:"download"  },
+  },
+  permissions: {
+    grant:  { label:"Grant access",       hint:"Give users access to this mailbox",     icon:"userPlus"  },
+    remove: { label:"Remove access",      hint:"Take access away from users",           icon:"userMinus" },
+    export: { label:"Export access list", hint:"List who has access to this mailbox",   icon:"download"  },
+  },
+};
+
 function renderActionStep() {
   wiz.op = "";
+  const t = getType(wiz.typeId);
+  const meta = OP_META[t.source];
   document.getElementById("wizBody").innerHTML = `
     <div class="card">
       <div class="card-title">What do you want to do?</div>
       <div class="type-grid">
-        <div class="type-card" onclick="chooseOp('add')"><div class="type-icon">${ICONS.userPlus}</div><div class="type-name">Add members</div><p class="step-sub">Import a CSV into this group</p></div>
-        <div class="type-card" onclick="chooseOp('remove')"><div class="type-icon">${ICONS.userMinus}</div><div class="type-name">Remove members</div><p class="step-sub">Remove a CSV of users from this group</p></div>
-        <div class="type-card" onclick="chooseOp('export')"><div class="type-icon">${ICONS.download}</div><div class="type-name">Export members</div><p class="step-sub">Download current membership as CSV</p></div>
+        ${t.ops.map(op => `
+        <div class="type-card" onclick="chooseOp('${op}')">
+          <div class="type-icon">${ICONS[meta[op].icon]}</div>
+          <div class="type-name">${meta[op].label}</div>
+          <p class="step-sub">${meta[op].hint}</p>
+        </div>`).join("")}
       </div>
     </div>`;
 }
@@ -331,20 +378,28 @@ const KIND_LABELS = {
 
 function renderTargetStep() {
   const t = getType(wiz.typeId);
-  const wantUnified = t.graphKind === "unified";
-  const lbl = wantUnified ? "Group name, email, or GUID" : "Group name or GUID";
-  const ph  = wantUnified ? "e.g. Marketing Team, group@domain.com, or a GUID" : "e.g. IT-Security-Team or a GUID";
+  const isMailbox = t.graphKind === "mailbox";
+  const lbl = isMailbox ? "Mailbox email address" : "Name, email address, or GUID";
+  const ph  = isMailbox
+    ? "e.g. helpdesk@corrohealth.com"
+    : (t.graphKind === "security" ? "e.g. IT-Security-Team or a GUID" : "e.g. IT All, it-all@corrohealth.com, or a GUID");
+  const lookupFn = isMailbox ? "mailboxLookup()" : "wizLookup()";
+  const manualBlock = t.backend === "exchange" ? `
+      <div id="wManualWrap" style="display:none;margin-top:10px">
+        <div class="banner warn" style="display:block">Not found in Entra ID. You can still continue with the identity exactly as typed. The generated script verifies it in Exchange Online before it changes anything.</div>
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="useTargetAsTyped()">Use the identity as typed</button>
+      </div>` : "";
   document.getElementById("wizBody").innerHTML = `
     <div class="banner error" id="wErr" style="display:none"></div>
     <div class="card">
       <div class="card-title">Target ${t.label.toLowerCase()}</div>
       <div class="field"><label class="field-label">${lbl}</label>
         <div class="input-row">
-          <input type="text" id="wGroupIn" placeholder="${ph}" onkeydown="if(event.key==='Enter')wizLookup()"/>
-          <button class="btn btn-secondary" id="wLookupBtn" onclick="wizLookup()" style="white-space:nowrap">Look up</button>
+          <input type="text" id="wGroupIn" placeholder="${ph}" onkeydown="if(event.key==='Enter')${lookupFn}"/>
+          <button class="btn btn-secondary" id="wLookupBtn" onclick="${lookupFn}" style="white-space:nowrap">Look up</button>
         </div>
       </div>
-      <div class="group-ok" id="wGroupOk"><div class="group-ok-name" id="wGroupOkName"></div><div class="group-ok-id" id="wGroupOkId"></div></div>
+      <div class="group-ok" id="wGroupOk"><div class="group-ok-name" id="wGroupOkName"></div><div class="group-ok-id" id="wGroupOkId"></div></div>${manualBlock}
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="renderActionStep()">← Back</button>
@@ -359,7 +414,7 @@ async function wizLookup() {
   err.style.display = "none";
   const t = getType(wiz.typeId);
   const wantKind = t.graphKind;
-  const select = "id,displayName,groupTypes,mailEnabled,securityEnabled";
+  const select = "id,displayName,mail,groupTypes,mailEnabled,securityEnabled";
   try {
     await ITTools.ui.withButtonSpinner(document.getElementById("wLookupBtn"), async () => {
       let group;
@@ -377,28 +432,155 @@ async function wizLookup() {
         if (!matches.length) throw new Error(`No ${t.label} found ${byEmail ? `with email "${input}"` : `named "${input}"`}.`);
         group = matches[0];
       }
-      wiz.groupId = group.id; wiz.groupName = group.displayName;
+      wiz.groupId        = group.id;
+      wiz.groupName      = group.displayName;
+      wiz.targetIdentity = group.mail || group.displayName;
+      wiz.targetVerified = true;
       document.getElementById("wGroupOkName").textContent = group.displayName;
-      document.getElementById("wGroupOkId").textContent   = group.id;
-      document.getElementById("wGroupOk").style.display    = "block";
-      document.getElementById("wTargetNext").disabled      = false;
+      document.getElementById("wGroupOkId").textContent   = wiz.targetIdentity + "  ·  " + group.id;
+      document.getElementById("wGroupOk").style.display   = "block";
+      document.getElementById("wTargetNext").disabled     = false;
     }, "Looking up…", [document.getElementById("wGroupIn")]);
   } catch(e) {
-    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block"; wiz.groupId = "";
+    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block";
+    wiz.groupId = ""; wiz.targetIdentity = ""; wiz.targetVerified = false;
+    const manual = document.getElementById("wManualWrap");
+    if (manual) manual.style.display = "block";
   }
 }
 
+// Shared mailboxes exist in Entra as (disabled) user objects, so Graph can read them.
+// Graph exposes no mailbox-type field, so "is it really shared" is checked by the
+// generated script via Get-Mailbox -RecipientTypeDetails.
+async function mailboxLookup() {
+  const input = document.getElementById("wGroupIn").value.trim();
+  const err = document.getElementById("wErr");
+  if (!input) { err.textContent = "Enter the mailbox email address."; err.style.display="block"; return; }
+  err.style.display = "none";
+  try {
+    await ITTools.ui.withButtonSpinner(document.getElementById("wLookupBtn"), async () => {
+      let user = null;
+      const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(input)}?$select=id,displayName,mail,userPrincipalName`,
+        { headers: { Authorization: "Bearer " + (await ITTools.auth.getToken()) } });
+      if (r.ok) {
+        user = await r.json();
+      } else {
+        const esc = input.replace(/'/g, "''");
+        const res = await ITTools.graph.get(`/users?$filter=mail eq '${encodeURIComponent(esc)}'&$select=id,displayName,mail,userPrincipalName`);
+        user = (res.value || [])[0] || null;
+      }
+      if (!user) throw new Error(`No mailbox found for "${input}".`);
+      wiz.groupId        = user.id;
+      wiz.groupName      = user.displayName || input;
+      wiz.targetIdentity = user.mail || user.userPrincipalName || input;
+      wiz.targetVerified = true;
+      document.getElementById("wGroupOkName").textContent = wiz.groupName;
+      document.getElementById("wGroupOkId").textContent   = wiz.targetIdentity;
+      document.getElementById("wGroupOk").style.display   = "block";
+      document.getElementById("wManualWrap").style.display = "none";
+      document.getElementById("wTargetNext").disabled     = false;
+    }, "Looking up…", [document.getElementById("wGroupIn")]);
+  } catch(e) {
+    err.textContent = ITTools.graph.friendlyError(e); err.style.display = "block";
+    wiz.groupId = ""; wiz.targetIdentity = ""; wiz.targetVerified = false;
+    document.getElementById("wManualWrap").style.display = "block";
+  }
+}
+
+const TARGET_RE = /^[A-Za-z0-9][A-Za-z0-9 ._'()-]{1,63}(@[^\s@]+\.[A-Za-z]{2,})?$/;
+
+function useTargetAsTyped() {
+  const input = document.getElementById("wGroupIn").value.trim();
+  const err = document.getElementById("wErr");
+  if (!TARGET_RE.test(input)) {
+    err.textContent = "That does not look like a valid name or email address. Fix it before continuing.";
+    err.style.display = "block";
+    return;
+  }
+  err.style.display = "none";
+  wiz.groupId        = "";
+  wiz.groupName      = input;
+  wiz.targetIdentity = input;
+  wiz.targetVerified = false;
+  document.getElementById("wGroupOkName").textContent = input;
+  document.getElementById("wGroupOkId").textContent   = "Not verified in Entra ID. The script verifies it in Exchange Online.";
+  document.getElementById("wGroupOk").style.display   = "block";
+  document.getElementById("wTargetNext").disabled     = false;
+}
+
+// ── Permission type step (shared mailbox only) ──────────────────
+function renderPermStep() {
+  const isGrant = wiz.op === "grant";
+  const verb = isGrant ? "grant" : "remove";
+  document.getElementById("wizBody").innerHTML = `
+    <div class="banner error" id="pErr" style="display:none"></div>
+    <div class="card">
+      <div class="card-title">Permission type</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Pick every permission to ${verb}. You can select more than one.</p>
+      <div class="checkbox-group">
+        <label class="checkbox-label"><input type="checkbox" id="permFull" ${wiz.perms.full?"checked":""} onchange="permChanged()"/> Full Access <span class="muted text-xs">&nbsp;open the mailbox and read its mail</span></label>
+        <label class="checkbox-label"><input type="checkbox" id="permSendAs" ${wiz.perms.sendAs?"checked":""} onchange="permChanged()"/> Send As <span class="muted text-xs">&nbsp;send mail as the mailbox itself</span></label>
+        <label class="checkbox-label"><input type="checkbox" id="permOnBehalf" ${wiz.perms.onBehalf?"checked":""} onchange="permChanged()"/> Send on Behalf <span class="muted text-xs">&nbsp;recipients see it was sent on behalf of the mailbox</span></label>
+      </div>
+    </div>
+    <div class="card" id="autoCard" style="display:none">
+      <div class="card-title">AutoMapping</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Full Access only. When this is on, the mailbox appears in Outlook automatically for each user. Leave it on unless this mailbox is known to cause Outlook mapping problems.</p>
+      <label class="checkbox-label"><input type="checkbox" id="permAuto" ${wiz.autoMapping?"checked":""} onchange="permChanged()"/> Add the mailbox to Outlook automatically</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="renderTargetStep()">← Back</button>
+      <button class="btn btn-primary" id="permNextBtn" onclick="permNext()">Continue →</button>
+    </div>`;
+  permChanged();
+}
+
+function permChanged() {
+  wiz.perms.full     = document.getElementById("permFull").checked;
+  wiz.perms.sendAs   = document.getElementById("permSendAs").checked;
+  wiz.perms.onBehalf = document.getElementById("permOnBehalf").checked;
+  const autoEl = document.getElementById("permAuto");
+  if (autoEl) wiz.autoMapping = autoEl.checked;
+  document.getElementById("autoCard").style.display = wiz.perms.full ? "block" : "none";
+  const any = wiz.perms.full || wiz.perms.sendAs || wiz.perms.onBehalf;
+  document.getElementById("permNextBtn").disabled = !any;
+}
+
+function permNext() {
+  if (!(wiz.perms.full || wiz.perms.sendAs || wiz.perms.onBehalf)) {
+    showErr("pErr", "Pick at least one permission type.");
+    return;
+  }
+  renderSourceStep();
+}
+
 function afterTarget() {
-  if (!wiz.groupId) return;
-  if (wiz.op === "export") { renderRunStep(); } else { renderSourceStep(); }
+  const t = getType(wiz.typeId);
+  if (!wiz.targetIdentity) return;
+  if (wiz.op === "export") {
+    if (t.backend === "exchange") renderGenerateStep(); else renderRunStep();
+    return;
+  }
+  if (t.source === "permissions") { renderPermStep(); return; }
+  renderSourceStep();
 }
 
 // ── Source CSV step (Add / Remove) ──────────────────────────────
+// ── Source CSV step (add / remove / grant) ──────────────────────
+function sourceTitle() {
+  const t = getType(wiz.typeId);
+  if (t.source === "permissions") return wiz.op === "grant" ? "Users to grant access (CSV)" : "Users to remove access (CSV)";
+  return wiz.op === "add" ? "Members to add (CSV)" : "Members to remove (CSV)";
+}
+
 function renderSourceStep() {
+  const t = getType(wiz.typeId);
+  const backFn   = t.source === "permissions" ? "renderPermStep()" : "renderTargetStep()";
+  const nextText = t.backend === "exchange" ? "Continue to Generate →" : "Continue to Run →";
   document.getElementById("wizBody").innerHTML = `
     <div class="banner error" id="s1Err" style="display:none"></div>
     <div class="card">
-      <div class="card-title">${wiz.op === "add" ? "Members to add" : "Members to remove"} (CSV)</div>
+      <div class="card-title">${sourceTitle()}</div>
       <div class="file-drop" id="fileDrop" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
         <div class="file-drop-idle"><div style="margin-bottom:8px;color:var(--muted2);display:flex;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
           <p>Drag &amp; drop your CSV, or <strong onclick="document.getElementById('fileIn').click()">browse</strong></p></div>
@@ -416,14 +598,26 @@ function renderSourceStep() {
       <div id="previewWrap" style="display:none;margin-top:12px"><div class="preview-list" id="previewList"></div></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-ghost" onclick="renderTargetStep()">← Back</button>
-      <button class="btn btn-primary" id="s1Btn" onclick="sourceNext()" disabled>Continue to Run →</button>
+      <button class="btn btn-ghost" onclick="${backFn}">← Back</button>
+      <button class="btn btn-primary" id="s1Btn" onclick="sourceNext()" disabled>${nextText}</button>
     </div>`;
 }
+
+// Exchange scripts cannot resolve a typo the way the live Graph path can, so
+// identities are format-validated in the browser before a script is generated.
+const IDENTITY_RE = /^[^\s@,;]+@[^\s@,;]+\.[A-Za-z]{2,}$/;
+
+function validateIdentities(list) {
+  const valid = [], invalid = [];
+  (list || []).forEach(v => (IDENTITY_RE.test(v) ? valid : invalid).push(v));
+  return { valid, invalid };
+}
+
 function sourceNext() {
   wiz.identifiers = getPrimed();
   if (!wiz.identifiers.length) { showErr("s1Err","No identifiers found."); return; }
-  renderRunStep();
+  const t = getType(wiz.typeId);
+  if (t.backend === "exchange") renderGenerateStep(); else renderRunStep();
 }
 
 // ── Run step + operations ───────────────────────────────────────
@@ -542,6 +736,112 @@ async function runExport() {
         Mail:m.mail||"", UserType:m.userType||"", Id:m.id
       })));
   } catch(e) { showErr("s3Err","Export failed: "+ITTools.graph.friendlyError(e)); }
+}
+
+// ── Generate step (Exchange types) ──────────────────────────────
+function exoContext() {
+  const t = getType(wiz.typeId);
+  const acct = ITTools.auth.getAccount();
+  return ExoScripts.buildContext({
+    typeId:        wiz.typeId,
+    typeLabel:     t.label,
+    op:            wiz.op,
+    target:        wiz.targetIdentity,
+    targetDisplay: wiz.groupName || wiz.targetIdentity,
+    identities:    wiz.validIdentifiers,
+    perms:         { full: wiz.perms.full, sendAs: wiz.perms.sendAs, onBehalf: wiz.perms.onBehalf },
+    autoMapping:   wiz.autoMapping,
+    tech:          (acct && acct.username) || "unknown",
+  });
+}
+
+function renderGenerateStep() {
+  const t = getType(wiz.typeId);
+  const isExport = wiz.op === "export";
+  const checked  = isExport ? { valid: [], invalid: [] } : validateIdentities(wiz.identifiers);
+  wiz.validIdentifiers = checked.valid;
+
+  const permNames = [];
+  if (wiz.perms.full)     permNames.push("Full Access" + (wiz.autoMapping ? " (AutoMapping on)" : " (AutoMapping off)"));
+  if (wiz.perms.sendAs)   permNames.push("Send As");
+  if (wiz.perms.onBehalf) permNames.push("Send on Behalf");
+
+  const backFn = isExport
+    ? "renderTargetStep()"
+    : "renderSourceStep()";
+
+  const invalidBlock = checked.invalid.length ? `
+    <div class="banner warn" style="display:block">
+      ${checked.invalid.length} row(s) are not valid email addresses and are left out of the script:
+      <span class="mono text-xs">${checked.invalid.slice(0, 10).join(", ")}${checked.invalid.length > 10 ? ", …" : ""}</span>
+    </div>` : "";
+
+  const unverifiedBlock = wiz.targetVerified ? "" : `
+    <div class="banner warn" style="display:block">The target was not verified in Entra ID. The script verifies it in Exchange Online with a lookup before it changes anything.</div>`;
+
+  document.getElementById("wizBody").innerHTML = `
+    ${unverifiedBlock}${invalidBlock}
+    <div class="banner error" id="genErr" style="display:none"></div>
+    <div class="card"><div class="card-title">Summary</div>
+      <div class="run-summary">
+        <div class="run-summary-item"><span>Object type</span><span>${t.label}</span></div>
+        <div class="run-summary-item"><span>Action</span><span>${OP_META[t.source][wiz.op].label}</span></div>
+        <div class="run-summary-item"><span>Target</span><span style="color:var(--blue-dark)">${wiz.groupName}</span></div>
+        <div class="run-summary-item"><span>Identity used</span><span class="mono text-xs">${wiz.targetIdentity}</span></div>
+        ${isExport ? "" : `<div class="run-summary-item"><span>${t.source === "permissions" ? "Users" : "Members"}</span><span>${checked.valid.length}</span></div>`}
+        ${t.source === "permissions" && !isExport ? `<div class="run-summary-item"><span>Permissions</span><span>${permNames.join(", ")}</span></div>` : ""}
+      </div>
+      <div class="gen-files"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">${ICONS_SM.terminal}Generated script</div>
+      <pre class="script-pre" id="scriptPreview"></pre>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="${backFn}">← Back</button>
+      <button class="btn btn-success" id="genBtn" onclick="downloadScriptBundle()">${ICONS_SM.download}Download script bundle (.zip)</button>
+    </div>`;
+
+  if (!isExport && !checked.valid.length) {
+    showErr("genErr", "None of the CSV rows are valid email addresses. Fix the CSV and upload it again.");
+    document.getElementById("genBtn").disabled = true;
+    document.getElementById("scriptPreview").textContent = "";
+    return;
+  }
+
+  let ctx;
+  try {
+    ctx = exoContext();
+    document.getElementById("scriptPreview").textContent = ExoScripts.buildScript(ctx);
+    document.querySelector(".gen-files").innerHTML =
+      `<div>${ICONS_SM.fileText}<span class="mono text-xs">${ctx.scriptName}</span></div>` +
+      `<div>${ICONS_SM.terminal}<span class="mono text-xs">${ctx.batName}</span></div>` +
+      `<div>${ICONS_SM.download}<span class="mono text-xs">${ctx.zipName}</span></div>`;
+  } catch(e) {
+    showErr("genErr", "Could not build the script: " + e.message);
+    document.getElementById("genBtn").disabled = true;
+  }
+}
+
+async function downloadScriptBundle() {
+  const btn = document.getElementById("genBtn");
+  const label = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "Building…";
+  try {
+    const ctx  = exoContext();
+    const blob = await ExoScripts.buildZip(ctx);
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement("a"), { href: url, download: ctx.zipName });
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.innerHTML = label;
+    btn.disabled = false;
+  } catch(e) {
+    showErr("genErr", "Could not build the script bundle: " + e.message);
+    btn.innerHTML = label;
+    btn.disabled = false;
+  }
 }
 
 // ── Error banner ──────────────────────────────────────────────

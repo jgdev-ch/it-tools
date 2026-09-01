@@ -1,6 +1,34 @@
 {
   "entries": [
     {
+      "version": "2.4.2",
+      "date": "2026-09-01",
+      "notes": [
+        "User Creation: India-region accounts now automatically join two universal security groups (AVD Global O365 Access, P-SG-CAP-DeviceAccess), with a Security Groups panel on Step 2 to opt out if needed",
+        "User Creation: the downloaded Credentials.csv now shows whether each universal group was added successfully for every new account"
+      ]
+    },
+    {
+      "version": "2.4.1",
+      "date": "2026-08-28",
+      "notes": [
+        "Hub: fixed the page scrollbar rendering as a blank white stripe in dark mode",
+        "Hub: account panel now matches the same solid-glass look as the downloads and Recent Updates panels",
+        "Hub: card descriptions are now capped at three lines so every card stays the same height",
+        "Group Administration: object-type cards are larger so longer labels like Mail-enabled Security Group no longer wrap awkwardly, and wizard step cards now stay in one even row instead of wrapping",
+        "Hub: shortened the Group Administration and User Creation card descriptions so they no longer get cut off with an ellipsis"
+      ]
+    },
+    {
+      "version": "2.4.0",
+      "date": "2026-08-28",
+      "notes": [
+        "Group Administration: distribution lists and mail-enabled security groups can now add, remove, and export members",
+        "Group Administration: shared mailbox access for Full Access, Send As, and Send on Behalf, with an AutoMapping toggle",
+        "Group Administration: Exchange actions download a PowerShell script plus a double-click launcher in one zip, with a dry run before any change"
+      ]
+    },
+    {
       "version": "2.3.5",
       "date": "2026-08-28",
       "notes": [

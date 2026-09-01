@@ -136,6 +136,13 @@ button, input, select, textarea { font-family: inherit; }
 /* ─────────────────────────────────────────────────────────────
    BASE
 ───────────────────────────────────────────────────────────── */
+/* html needs its own background: the scrollbar track's transparent fill shows
+   whatever is painted behind it, and without this it falls back to the
+   browser's default white canvas — invisible in light mode, a stark white
+   stripe in dark mode. */
+html {
+  background: var(--bg);
+}
 body {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   background: linear-gradient(145deg, var(--bg), var(--page-2));

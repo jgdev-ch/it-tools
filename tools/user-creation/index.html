@@ -277,6 +277,29 @@
           </div>
         </div>
 
+        <!-- Security Groups (India only) -->
+        <div class="bulk-bar" id="secGroupsBar">
+          <div class="bulk-header" onclick="toggleSecGroups()">
+            <span id="secGroupsChevron" class="bulk-chevron">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+            <span class="bulk-title">Security Groups</span>
+            <span class="bulk-subtitle">Universal India group assignments (on by default)</span>
+          </div>
+          <div class="bulk-body" id="secGroupsBody" style="display:none">
+            <div class="bulk-field">
+              <div class="bulk-toggle-row">
+                <label class="tog"><input type="checkbox" id="secAvdAccess" checked/><div class="track"></div></label>
+                <span>Add to AVD Global O365 Access</span>
+              </div>
+              <div class="bulk-toggle-row">
+                <label class="tog"><input type="checkbox" id="secDeviceAccess" checked/><div class="track"></div></label>
+                <span>Add to P-SG-CAP-DeviceAccess</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Review table -->
         <div class="tbl-wrap" id="reviewWrap">
           <table class="review-tbl" style="width:100%;border-collapse:collapse">
@@ -408,6 +431,16 @@ const US_GROUPS = {
   disableOutlook:"TBD_US_DISABLE_OUTLOOK_GROUP"
 };
 
+// Universal India-only groups, added to every India-region account regardless
+// of CSV content, unless unchecked in the Step 2 "Security Groups" panel.
+// IDs are hardcoded (not resolved by display-name filter like INDIA_GROUPS)
+// because the exact Object IDs are already known — skips a Graph round-trip
+// and avoids a display-name filter matching the wrong group.
+const INDIA_UNIVERSAL_GROUPS = {
+  avdAccess:    { name: "AVD Global O365 Access", id: "70987d56-bc6d-4938-a7ec-b4fea45def92" },
+  deviceAccess: { name: "P-SG-CAP-DeviceAccess",   id: "75e46ff9-bd5a-4121-8b74-f2934f7e8837" }
+};
+
 // ── Automated path (Azure job queue) ──
 // Write-scoped SAS for the user-creation-jobs container: create+write only,
 // NO read/list/delete, object-scoped, time-bounded. Leave BOTH blank until Azure
@@ -432,6 +465,7 @@ const st = {
   region:  "India",
   skus:    {},     // { f3, f3archive, e3, appsEnt } — SkuId GUIDs
   groups:  {},     // { subContractor, teamMember, o365Login, internalEmail, disableOutlook } — Group IDs
+  indiaUniversalGroups: { avdAccess: true, deviceAccess: true }, // Step 2 checkbox state, snapshotted at Step 3 start
   created: []      // rows that succeeded creation (with .password)
 };
 
@@ -766,12 +800,25 @@ function setRegion(r) {
   st.region = r;
   document.getElementById("modeIndia").classList.toggle("active", r === "India");
   document.getElementById("modeUS").classList.toggle("active",    r === "US");
+  document.getElementById("secGroupsBar").style.display = r === "India" ? "block" : "none";
+  if (r === "India") {
+    document.getElementById("secAvdAccess").checked    = true;
+    document.getElementById("secDeviceAccess").checked = true;
+  }
 }
 
 // ── Step 2: Bulk settings ──────────────────────────────────
 function toggleBulk() {
   const body    = document.getElementById("bulkBody");
   const chevron = document.getElementById("bulkChevron");
+  const open    = body.style.display !== "none";
+  body.style.display = open ? "none" : "flex";
+  chevron.classList.toggle("open", !open);
+}
+
+function toggleSecGroups() {
+  const body    = document.getElementById("secGroupsBody");
+  const chevron = document.getElementById("secGroupsChevron");
   const open    = body.style.display !== "none";
   body.style.display = open ? "none" : "flex";
   chevron.classList.toggle("open", !open);
@@ -901,6 +948,11 @@ async function createAccounts() {
     return;
   }
 
+  st.indiaUniversalGroups = {
+    avdAccess:    document.getElementById("secAvdAccess").checked,
+    deviceAccess: document.getElementById("secDeviceAccess").checked
+  };
+
   const toCreate = st.rows.filter(r => r.status === "ok");
   progRows.innerHTML = "";
   st.created = [];
@@ -1004,6 +1056,27 @@ async function createUser(row, password) {
       warnings.push("security group add failed: " + ITTools.graph.friendlyError(e));
     }
   }
+
+  // Universal India groups: tracked per-group (not folded into groupIds above)
+  // because each needs its own Added/Skipped/Failed/N-A result for the
+  // Credentials.csv export (see buildCredentialsCsv).
+  if (st.region === "India") {
+    for (const [key, grp] of Object.entries(INDIA_UNIVERSAL_GROUPS)) {
+      if (!st.indiaUniversalGroups[key]) { row[key + "Result"] = "Skipped"; continue; }
+      try {
+        await ITTools.graph.post(`/groups/${grp.id}/members/$ref`, {
+          "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`
+        });
+        row[key + "Result"] = "Added";
+      } catch(e) {
+        row[key + "Result"] = "Failed";
+        warnings.push(`${grp.name} add failed: ` + ITTools.graph.friendlyError(e));
+      }
+    }
+  } else {
+    for (const key of Object.keys(INDIA_UNIVERSAL_GROUPS)) row[key + "Result"] = "N/A";
+  }
+
   return warnings;
 }
 
@@ -1157,10 +1230,10 @@ pause
 }
 
 function buildCredentialsCsv() {
-  const lines = ["DisplayName,UPN,TempPassword"];
+  const lines = ["DisplayName,UPN,TempPassword,AVD Global O365 Access,P-SG-CAP-DeviceAccess"];
   st.created.forEach(r => {
     const display = `${r.fn} ${r.ln}`.replace(/,/g, "");
-    lines.push(`${display},${r.upn},${r.password}`);
+    lines.push(`${display},${r.upn},${r.password},${r.avdAccessResult},${r.deviceAccessResult}`);
   });
   return lines.join("\r\n");
 }
