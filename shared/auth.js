@@ -242,6 +242,7 @@ ITTools.ui = (() => {
     gsd:               "3e1a4757-8189-4908-a611-b6029399e69e",
     "license-modify":  "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8",
     security:          "0df94db1-7166-4e65-9108-6298cb0cadfd",
+    "oncall-admin":    "036477e6-92a0-4eb7-b372-0849bd404bd9",
   };
 
   const PILL_DEFS = {
@@ -269,6 +270,11 @@ ITTools.ui = (() => {
       label: "Security Access",
       cls:   "account-pill--slate",
       icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    },
+    "oncall-admin": {
+      label: "On-Call Admin",
+      cls:   "account-pill--purple",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg>`,
     },
   };
 

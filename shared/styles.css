@@ -276,11 +276,13 @@ a:hover { text-decoration: underline; }
 .account-pill--green { background: rgba(4,120,87,.10);  border: 1px solid rgba(4,120,87,.22);  color: var(--green); }
 .account-pill--amber { background: rgba(146,64,14,.10); border: 1px solid rgba(146,64,14,.22); color: var(--amber); }
 .account-pill--blue  { background: rgba(26,86,219,.10); border: 1px solid rgba(26,86,219,.20); color: var(--blue);  }
-.account-pill--slate { background: rgba(91,100,114,.12); border: 1px solid rgba(91,100,114,.28); color: #5b6472;  }
-[data-theme="dark"] .account-pill--green { background: rgba(52,199,111,.12); border-color: rgba(52,199,111,.25); }
-[data-theme="dark"] .account-pill--amber { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25);  }
-[data-theme="dark"] .account-pill--blue  { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25);  }
-[data-theme="dark"] .account-pill--slate { background: rgba(148,158,174,.16); border-color: rgba(148,158,174,.32); color: #b0b8c4; }
+.account-pill--slate  { background: rgba(91,100,114,.12); border: 1px solid rgba(91,100,114,.28); color: #5b6472;  }
+.account-pill--purple { background: rgba(91,33,182,.10);  border: 1px solid rgba(91,33,182,.22);  color: var(--purple); }
+[data-theme="dark"] .account-pill--green  { background: rgba(52,199,111,.12); border-color: rgba(52,199,111,.25); }
+[data-theme="dark"] .account-pill--amber  { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25);  }
+[data-theme="dark"] .account-pill--blue   { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25);  }
+[data-theme="dark"] .account-pill--slate  { background: rgba(148,158,174,.16); border-color: rgba(148,158,174,.32); color: #b0b8c4; }
+[data-theme="dark"] .account-pill--purple { background: rgba(168,120,240,.14); border-color: rgba(168,120,240,.28); }
 
 /* ── Tool-title access badges ──
    Sit next to the tool name in the topbar. Palette mirrors the account
