@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>On-Call Rotation: IT Tools Hub</title>
+  <script src="../../shared/msal-browser.min.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <link rel="stylesheet" href="../../shared/styles.css"/>
+  <style>
+    /* Prevent auth-screen flash on load (matches sibling tools). */
+    #authScreen { display:none; }
+    body { opacity:0; transition:opacity .15s; }
+
+    .main-content { max-width:900px; margin:0 auto; padding:24px; }
+    .hero { background:var(--blue-light); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
+    .hero-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+    .hero-name { font-size:24px; font-weight:700; margin:4px 0 10px; }
+    .hero-phones { display:flex; gap:16px; flex-wrap:wrap; }
+    .hero-phone { font-size:13px; color:var(--text); }
+    .hero-phone .lbl { color:var(--muted); margin-right:6px; }
+    .year-tabs { display:flex; gap:8px; margin-bottom:12px; }
+    .year-tab { padding:6px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface); cursor:pointer; font-size:13px; }
+    .year-tab.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .contact-cards { display:flex; gap:12px; flex-wrap:wrap; margin-top:20px; }
+    .contact-card { border:1px solid var(--border); border-radius:10px; padding:12px 14px; min-width:200px; background:var(--surface); }
+    .contact-card h4 { margin:0 0 6px; font-size:14px; }
+    .contact-card .phone-row { font-size:12px; color:var(--muted); }
+    .other-contacts-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin:20px 0 8px; }
+  </style>
+</head>
+<body>
+<div id="topbar"></div>
+
+<!-- ── Auth screen ── -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <h1>On-Call Rotation</h1>
+    <p>Sign in with your M365 account to view the on-call schedule.</p>
+    <button class="btn-ms" onclick="doSignIn()">Sign in with Microsoft</button>
+    <div class="auth-error" id="authErr" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ── App screen ── -->
+<div id="appScreen" style="display:none">
+  <div class="app-body">
+    <main class="main-content">
+      <div id="deniedScreen" style="display:none">
+        <h2>Access Restricted</h2>
+        <p>This tool isn't available for your access group.</p>
+      </div>
+      <div id="toolContent" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <h1>On-Call Rotation</h1>
+          <div id="adminControls" style="display:none">
+            <label class="tog"><input type="checkbox" id="editToggle" onchange="toggleEditMode()"/><div class="track"></div></label>
+            <span>Edit Mode</span>
+            <button class="btn btn-primary" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
+          </div>
+        </div>
+        <div class="hero" id="heroCard"></div>
+        <div class="year-tabs" id="yearTabs"></div>
+        <div class="tbl-wrap">
+          <table class="review-tbl" style="width:100%;border-collapse:collapse">
+            <thead><tr><th>Start Date</th><th>Tech</th><th>Time Off</th><th>Notes</th></tr></thead>
+            <tbody id="scheduleBody"></tbody>
+          </table>
+        </div>
+        <div class="contact-cards" id="rotationCards"></div>
+        <div class="other-contacts-label">Other Contacts</div>
+        <div class="contact-cards" id="otherCards"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const TOOL_SCOPES        = ["User.Read"];
+const GSD_GROUP_ID       = "3e1a4757-8189-4908-a611-b6029399e69e";
+const ONCALL_ADMIN_GROUP = "SG-IT-Tools-OnCall-Admin";
+// Left blank until the Function App (Task 10) is provisioned and deployed (Task 11).
+// While blank, the tool reads/writes the local data.json file instead of the live blob.
+const ONCALL_GET_URL  = "";
+const ONCALL_SAVE_URL = "";
+
+const st = { data: null, year: "2026", isAdmin: false };
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+    await afterSignIn();
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent = e.message; el.style.display = "block";
+  }
+}
+
+async function afterSignIn() {
+  const token = await ITTools.auth.getToken();
+  const res = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: [GSD_GROUP_ID] }),
+  });
+  const denied = res.ok && (await res.json()).value.includes(GSD_GROUP_ID);
+  if (denied) {
+    document.getElementById("deniedScreen").style.display = "block";
+    return;
+  }
+  document.getElementById("toolContent").style.display = "block";
+
+  await checkOnCallAdminAccess();
+  if (st.isAdmin) document.getElementById("adminControls").style.display = "flex";
+  await loadData();
+}
+
+async function checkOnCallAdminAccess() {
+  try {
+    const enc = encodeURIComponent(`displayName eq '${ONCALL_ADMIN_GROUP}'`);
+    const res = await ITTools.graph.get(`https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`);
+    const groups = res.value || [];
+    if (!groups.length) { st.isAdmin = false; return; }
+    const groupId = groups[0].id;
+    const memberships = await ITTools.graph.getAll(`https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`);
+    st.isAdmin = memberships.some(m => m.id === groupId);
+  } catch (_) {
+    st.isAdmin = false; // fail secure
+  }
+}
+
+async function loadData() {
+  if (ONCALL_GET_URL) {
+    const token = await ITTools.auth.getToken();
+    const res = await fetch(ONCALL_GET_URL, { headers: { Authorization: "Bearer " + token } });
+    st.data = await res.json();
+  } else {
+    const res = await fetch("data.json?v=" + Date.now());
+    st.data = await res.json();
+  }
+  renderAll();
+}
+
+function renderAll() {
+  renderHero();
+  renderYearTabs();
+  renderScheduleTable();
+  renderContacts();
+}
+
+// ── Hero card (current on-call week) ───────────────────────
+function findCurrentWeek(schedule) {
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  let best = null;
+  for (const row of schedule) {
+    const rowUtc = Date.parse(row.startDate + "T00:00:00Z");
+    if (rowUtc <= todayUtc && (!best || rowUtc > Date.parse(best.startDate + "T00:00:00Z"))) {
+      best = row;
+    }
+  }
+  return best;
+}
+
+function renderHero() {
+  const week = findCurrentWeek(st.data.schedule);
+  const hero = document.getElementById("heroCard");
+  if (!week) { hero.innerHTML = "<p>No current on-call week found.</p>"; return; }
+  const tech = st.data.rotationTechs.find(t => t.shortName === week.tech);
+  hero.innerHTML = `
+    <div class="hero-label">On Call This Week</div>
+    <div class="hero-name">${tech ? tech.name : week.tech}</div>
+    <div class="hero-phones">
+      ${(tech ? tech.phones : []).map(p => `<span class="hero-phone"><span class="lbl">${p.label}</span>${p.number}</span>`).join("")}
+    </div>
+  `;
+}
+
+// ── Year tabs ────────────────────────────────────────────────
+function renderYearTabs() {
+  const years = ["2024", "2025", "2026"];
+  document.getElementById("yearTabs").innerHTML = years.map(y =>
+    `<div class="year-tab${y === st.year ? " active" : ""}" onclick="setYear('${y}')">${y}</div>`
+  ).join("");
+}
+
+function setYear(y) {
+  st.year = y;
+  renderYearTabs();
+  renderScheduleTable();
+}
+
+// ── Schedule table (view + edit-mode) ──────────────────────
+let editMode = false;
+
+function toggleEditMode() {
+  editMode = document.getElementById("editToggle").checked;
+  document.getElementById("saveBtn").style.display = editMode ? "inline-block" : "none";
+  renderScheduleTable();
+  renderContacts();
+}
+
+function renderScheduleTable() {
+  const rows = st.data.schedule.filter(r => r.startDate.startsWith(st.year));
+  document.getElementById("scheduleBody").innerHTML = rows.map((r, i) => editMode ? `
+    <tr>
+      <td><input value="${r.startDate}" onchange="updateScheduleField('${st.year}', ${i}, 'startDate', this.value)"/></td>
+      <td><input value="${r.tech}" onchange="updateScheduleField('${st.year}', ${i}, 'tech', this.value)"/></td>
+      <td><input value="${r.timeOff}" onchange="updateScheduleField('${st.year}', ${i}, 'timeOff', this.value)"/></td>
+      <td><input value="${r.notes}" onchange="updateScheduleField('${st.year}', ${i}, 'notes', this.value)"/></td>
+    </tr>
+  ` : `
+    <tr>
+      <td>${r.startDate}</td>
+      <td>${r.tech}</td>
+      <td>${r.timeOff || "—"}</td>
+      <td>${r.notes || "—"}</td>
+    </tr>
+  `).join("");
+}
+
+function updateScheduleField(year, indexInYear, field, value) {
+  const yearRows = st.data.schedule.filter(r => r.startDate.startsWith(year));
+  const target = yearRows[indexInYear];
+  target[field] = value;
+}
+
+// ── Contacts ────────────────────────────────────────────────
+function contactCardHtml(person) {
+  return `
+    <div class="contact-card">
+      <h4>${person.name}</h4>
+      ${person.phones.map(p => `<div class="phone-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")}
+    </div>
+  `;
+}
+
+function renderContacts() {
+  document.getElementById("rotationCards").innerHTML = st.data.rotationTechs.map(contactCardHtml).join("");
+  document.getElementById("otherCards").innerHTML = st.data.otherContacts.map(contactCardHtml).join("");
+}
+
+// ── Save ──────────────────────────────────────────────────
+async function saveChanges() {
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+  try {
+    if (ONCALL_SAVE_URL) {
+      const token = await ITTools.auth.getToken();
+      const res = await fetch(ONCALL_SAVE_URL, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify(st.data),
+      });
+      if (!res.ok) throw new Error("Save failed: " + res.status);
+    } else {
+      console.warn("ONCALL_SAVE_URL not configured yet — changes are local-only until Task 10/11 land.");
+    }
+    btn.textContent = "Saved";
+    setTimeout(() => { btn.textContent = "Save"; btn.disabled = false; }, 1500);
+  } catch (e) {
+    alert("Save failed: " + e.message);
+    btn.textContent = "Save";
+    btn.disabled = false;
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "On-Call Rotation", hubRelPath: "../../", status: "beta" });
+  ITTools.ui.syncThemeIcon();
+
+  let _sessionFound = false;
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: async acct => {
+      _sessionFound = true;
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+      document.body.style.opacity = "1";
+      await afterSignIn();
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+      document.body.style.opacity = "1";
+    }
+  });
+  if (!_sessionFound) {
+    document.getElementById("authScreen").style.display = "flex";
+    document.body.style.opacity = "1";
+  }
+}
+
+window.addEventListener("load", init);
+</script>
+</body>
+</html>
