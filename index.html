@@ -886,6 +886,24 @@ async function runGateChecks(token) {
     }
   }
   renderAccountDropdown(unlocked);
+  await applyDenyGates(token);
+}
+
+// ── Deny-gates: hide a card specifically for members of one group (inverse of GROUP_GATES) ──
+async function applyDenyGates(token) {
+  const denyEls = [...document.querySelectorAll("[data-deny]")];
+  for (const el of denyEls) {
+    const gate = GROUP_GATES[el.getAttribute("data-deny")];
+    if (!gate) continue;
+    const isMember = await checkMembership(token, gate.id);
+    if (isMember) {
+      el.outerHTML = `<div class="tool-card no-hover" style="--tool-accent:${el.dataset.accent}">
+        <div class="tool-icon-sq">${el.dataset.icon}</div>
+        <div class="tool-name">${el.dataset.name}</div>
+        <div class="tool-desc">Restricted for your access group</div>
+      </div>`;
+    }
+  }
 }
 
 // ── Restore locks from localStorage ──────────────────────────────────────────
@@ -1015,6 +1033,16 @@ async function loadTools() {
       }
 
       if (isClickableStatus(tool.status) && tool.path) {
+        if (tool.denyGate) {
+          return buildLiveCard({
+            path: tool.path, accent: tool.accent,
+            icon: tool.icon, status: tool.status, name: tool.name,
+            desc: tool.description, betaNote: tool.betaNote || "",
+          }).replace(
+            '<a class="tool-card"',
+            `<a class="tool-card" data-deny="${tool.denyGate}" data-accent="${tool.accent}" data-icon="${tool.icon}" data-name="${tool.name}"`
+          );
+        }
         return buildLiveCard({
           path: tool.path, accent: tool.accent,
           icon: tool.icon, status: tool.status, name: tool.name,
