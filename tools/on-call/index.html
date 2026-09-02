@@ -53,10 +53,10 @@
     .week-tile .tile-flags { position:absolute; top:5px; right:6px; display:flex; gap:3px; color:var(--muted); }
     .week-tile .tile-flags svg { display:block; }
 
-    .overview-rail { display:flex; gap:2px; margin-bottom:20px; cursor:pointer; }
-    .overview-rail .rail-seg { flex:1; height:6px; border-radius:2px; opacity:.35; }
-    .overview-rail .rail-seg.in-view { opacity:1; }
-    .overview-rail .rail-seg.now { outline:1px solid var(--blue); }
+    .month-pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+    .month-pill { font-size:11px; background:var(--surface); border:1px solid var(--border); border-radius:14px;
+                  padding:5px 12px; cursor:pointer; color:var(--text); }
+    .month-pill.current { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700; }
 
     /* ── Roster ── */
     .roster-section { margin-top:24px; }
@@ -156,7 +156,7 @@
         </div>
         <div class="month-row" id="monthRow"></div>
         <div class="week-strip" id="weekStrip"></div>
-        <div class="overview-rail" id="overviewRail"></div>
+        <div class="month-pills" id="monthPills"></div>
 
         <div class="roster-section">
           <div class="roster-lbl" id="rotationLbl"></div>
@@ -412,10 +412,25 @@ function renderCalendarStrip() {
 
   document.getElementById("monthRow").innerHTML = monthLabelsHtml(visible);
   document.getElementById("weekStrip").innerHTML = visible.map(w => tileHtml(w, todayStr)).join("");
-  document.getElementById("overviewRail").innerHTML = weeks.map((w, i) => `
-    <div class="rail-seg${w.startDate === todayStr ? " now" : ""}${i >= st.stripStart && i < st.stripStart + WEEKS_VISIBLE ? " in-view" : ""}"
-         style="background:${personColorFor(w.tech)}" title="${w.startDate}: ${w.tech}" onclick="jumpToWeek(${i})"></div>
-  `).join("");
+  renderMonthPills(visible);
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function renderMonthPills(visible) {
+  const inViewMonths = new Set(visible.map(w => new Date(w.startDate + "T00:00:00Z").getUTCMonth()));
+  document.getElementById("monthPills").innerHTML = MONTH_NAMES.map((name, i) =>
+    `<div class="month-pill${inViewMonths.has(i) ? " current" : ""}" onclick="jumpToMonth(${i})">${name}</div>`
+  ).join("");
+}
+
+function jumpToMonth(monthIndex) {
+  const weeks = getYearWeeks(st.year);
+  const idx = weeks.findIndex(w => new Date(w.startDate + "T00:00:00Z").getUTCMonth() === monthIndex);
+  if (idx === -1) return;
+  const maxStart = Math.max(0, weeks.length - WEEKS_VISIBLE);
+  st.stripStart = Math.min(idx, maxStart);
+  renderCalendarStrip();
 }
 
 // ── Edit mode toggle (schedule-side wiring finishes in a later task) ──
