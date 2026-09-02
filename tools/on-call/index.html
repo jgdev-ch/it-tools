@@ -165,6 +165,19 @@
         </div>
       </div>
     </main>
+    <div id="panelBackdrop" onclick="closePanel()"></div>
+    <div id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-dot" id="panelDot"></div>
+        <div>
+          <div class="panel-title" id="panelTitle"></div>
+          <div class="panel-sub" id="panelSub"></div>
+        </div>
+        <span class="panel-badge" id="panelBadge" style="display:none">Edit Mode</span>
+        <button class="panel-close" id="panelCloseBtn" onclick="closePanel()"></button>
+      </div>
+      <div id="panelBody"></div>
+    </div>
   </div>
 </div>
 
@@ -409,8 +422,48 @@ function toggleEditMode() {
   renderCalendarStrip();
 }
 
+// ── Detail panel (shared shell) ─────────────────────────────
+function openPanelShell(color, ini, title, sub) {
+  document.getElementById("panelDot").style.background = color;
+  document.getElementById("panelDot").textContent = ini;
+  document.getElementById("panelTitle").textContent = title;
+  document.getElementById("panelSub").textContent = sub;
+  document.getElementById("panelBadge").style.display = st.draft ? "inline-block" : "none";
+  document.getElementById("detailPanel").classList.add("open");
+  document.getElementById("panelBackdrop").classList.add("open");
+}
+
+function closePanel() {
+  st.panel = null;
+  st.draft = null;
+  document.getElementById("detailPanel").classList.remove("open");
+  document.getElementById("panelBackdrop").classList.remove("open");
+}
+
+// ── Week panel ───────────────────────────────────────────────
 function openWeekPanel(startDate) {
-  // Wired up in a later task; clicking a tile is a no-op until then.
+  const row = st.data.schedule.find(r => r.startDate === startDate);
+  const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+  const name = tech ? tech.name : row.tech;
+  st.panel = { kind: "week", startDate };
+  st.draft = null;
+  openPanelShell(personColorFor(row.tech), initials(name), "Week of " + row.startDate, name);
+  renderWeekPanelBody();
+}
+
+function renderWeekPanelBody() {
+  const row = st.data.schedule.find(r => r.startDate === st.panel.startDate);
+  const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+  const phones = tech ? tech.phones : [];
+  document.getElementById("panelBody").innerHTML = `
+    <div class="panel-row"><label>On-Call Tech</label><div class="panel-value">${tech ? tech.name : row.tech}</div></div>
+    <div class="panel-row"><label>Phone Numbers</label>
+      ${phones.length ? phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
+                       : `<div class="phone-chip-row">No numbers on file</div>`}
+    </div>
+    ${row.timeOff ? `<div class="panel-row"><label>Time Off</label><div class="panel-value">${row.timeOff}</div></div>` : ""}
+    ${row.notes ? `<div class="panel-row"><label>Notes</label><div class="panel-value">${row.notes}</div></div>` : ""}
+  `;
 }
 
 // ── Contacts ────────────────────────────────────────────────
@@ -461,6 +514,7 @@ async function init() {
   ITTools.ui.syncThemeIcon();
   document.getElementById("navPrevBtn").innerHTML = ICON_CHEVRON_LEFT + " Prev";
   document.getElementById("navNextBtn").innerHTML = "Next " + ICON_CHEVRON_RIGHT;
+  document.getElementById("panelCloseBtn").innerHTML = ICON_X;
 
   let _sessionFound = false;
   await ITTools.auth.init({
