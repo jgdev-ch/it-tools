@@ -115,7 +115,7 @@ mkdir -p "C:/dev/projects/it-tools/tools/on-call"
 /c/dev/tools/nodejs/node.exe "C:/Users/JOSHUA~1/AppData/Local/Temp/claude/C--dev/767580f2-0a2b-489a-a6cd-a11d230ff1d9/scratchpad/generate-oncall-data.js"
 ```
 
-Expected output: `schedule rows: 161`, `rotationTechs:` listing all 5 names each with >0 numbers (Nick shows `(1 numbers)`), `otherContacts:` listing all 3 names each with >0 numbers.
+Expected output: `schedule rows: 147` (43 in 2024 + 52 in 2025 + 52 in 2026 — actual row ranges are one shorter per year than the loose "~53 rows/year" estimate made during brainstorming), `rotationTechs:` listing all 5 names each with >0 numbers (Nick shows `(1 numbers)`), `otherContacts:` listing all 3 names each with >0 numbers.
 
 - [ ] **Step 3: Verify no David Wilhite leaked into the output**
 
@@ -134,173 +134,30 @@ git commit -m "Add On-Call Rotation seed data generated from the source workbook
 
 ---
 
-### Task 2: Hub card + deny-gate mechanism
+### Task 2: Hub card + deny-gate mechanism — ✅ DONE (as-built, differs from original draft below)
 
 **Files:**
-- Modify: `C:\dev\projects\it-tools\config.json`
-- Modify: `C:\dev\projects\it-tools\index.html` (`GROUP_GATES`, `cardHtml`, gate-check loops)
+- Modified: `config.json` (new `on-call` entry, `denyGate: "gsd"`)
+- Modified: `index.html` (`cardHtml`, `runGateChecks`, new `applyDenyGates`)
 
-The hub's existing gates are all **allow-gates**: a card starts locked, and unlocks only for members of a specific group. On-Call needs the opposite — visible by default, hidden specifically for `SG-IT-Tools-GSD` members. This is new, so it's added alongside the existing mechanism rather than bent to fit it.
+**Reality check during execution:** the hub already had `buildLiveCard`/`buildComingSoonCard`/`buildLockedCard` helpers and an `isClickableStatus` gate — the original draft below invented a redundant `buildOpenCard`/`TOOL_ICONS` that don't exist in this codebase. Also, `gsd` was **already** a registered `GROUP_GATES` entry (used by `guest-audit`/`license-audit` for a different, in-tool purpose) — no new gate entry was needed, just a new consumer of the existing one. Built as:
 
-- [ ] **Step 1: Add the config.json card entry**
+- `config.json`: added the `on-call` tool entry with `"denyGate": "gsd"` and a real inline Lucide phone SVG icon (matching the existing icon convention — single-quoted attrs so it embeds safely inside a double-quoted `data-icon="..."` HTML attribute later).
+- `cardHtml()`: inside the existing `isClickableStatus(tool.status) && tool.path` branch, if `tool.denyGate` is set, call the real `buildLiveCard(...)` and `.replace('<a class="tool-card"', ...)` to inject `data-deny`/`data-accent`/`data-icon`/`data-name` attributes onto the resulting anchor — no new card-building function.
+- `runGateChecks()`: added `await applyDenyGates(token)` at the end.
+- New `applyDenyGates(token)`: for every `[data-deny]` element, resolve the referenced `GROUP_GATES` entry and call the *existing* `checkMembership(token, gate.id)` helper (same one the allow-gates already use); on a match, swap the card's `outerHTML` for a small inline restricted-card snippet reusing only pre-existing classes (`.tool-card.no-hover`, `.tool-icon-sq`, `.tool-name`, `.tool-desc`) — **no new CSS was needed**, so the `.tool-card-denied` style from the original draft below was dropped entirely.
+- Verified via Playwright against a local static server: confirmed the card renders with the correct `data-deny="gsd"`/name/href/icon, then mocked `checkMembership` to return true for the `gsd` id and confirmed `applyDenyGates` correctly swapped the card to `.tool-card.no-hover` with "Restricted for your access group" text.
 
-Find the end of the tools array in `config.json` (look for the last `}` before the closing `]`) and add, as a new entry (matching the existing entries' exact key order/style — check a neighboring entry like `group-import` for the precise shape):
+Committed as `0971660`.
 
-```json
-    {
-      "id": "on-call",
-      "name": "On-Call Rotation",
-      "description": "Weekly IT on-call schedule and tech contact directory.",
-      "path": "tools/on-call/",
-      "icon": "phone",
-      "status": "beta",
-      "accent": "var(--accent-cyan)",
-      "category": "daily-ops",
-      "denyGate": "gsd"
-    }
-```
+<details>
+<summary>Original draft (superseded by the above — kept only for history)</summary>
 
-If `var(--accent-cyan)` isn't already a defined CSS variable (check `shared/styles.css` for the `--accent-*` list), use `var(--accent-blue)` instead — don't invent a new accent color as part of this task.
+The hub's existing gates are all **allow-gates**: a card starts locked, and unlocks only for members of a specific group. On-Call needs the opposite — visible by default, hidden specifically for `SG-IT-Tools-GSD` members.
 
-- [ ] **Step 2: Wire `denyGate` into `cardHtml()`**
+Original plan assumed a `TOOL_ICONS` lookup table and a from-scratch `buildOpenCard`/`.tool-card-denied` CSS class, neither of which turned out to exist or be necessary — see the as-built summary above for what was actually done instead.
 
-Find in `index.html` (`cardHtml`, after the existing `securityOnly` branch, before the function's default/open-card return):
-
-```javascript
-      if (tool.securityOnly) {
-        const meta = {
-          path: tool.path, accent: tool.accent, icon: tool.icon,
-          status: tool.status, name: tool.name, desc: tool.description,
-        };
-        if (!_gateCardMeta["security"]) _gateCardMeta["security"] = [];
-        _gateCardMeta["security"].push(meta);
-        return buildLockedCard({ gateKey: "security", ...meta });
-```
-
-Directly after that block's closing `}`, add:
-
-```javascript
-
-      if (tool.denyGate) {
-        return buildOpenCard(tool) + `<!--deny:${tool.denyGate}:${tool.path}-->`;
-      }
-```
-
-(The HTML comment tags the card's position in the grid with which deny-gate applies and which tool path it belongs to, so a later pass can find and swap it out — simplest way to mark it without restructuring the existing render loop.)
-
-Find whatever the function currently does for a normal, ungated card (the fallback return for tools like `user-creation`/`group-import` with no `financeOnly`/`reportingOnly`/`securityOnly`/`denyGate` flag) and extract that exact markup into a new small helper so both paths render identically:
-
-```javascript
-function buildOpenCard(tool) {
-  return `<a class="tool-card" href="${tool.path}" style="--accent:${tool.accent}">
-    <div class="tool-card-icon">${TOOL_ICONS[tool.icon] || ""}</div>
-    <div class="tool-card-name">${tool.name}</div>
-    <div class="tool-card-desc">${tool.description}</div>
-  </a>`;
-}
-```
-
-Check the actual current fallback markup in `cardHtml()` before writing this helper — copy the real existing open-card HTML structure verbatim into `buildOpenCard`, then replace the fallback `return` in `cardHtml()` with `return buildOpenCard(tool);` so there's exactly one place open-card markup is defined.
-
-- [ ] **Step 3: Add the deny-check, run after normal gate checks**
-
-Find in `index.html`, `runGateChecks(token)`:
-
-```javascript
-async function runGateChecks(token) {
-  const unlocked = [];
-  for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
-    const isMember = await checkMembership(token, gate.id);
-    if (isMember) {
-      localStorage.setItem(gate.localKey, "true");
-      unlockCard(gateKey);
-      unlocked.push(gateKey);
-    }
-  }
-  renderAccountDropdown(unlocked);
-}
-```
-
-Change to:
-
-```javascript
-async function runGateChecks(token) {
-  const unlocked = [];
-  for (const [gateKey, gate] of Object.entries(GROUP_GATES)) {
-    const isMember = await checkMembership(token, gate.id);
-    if (isMember) {
-      localStorage.setItem(gate.localKey, "true");
-      unlockCard(gateKey);
-      unlocked.push(gateKey);
-    }
-  }
-  renderAccountDropdown(unlocked);
-  await applyDenyGates(token);
-}
-
-// ── Deny-gates: hide a card specifically for members of one group (inverse of GROUP_GATES) ──
-async function applyDenyGates(token) {
-  document.querySelectorAll("[data-deny]").forEach(async (el) => {
-    const denyKey = el.getAttribute("data-deny");
-    const gate = GROUP_GATES[denyKey];
-    if (!gate) return;
-    const isMember = await checkMembership(token, gate.id);
-    if (isMember) {
-      el.outerHTML = `<div class="tool-card tool-card-denied" title="Not available for your access group">
-        <div class="tool-card-name">${el.dataset.name || ""}</div>
-        <div class="tool-card-desc">Restricted</div>
-      </div>`;
-    }
-  });
-}
-```
-
-This reads `data-deny` off the card element rather than parsing the HTML comment from Step 2 — simpler and avoids DOM/comment-matching complexity. Update Step 2's `cardHtml()` branch to match: instead of appending an HTML comment, add a `data-deny` and `data-name` attribute directly to the anchor tag. Rewrite the Step 2 addition to:
-
-```javascript
-      if (tool.denyGate) {
-        return buildOpenCard(tool).replace(
-          '<a class="tool-card"',
-          `<a class="tool-card" data-deny="${tool.denyGate}" data-name="${tool.name}"`
-        );
-      }
-```
-
-- [ ] **Step 4: Add the `.tool-card-denied` style**
-
-Find `shared/styles.css`, the `.tool-card` rule block, and add directly after it:
-
-```css
-.tool-card-denied { opacity: .45; cursor: not-allowed; pointer-events: none; }
-```
-
-- [ ] **Step 5: Manually verify in a browser**
-
-Start a local static server and open the hub (same technique used earlier this session for the User Creation feature):
-
-```bash
-/c/dev/tools/nodejs/node.exe -e "
-const http = require('http'); const fs = require('fs'); const path = require('path');
-http.createServer((req,res)=>{
-  let p = path.join(process.cwd(), decodeURIComponent(req.url.split('?')[0]));
-  if (p.endsWith('/')) p += 'index.html';
-  fs.readFile(p, (err,data)=>{ if (err) { res.writeHead(404); res.end('not found'); return; }
-    const ext = path.extname(p);
-    res.writeHead(200, {'Content-Type': ext==='.html'?'text/html':ext==='.js'?'application/javascript':ext==='.css'?'text/css':'application/octet-stream'});
-    res.end(data);
-  });
-}).listen(8792, ()=>console.log('serving on 8792'));
-" &
-```
-
-Open `http://localhost:8792/index.html` with the Playwright tool. Sign-in is required for real gate checks (can't fully fake Graph membership locally) — at minimum, confirm via `page.evaluate` that `document.querySelector('[data-deny="gsd"]')` exists and has `data-name="On-Call Rotation"`, confirming the card renders with the deny attribute wired correctly even before real auth is tested.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add config.json index.html shared/styles.css
-git commit -m "Add On-Call Rotation hub card with a GSD deny-gate"
-```
+</details>
 
 ---
 
