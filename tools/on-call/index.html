@@ -419,7 +419,9 @@ let editMode = false;
 function toggleEditMode() {
   editMode = document.getElementById("editToggle").checked;
   document.getElementById("saveBtn").style.display = editMode ? "inline-block" : "none";
+  closePanel();
   renderCalendarStrip();
+  // renderRoster() is added to this call chain in Task 6, once it exists.
 }
 
 // ── Detail panel (shared shell) ─────────────────────────────
@@ -446,24 +448,56 @@ function openWeekPanel(startDate) {
   const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
   const name = tech ? tech.name : row.tech;
   st.panel = { kind: "week", startDate };
-  st.draft = null;
-  openPanelShell(personColorFor(row.tech), initials(name), "Week of " + row.startDate, name);
+  st.draft = (st.isAdmin && editMode) ? JSON.parse(JSON.stringify(row)) : null;
+  openPanelShell(personColorFor(row.tech), initials(name), "Week of " + row.startDate, st.draft ? "Editing this week's assignment" : name);
   renderWeekPanelBody();
 }
 
 function renderWeekPanelBody() {
   const row = st.data.schedule.find(r => r.startDate === st.panel.startDate);
-  const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
-  const phones = tech ? tech.phones : [];
+  if (!st.draft) {
+    const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+    const phones = tech ? tech.phones : [];
+    document.getElementById("panelBody").innerHTML = `
+      <div class="panel-row"><label>On-Call Tech</label><div class="panel-value">${tech ? tech.name : row.tech}</div></div>
+      <div class="panel-row"><label>Phone Numbers</label>
+        ${phones.length ? phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
+                         : `<div class="phone-chip-row">No numbers on file</div>`}
+      </div>
+      ${row.timeOff ? `<div class="panel-row"><label>Time Off</label><div class="panel-value">${row.timeOff}</div></div>` : ""}
+      ${row.notes ? `<div class="panel-row"><label>Notes</label><div class="panel-value">${row.notes}</div></div>` : ""}
+    `;
+    return;
+  }
+  const options = st.data.rotationTechs.map(t =>
+    `<option value="${t.shortName}"${t.shortName === st.draft.tech ? " selected" : ""}>${t.name}</option>`
+  ).join("");
   document.getElementById("panelBody").innerHTML = `
-    <div class="panel-row"><label>On-Call Tech</label><div class="panel-value">${tech ? tech.name : row.tech}</div></div>
-    <div class="panel-row"><label>Phone Numbers</label>
-      ${phones.length ? phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
-                       : `<div class="phone-chip-row">No numbers on file</div>`}
+    <div class="panel-field">
+      <label>On-Call Tech</label>
+      <select class="panel-select" onchange="st.draft.tech=this.value">${options}</select>
     </div>
-    ${row.timeOff ? `<div class="panel-row"><label>Time Off</label><div class="panel-value">${row.timeOff}</div></div>` : ""}
-    ${row.notes ? `<div class="panel-row"><label>Notes</label><div class="panel-value">${row.notes}</div></div>` : ""}
+    <div class="panel-field">
+      <label>Time Off</label>
+      <input class="panel-input" value="${st.draft.timeOff || ""}" onchange="st.draft.timeOff=this.value"/>
+    </div>
+    <div class="panel-field">
+      <label>Notes</label>
+      <textarea class="panel-input" rows="3" onchange="st.draft.notes=this.value">${st.draft.notes || ""}</textarea>
+    </div>
+    <div class="panel-btnrow">
+      <button class="btn btn-secondary" onclick="closePanel()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWeekPanel()">Save</button>
+    </div>
   `;
+}
+
+function saveWeekPanel() {
+  const row = st.data.schedule.find(r => r.startDate === st.panel.startDate);
+  Object.assign(row, st.draft);
+  closePanel();
+  renderAll();
+  saveChanges();
 }
 
 // ── Contacts ────────────────────────────────────────────────
