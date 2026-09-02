@@ -40,17 +40,20 @@
     .month-row { display:flex; gap:6px; margin-bottom:4px; }
     .month-lbl { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
     .week-strip { display:flex; gap:6px; margin-bottom:8px; }
-    .week-tile { flex:1; border:1px solid var(--border); border-radius:10px; padding:10px 8px; text-align:center;
-                 background:var(--surface); cursor:pointer; position:relative; transition:box-shadow .15s; }
+    .week-tile { flex:1; border:1px solid var(--border); border-radius:10px; padding:0 0 12px; text-align:center;
+                 background:var(--surface); cursor:pointer; position:relative; transition:box-shadow .15s; overflow:hidden; }
     .week-tile:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
     .week-tile.today { border-color:var(--blue); box-shadow:0 0 0 2px color-mix(in srgb, var(--blue) 25%, transparent); }
-    .week-tile .tile-date { font-size:10px; color:var(--muted); }
-    .week-tile .tile-dot { width:30px; height:30px; border-radius:50%; margin:6px auto 4px; display:flex; align-items:center;
+    .week-tile .tile-date-bar { display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
+                                 background:color-mix(in srgb, var(--text) 6%, transparent); padding:7px 8px; margin-bottom:10px;
+                                 box-sizing:border-box; }
+    .week-tile .tile-date { font-size:11px; font-weight:600; color:var(--text); }
+    .week-tile .tile-dot { width:30px; height:30px; border-radius:50%; margin:0 auto 4px; display:flex; align-items:center;
                             justify-content:center; font-size:10px; font-weight:700; color:#fff; }
     .week-tile .tile-name { font-size:11px; font-weight:600; }
-    .week-tile .ribbon { position:absolute; top:-8px; left:50%; transform:translateX(-50%); background:var(--blue); color:#fff;
-                          font-size:9px; padding:2px 8px; border-radius:10px; font-weight:700; }
-    .week-tile .tile-flags { position:absolute; top:5px; right:6px; display:flex; gap:3px; color:var(--muted); }
+    .week-tile .ribbon { position:absolute; top:-16px; left:50%; transform:translateX(-50%); background:var(--blue); color:#fff;
+                          font-size:9px; padding:2px 8px; border-radius:10px; font-weight:700; z-index:1; }
+    .week-tile .tile-flags { display:flex; gap:3px; color:var(--muted); }
     .week-tile .tile-flags svg { display:block; }
 
     .month-pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
@@ -387,16 +390,18 @@ function tileHtml(row, todayStr) {
   const color = personColorFor(row.tech);
   const start = new Date(row.startDate + "T00:00:00Z");
   const end = new Date(start.getTime() + 6 * 86400000);
-  const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase() + " " : "") + d.getUTCDate();
+  const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }) + " " : "") + d.getUTCDate();
   const crossesMonth = start.getUTCMonth() !== end.getUTCMonth();
-  const rangeLabel = fmt(start, crossesMonth) + " to " + fmt(end, crossesMonth);
+  const rangeLabel = fmt(start, true) + " to " + fmt(end, crossesMonth);
   const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
   const isToday = row.startDate === todayStr;
   return `
     <div class="week-tile${isToday ? " today" : ""}" onclick="openWeekPanel('${row.startDate}')">
       ${isToday ? `<div class="ribbon">This Week</div>` : ""}
-      ${flags ? `<div class="tile-flags">${flags}</div>` : ""}
-      <div class="tile-date">${rangeLabel}</div>
+      <div class="tile-date-bar">
+        <div class="tile-date">${rangeLabel}</div>
+        ${flags ? `<div class="tile-flags">${flags}</div>` : ""}
+      </div>
       <div class="tile-dot" style="background:${color}">${initials(name)}</div>
       <div class="tile-name">${row.tech}</div>
     </div>`;
