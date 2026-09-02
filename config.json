@@ -31,7 +31,7 @@
       "status": "beta",
       "path": "tools/user-creation/",
       "permissions": ["User.ReadWrite.All", "Group.ReadWrite.All", "Directory.Read.All"],
-      "accent": "var(--accent-purple)",
+      "accent": "var(--accent-copper)",
       "category": "daily-ops"
     },
     {
