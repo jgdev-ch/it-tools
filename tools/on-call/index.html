@@ -142,16 +142,27 @@
           </div>
         </div>
         <div class="hero" id="heroCard"></div>
-        <div class="year-tabs" id="yearTabs"></div>
-        <div class="tbl-wrap">
-          <table class="review-tbl" style="width:100%;border-collapse:collapse">
-            <thead><tr><th>Start Date</th><th>Tech</th><th>Time Off</th><th>Notes</th></tr></thead>
-            <tbody id="scheduleBody"></tbody>
-          </table>
+
+        <div class="cal-navbar">
+          <div class="year-seg" id="yearSeg"></div>
+          <input class="cal-search" id="searchInput" placeholder="Jump to person"
+                 onkeydown="if(event.key==='Enter') searchPerson(this.value)"/>
+          <div class="cal-nav-btns">
+            <button onclick="shiftStrip(-1)" id="navPrevBtn"></button>
+            <button class="today-btn" onclick="goToday()">Today</button>
+            <button onclick="shiftStrip(1)" id="navNextBtn"></button>
+          </div>
         </div>
-        <div class="contact-cards" id="rotationCards"></div>
-        <div class="other-contacts-label">Other Contacts</div>
-        <div class="contact-cards" id="otherCards"></div>
+        <div class="month-row" id="monthRow"></div>
+        <div class="week-strip" id="weekStrip"></div>
+        <div class="overview-rail" id="overviewRail"></div>
+
+        <div class="roster-section">
+          <div class="roster-lbl" id="rotationLbl"></div>
+          <div class="roster-grid" id="rotationGrid"></div>
+          <div class="roster-lbl">Other Contacts</div>
+          <div class="roster-grid" id="otherGrid"></div>
+        </div>
       </div>
     </main>
   </div>
@@ -255,9 +266,9 @@ async function loadData() {
 
 function renderAll() {
   renderHero();
-  renderYearTabs();
-  renderScheduleTable();
-  renderContacts();
+  renderYearSeg();
+  renderCalendarStrip();
+  // renderRoster() is added to this call chain in Task 6, once it exists.
 }
 
 // ── Hero card (current on-call week) ───────────────────────
@@ -293,53 +304,113 @@ function renderHero() {
   `;
 }
 
-// ── Year tabs ────────────────────────────────────────────────
-function renderYearTabs() {
+// ── Calendar strip ──────────────────────────────────────────
+function getYearWeeks(year) {
+  return st.data.schedule.filter(r => r.startDate.startsWith(year));
+}
+
+function renderYearSeg() {
   const years = ["2024", "2025", "2026"];
-  document.getElementById("yearTabs").innerHTML = years.map(y =>
-    `<div class="year-tab${y === st.year ? " active" : ""}" onclick="setYear('${y}')">${y}</div>`
+  document.getElementById("yearSeg").innerHTML = years.map(y =>
+    `<span class="${y === st.year ? "on" : ""}" onclick="setYear('${y}')">${y}</span>`
   ).join("");
 }
 
 function setYear(y) {
   st.year = y;
-  renderYearTabs();
-  renderScheduleTable();
+  st.stripStart = 0;
+  renderYearSeg();
+  renderCalendarStrip();
 }
 
-// ── Schedule table (view + edit-mode) ──────────────────────
+function shiftStrip(direction) {
+  st.stripStart += direction * WEEKS_VISIBLE;
+  renderCalendarStrip();
+}
+
+function jumpToWeek(indexInYear) {
+  const weeks = getYearWeeks(st.year);
+  const maxStart = Math.max(0, weeks.length - WEEKS_VISIBLE);
+  st.stripStart = Math.min(Math.max(0, indexInYear - Math.floor(WEEKS_VISIBLE / 2)), maxStart);
+  renderCalendarStrip();
+}
+
+function goToday() {
+  const week = findCurrentWeek(st.data.schedule);
+  if (!week) return;
+  st.year = week.startDate.slice(0, 4);
+  renderYearSeg();
+  const weeks = getYearWeeks(st.year);
+  jumpToWeek(weeks.findIndex(w => w.startDate === week.startDate));
+}
+
+function searchPerson(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return;
+  const weeks = getYearWeeks(st.year);
+  if (!weeks.length) return;
+  for (let step = 1; step <= weeks.length; step++) {
+    const idx = (st.stripStart + step) % weeks.length;
+    const tech = st.data.rotationTechs.find(t => t.shortName === weeks[idx].tech);
+    const name = (tech ? tech.name : weeks[idx].tech).toLowerCase();
+    if (name.includes(q)) { jumpToWeek(idx); return; }
+  }
+}
+
+function monthLabelsHtml(weeks) {
+  const groups = [];
+  weeks.forEach(w => {
+    const label = new Date(w.startDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase();
+    if (groups.length && groups[groups.length - 1].label === label) groups[groups.length - 1].count++;
+    else groups.push({ label, count: 1 });
+  });
+  return groups.map(g => `<div class="month-lbl" style="flex:${g.count}">${g.label}</div>`).join("");
+}
+
+function tileHtml(row, todayStr) {
+  const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+  const name = tech ? tech.name : row.tech;
+  const color = personColorFor(row.tech);
+  const dayNum = new Date(row.startDate + "T00:00:00Z").getUTCDate();
+  const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
+  const isToday = row.startDate === todayStr;
+  return `
+    <div class="week-tile${isToday ? " today" : ""}" onclick="openWeekPanel('${row.startDate}')">
+      ${isToday ? `<div class="ribbon">Today</div>` : ""}
+      ${flags ? `<div class="tile-flags">${flags}</div>` : ""}
+      <div class="tile-date">${dayNum}</div>
+      <div class="tile-dot" style="background:${color}">${initials(name)}</div>
+      <div class="tile-name">${row.tech}</div>
+    </div>`;
+}
+
+function renderCalendarStrip() {
+  const weeks = getYearWeeks(st.year);
+  const todayWeek = findCurrentWeek(st.data.schedule);
+  const todayStr = todayWeek ? todayWeek.startDate : null;
+  const maxStart = Math.max(0, weeks.length - WEEKS_VISIBLE);
+  st.stripStart = Math.min(Math.max(0, st.stripStart), maxStart);
+  const visible = weeks.slice(st.stripStart, st.stripStart + WEEKS_VISIBLE);
+
+  document.getElementById("monthRow").innerHTML = monthLabelsHtml(visible);
+  document.getElementById("weekStrip").innerHTML = visible.map(w => tileHtml(w, todayStr)).join("");
+  document.getElementById("overviewRail").innerHTML = weeks.map((w, i) => `
+    <div class="rail-seg${w.startDate === todayStr ? " now" : ""}${i >= st.stripStart && i < st.stripStart + WEEKS_VISIBLE ? " in-view" : ""}"
+         style="background:${personColorFor(w.tech)}" title="${w.startDate}: ${w.tech}" onclick="jumpToWeek(${i})"></div>
+  `).join("");
+}
+
+// ── Edit mode toggle (schedule-side wiring finishes in a later task) ──
 let editMode = false;
 
 function toggleEditMode() {
   editMode = document.getElementById("editToggle").checked;
   document.getElementById("saveBtn").style.display = editMode ? "inline-block" : "none";
-  renderScheduleTable();
-  renderContacts();
+  renderCalendarStrip();
 }
 
-function renderScheduleTable() {
-  const rows = st.data.schedule.filter(r => r.startDate.startsWith(st.year));
-  document.getElementById("scheduleBody").innerHTML = rows.map((r, i) => editMode ? `
-    <tr>
-      <td><input value="${r.startDate}" onchange="updateScheduleField('${st.year}', ${i}, 'startDate', this.value)"/></td>
-      <td><input value="${r.tech}" onchange="updateScheduleField('${st.year}', ${i}, 'tech', this.value)"/></td>
-      <td><input value="${r.timeOff}" onchange="updateScheduleField('${st.year}', ${i}, 'timeOff', this.value)"/></td>
-      <td><input value="${r.notes}" onchange="updateScheduleField('${st.year}', ${i}, 'notes', this.value)"/></td>
-    </tr>
-  ` : `
-    <tr>
-      <td>${r.startDate}</td>
-      <td>${r.tech}</td>
-      <td>${r.timeOff || "—"}</td>
-      <td>${r.notes || "—"}</td>
-    </tr>
-  `).join("");
-}
-
-function updateScheduleField(year, indexInYear, field, value) {
-  const yearRows = st.data.schedule.filter(r => r.startDate.startsWith(year));
-  const target = yearRows[indexInYear];
-  target[field] = value;
+function openWeekPanel(startDate) {
+  // Wired up in a later task; clicking a tile is a no-op until then.
 }
 
 // ── Contacts ────────────────────────────────────────────────
@@ -388,6 +459,8 @@ async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "On-Call Rotation", hubRelPath: "../../", status: "beta" });
   ITTools.ui.syncThemeIcon();
+  document.getElementById("navPrevBtn").innerHTML = ICON_CHEVRON_LEFT + " Prev";
+  document.getElementById("navNextBtn").innerHTML = "Next " + ICON_CHEVRON_RIGHT;
 
   let _sessionFound = false;
   await ITTools.auth.init({
