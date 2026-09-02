@@ -523,17 +523,28 @@ function rosterCardHtml(person, group, idx) {
 
 function renderRoster() {
   document.getElementById("rotationLbl").textContent = `Rotation: ${st.data.rotationTechs.length} techs`;
-  document.getElementById("rotationGrid").innerHTML =
-    st.data.rotationTechs.map((t, i) => rosterCardHtml(t, "rotation", i)).join("");
-  document.getElementById("otherGrid").innerHTML =
-    st.data.otherContacts.map((t, i) => rosterCardHtml(t, "other", i)).join("");
+  const rotationHtml = st.data.rotationTechs.map((t, i) => rosterCardHtml(t, "rotation", i)).join("");
+  const otherHtml = st.data.otherContacts.map((t, i) => rosterCardHtml(t, "other", i)).join("");
+  const addRotationTile = (st.isAdmin && editMode) ? `<div class="add-tile" onclick="addContact('rotation')">${ICON_PLUS} Add to Rotation</div>` : "";
+  const addOtherTile = (st.isAdmin && editMode) ? `<div class="add-tile" onclick="addContact('other')">${ICON_PLUS} Add Contact</div>` : "";
+  document.getElementById("rotationGrid").innerHTML = rotationHtml + addRotationTile;
+  document.getElementById("otherGrid").innerHTML = otherHtml + addOtherTile;
+}
+
+function addContact(group) {
+  const arr = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"];
+  const blank = group === "rotation" ? { name: "New Person", shortName: "", phones: [] } : { name: "New Person", phones: [] };
+  arr.push(blank);
+  renderRoster();
+  openContactPanel(group, arr.length - 1);
 }
 
 // ── Contact panel ────────────────────────────────────────────
 function openContactPanel(group, idx) {
   const person = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"][idx];
   st.panel = { kind: "contact", group, idx };
-  st.draft = null;
+  st.draft = (st.isAdmin && editMode) ? JSON.parse(JSON.stringify(person)) : null;
+  if (st.draft && st.draft.shortName === undefined) st.draft.shortName = "";
   const color = group === "rotation" ? personColorFor(person.shortName) : OTHER_CONTACT_COLOR;
   openPanelShell(color, initials(person.name), person.name, group === "rotation" ? "Rotation member" : "Other contact");
   renderContactPanelBody();
@@ -541,13 +552,74 @@ function openContactPanel(group, idx) {
 
 function renderContactPanelBody() {
   const person = st.data[st.panel.group === "rotation" ? "rotationTechs" : "otherContacts"][st.panel.idx];
+  if (!st.draft) {
+    document.getElementById("panelBody").innerHTML = `
+      <div class="panel-row"><label>Name</label><div class="panel-value">${person.name}</div></div>
+      <div class="panel-row"><label>Phone Numbers</label>
+        ${person.phones.length ? person.phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
+                                : `<div class="phone-chip-row">No numbers on file</div>`}
+      </div>
+    `;
+    return;
+  }
   document.getElementById("panelBody").innerHTML = `
-    <div class="panel-row"><label>Name</label><div class="panel-value">${person.name}</div></div>
-    <div class="panel-row"><label>Phone Numbers</label>
-      ${person.phones.length ? person.phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
-                              : `<div class="phone-chip-row">No numbers on file</div>`}
+    <div class="panel-field"><label>Full Name</label>
+      <input class="panel-input" value="${st.draft.name}" onchange="st.draft.name=this.value"/>
+    </div>
+    <div class="panel-field"><label>Short Name</label>
+      <input class="panel-input" value="${st.draft.shortName}" onchange="st.draft.shortName=this.value"/>
+    </div>
+    <div class="panel-toggle-row">
+      <label>In Rotation</label>
+      <label class="tog"><input type="checkbox" id="draftInRotation" ${st.panel.group === "rotation" ? "checked" : ""}/><div class="track"></div></label>
+    </div>
+    <div id="draftPhones"></div>
+    <div class="add-phone-link" onclick="addDraftPhone()">${ICON_PLUS} Add phone number</div>
+    <div class="panel-btnrow">
+      <button class="btn btn-secondary" onclick="closePanel()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContactPanel()">Save</button>
     </div>
   `;
+  renderDraftPhones();
+}
+
+function renderDraftPhones() {
+  document.getElementById("draftPhones").innerHTML = st.draft.phones.map((p, i) => `
+    <div class="phone-row">
+      <input class="panel-input phone-label" value="${p.label}" onchange="st.draft.phones[${i}].label=this.value"/>
+      <input class="panel-input phone-num" value="${p.number}" onchange="st.draft.phones[${i}].number=this.value"/>
+      <span class="phone-rm" onclick="removeDraftPhone(${i})">${ICON_X}</span>
+    </div>`).join("");
+}
+
+function removeDraftPhone(i) {
+  st.draft.phones.splice(i, 1);
+  renderDraftPhones();
+}
+
+function addDraftPhone() {
+  st.draft.phones.push({ label: "", number: "" });
+  renderDraftPhones();
+}
+
+function saveContactPanel() {
+  const wantsRotation = document.getElementById("draftInRotation").checked;
+  if (wantsRotation && !st.draft.shortName.trim()) {
+    alert("Short Name is required for rotation members (used to match them on the calendar).");
+    return;
+  }
+  const currentlyRotation = st.panel.group === "rotation";
+  const sourceArr = st.data[currentlyRotation ? "rotationTechs" : "otherContacts"];
+  if (wantsRotation === currentlyRotation) {
+    sourceArr[st.panel.idx] = st.draft;
+  } else {
+    sourceArr.splice(st.panel.idx, 1);
+    st.data[wantsRotation ? "rotationTechs" : "otherContacts"].push(st.draft);
+    st.personColors = buildPersonColors(st.data);
+  }
+  closePanel();
+  renderAll();
+  saveChanges();
 }
 
 // ── Save ──────────────────────────────────────────────────
