@@ -281,7 +281,7 @@ function renderAll() {
   renderHero();
   renderYearSeg();
   renderCalendarStrip();
-  // renderRoster() is added to this call chain in Task 6, once it exists.
+  renderRoster();
 }
 
 // ── Hero card (current on-call week) ───────────────────────
@@ -421,7 +421,7 @@ function toggleEditMode() {
   document.getElementById("saveBtn").style.display = editMode ? "inline-block" : "none";
   closePanel();
   renderCalendarStrip();
-  // renderRoster() is added to this call chain in Task 6, once it exists.
+  renderRoster();
 }
 
 // ── Detail panel (shared shell) ─────────────────────────────
@@ -500,19 +500,54 @@ function saveWeekPanel() {
   saveChanges();
 }
 
-// ── Contacts ────────────────────────────────────────────────
-function contactCardHtml(person) {
+// ── Roster ──────────────────────────────────────────────────
+function rosterCardHtml(person, group, idx) {
+  const color = group === "rotation" ? personColorFor(person.shortName) : OTHER_CONTACT_COLOR;
+  const visiblePhones = person.phones.slice(0, 2);
+  const extra = person.phones.length - visiblePhones.length;
   return `
-    <div class="contact-card">
-      <h4>${person.name}</h4>
-      ${person.phones.map(p => `<div class="phone-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")}
-    </div>
-  `;
+    <div class="roster-card${group === "other" ? " dim" : ""}" onclick="openContactPanel('${group}', ${idx})">
+      <div class="roster-card-top">
+        <div class="roster-dot" style="background:${color}">${initials(person.name)}</div>
+        <div>
+          <div class="roster-name">${person.name}</div>
+          <div class="roster-role">${group === "rotation" ? "Rotation" : "Other"}</div>
+        </div>
+      </div>
+      <div class="roster-chips">
+        ${visiblePhones.map(p => `<span class="roster-chip">${p.label}</span>`).join("")}
+        ${extra > 0 ? `<span class="roster-chip more">+${extra}</span>` : ""}
+      </div>
+    </div>`;
 }
 
-function renderContacts() {
-  document.getElementById("rotationCards").innerHTML = st.data.rotationTechs.map(contactCardHtml).join("");
-  document.getElementById("otherCards").innerHTML = st.data.otherContacts.map(contactCardHtml).join("");
+function renderRoster() {
+  document.getElementById("rotationLbl").textContent = `Rotation: ${st.data.rotationTechs.length} techs`;
+  document.getElementById("rotationGrid").innerHTML =
+    st.data.rotationTechs.map((t, i) => rosterCardHtml(t, "rotation", i)).join("");
+  document.getElementById("otherGrid").innerHTML =
+    st.data.otherContacts.map((t, i) => rosterCardHtml(t, "other", i)).join("");
+}
+
+// ── Contact panel ────────────────────────────────────────────
+function openContactPanel(group, idx) {
+  const person = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"][idx];
+  st.panel = { kind: "contact", group, idx };
+  st.draft = null;
+  const color = group === "rotation" ? personColorFor(person.shortName) : OTHER_CONTACT_COLOR;
+  openPanelShell(color, initials(person.name), person.name, group === "rotation" ? "Rotation member" : "Other contact");
+  renderContactPanelBody();
+}
+
+function renderContactPanelBody() {
+  const person = st.data[st.panel.group === "rotation" ? "rotationTechs" : "otherContacts"][st.panel.idx];
+  document.getElementById("panelBody").innerHTML = `
+    <div class="panel-row"><label>Name</label><div class="panel-value">${person.name}</div></div>
+    <div class="panel-row"><label>Phone Numbers</label>
+      ${person.phones.length ? person.phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
+                              : `<div class="phone-chip-row">No numbers on file</div>`}
+    </div>
+  `;
 }
 
 // ── Save ──────────────────────────────────────────────────
