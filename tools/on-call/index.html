@@ -16,13 +16,18 @@
 
     /* ── Hero ── */
     .hero { display:flex; align-items:center; gap:14px; border-radius:14px; padding:18px 20px; margin-bottom:20px;
-            background:linear-gradient(135deg, var(--blue), color-mix(in srgb, var(--blue) 75%, #7b6bff)); color:#fff; }
-    .hero-avatar { width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.22); display:flex; align-items:center;
-                   justify-content:center; font-weight:700; font-size:17px; flex-shrink:0; }
-    .hero-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; opacity:.85; }
-    .hero-name { font-size:22px; font-weight:700; margin:2px 0 8px; }
+            background:linear-gradient(135deg, color-mix(in srgb, var(--green) 18%, var(--glass-fill)), var(--glass-fill));
+            border:1px solid color-mix(in srgb, var(--green) 30%, var(--glass-border));
+            backdrop-filter:blur(16px); color:var(--text); }
+    .hero-avatar { width:48px; height:48px; border-radius:50%; border:2px solid var(--glass-border); display:flex; align-items:center;
+                   justify-content:center; font-weight:700; font-size:17px; flex-shrink:0; color:#fff; }
+    .hero-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+                   color:color-mix(in srgb, var(--green) 70%, var(--text)); }
+    .hero-name { font-size:22px; font-weight:700; margin:2px 0 8px; color:var(--text); }
     .hero-phones { display:flex; gap:6px; flex-wrap:wrap; }
-    .hero-chip { font-size:11px; background:rgba(255,255,255,.18); border-radius:20px; padding:3px 10px; }
+    .hero-chip { font-size:11px; border-radius:20px; padding:3px 10px;
+                 background:color-mix(in srgb, var(--green) 16%, transparent);
+                 color:color-mix(in srgb, var(--green) 65%, var(--text)); }
 
     /* ── Calendar nav ── */
     .cal-navbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
