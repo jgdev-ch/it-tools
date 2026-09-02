@@ -1,0 +1,999 @@
+{
+  "schedule": [
+    {
+      "startDate": "2024-01-07",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-01-21",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-02-04",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-02-18",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-03-03",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-03-17",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-03-31",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-04-14",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-04-28",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-05-12",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-05-19",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-05-26",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-02",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-09",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-16",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-23",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-30",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-07",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-14",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-21",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-28",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-04",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-11",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-18",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-25",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-01",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-08",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-15",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-22",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-29",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-06",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-13",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-20",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-27",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-03",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-10",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-17",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-24",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-01",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-08",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-15",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-22",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-29",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-05",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-12",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-19",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-26",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-02",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-09",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-16",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-23",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-02",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-09",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-16",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-23",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-30",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-06",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-13",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-20",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-27",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-04",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-11",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-18",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-25",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-01",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-08",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-15",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-22",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-29",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-06",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-13",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-20",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-27",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-03",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-10",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-17",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-24",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-31",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-07",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-14",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-21",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-28",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-05",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-12",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-19",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-26",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-02",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-09",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-16",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-23",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-30",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-07",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-14",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-21",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-28",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-04",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-11",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-18",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-25",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-01",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-08",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-15",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-22",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-01",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-08",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-15",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-22",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-29",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-05",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-12",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-19",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-26",
+      "tech": "David",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-03",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-10",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-17",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-24",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-31",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-07",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-14",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-21",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-28",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-05",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-12",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-19",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-26",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-02",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-09",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-16",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-23",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-30",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-06",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-13",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-20",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-27",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-04",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-11",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-18",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-25",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-01",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-08",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-15",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-22",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-29",
+      "tech": "Krista",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-06",
+      "tech": "Joshua",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-13",
+      "tech": "Nick",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-20",
+      "tech": "Joe",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-27",
+      "tech": "Robert",
+      "timeOff": "",
+      "notes": ""
+    }
+  ],
+  "rotationTechs": [
+    {
+      "name": "Joshua Garrett",
+      "shortName": "Joshua",
+      "phones": [
+        {
+          "label": "8x8",
+          "number": "484-380-9339"
+        },
+        {
+          "label": "Work",
+          "number": "223-271-6479"
+        },
+        {
+          "label": "Personal",
+          "number": "445-888-0009"
+        },
+        {
+          "label": "Teams",
+          "number": "417-719-1960"
+        }
+      ]
+    },
+    {
+      "name": "Nick Zoshak",
+      "shortName": "Nick",
+      "phones": [
+        {
+          "label": "Personal",
+          "number": "253-314-8135"
+        }
+      ]
+    },
+    {
+      "name": "Joe Randazzo",
+      "shortName": "Joe",
+      "phones": [
+        {
+          "label": "Personal/Work",
+          "number": "214-945-9348"
+        },
+        {
+          "label": "Teams",
+          "number": "417-719-1902"
+        }
+      ]
+    },
+    {
+      "name": "Robert Tyson",
+      "shortName": "Robert",
+      "phones": [
+        {
+          "label": "Personal/Work",
+          "number": "214-535-9876"
+        },
+        {
+          "label": "Teams",
+          "number": "417-719-1887"
+        }
+      ]
+    },
+    {
+      "name": "Krista Guthrie",
+      "shortName": "Krista",
+      "phones": [
+        {
+          "label": "Work",
+          "number": "469-671-4399"
+        },
+        {
+          "label": "Personal",
+          "number": "847-337-8056"
+        },
+        {
+          "label": "Teams",
+          "number": "417-719-1892"
+        }
+      ]
+    }
+  ],
+  "otherContacts": [
+    {
+      "name": "Andy Singh",
+      "phones": [
+        {
+          "label": "Personal",
+          "number": "714-757-9224"
+        },
+        {
+          "label": "Teams",
+          "number": "417-719-1884"
+        }
+      ]
+    },
+    {
+      "name": "Justin Canales",
+      "phones": [
+        {
+          "label": "Teams",
+          "number": "417-719-1861"
+        }
+      ]
+    },
+    {
+      "name": "Ian Sanchez",
+      "phones": [
+        {
+          "label": "Personal",
+          "number": "602-819-1825"
+        }
+      ]
+    }
+  ]
+}
