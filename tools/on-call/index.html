@@ -66,6 +66,10 @@
                   padding:7px 4px; cursor:pointer; color:var(--text); }
     .month-pill.current { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700; }
 
+    .edit-toggle-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px;
+                        border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; }
+    .edit-toggle-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+
     /* ── Roster ── */
     .roster-section { margin-top:24px; }
     .roster-lbl { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 8px; }
@@ -144,9 +148,8 @@
       <div id="toolContent" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <h1>On-Call Rotation</h1>
-          <div id="adminControls" style="display:none">
-            <label class="tog"><input type="checkbox" id="editToggle" onchange="toggleEditMode()"/><div class="track"></div></label>
-            <span>Edit Mode</span>
+          <div id="adminControls" style="display:none; align-items:center; gap:10px;">
+            <button class="edit-toggle-btn" id="editToggleBtn" onclick="toggleEditMode()" title="Edit Mode"></button>
             <button class="btn btn-primary" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
           </div>
         </div>
@@ -210,6 +213,7 @@ const ICON_PLUS          = `<svg width="14" height="14" viewBox="0 0 24 24" fill
 const ICON_X             = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 const ICON_FILE_TEXT     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`;
 const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/></svg>`;
+const ICON_PENCIL        = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
 
 function initials(name) {
   return name.split(" ").map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
@@ -447,7 +451,8 @@ function jumpToMonth(monthIndex) {
 let editMode = false;
 
 function toggleEditMode() {
-  editMode = document.getElementById("editToggle").checked;
+  editMode = !editMode;
+  document.getElementById("editToggleBtn").classList.toggle("active", editMode);
   document.getElementById("saveBtn").style.display = editMode ? "inline-block" : "none";
   closePanel();
   renderCalendarStrip();
@@ -686,6 +691,7 @@ async function init() {
   document.getElementById("navPrevBtn").innerHTML = ICON_CHEVRON_LEFT + " Prev";
   document.getElementById("navNextBtn").innerHTML = "Next " + ICON_CHEVRON_RIGHT;
   document.getElementById("panelCloseBtn").innerHTML = ICON_X;
+  document.getElementById("editToggleBtn").innerHTML = ICON_PENCIL;
 
   let _sessionFound = false;
   await ITTools.auth.init({
