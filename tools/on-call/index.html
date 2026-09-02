@@ -12,21 +12,103 @@
     #authScreen { display:none; }
     body { opacity:0; transition:opacity .15s; }
 
-    .main-content { max-width:900px; margin:0 auto; padding:24px; }
-    .hero { background:var(--blue-light); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
-    .hero-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
-    .hero-name { font-size:24px; font-weight:700; margin:4px 0 10px; }
-    .hero-phones { display:flex; gap:16px; flex-wrap:wrap; }
-    .hero-phone { font-size:13px; color:var(--text); }
-    .hero-phone .lbl { color:var(--muted); margin-right:6px; }
-    .year-tabs { display:flex; gap:8px; margin-bottom:12px; }
-    .year-tab { padding:6px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface); cursor:pointer; font-size:13px; }
-    .year-tab.active { background:var(--blue); color:#fff; border-color:var(--blue); }
-    .contact-cards { display:flex; gap:12px; flex-wrap:wrap; margin-top:20px; }
-    .contact-card { border:1px solid var(--border); border-radius:10px; padding:12px 14px; min-width:200px; background:var(--surface); }
-    .contact-card h4 { margin:0 0 6px; font-size:14px; }
-    .contact-card .phone-row { font-size:12px; color:var(--muted); }
-    .other-contacts-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin:20px 0 8px; }
+    .main-content { max-width:960px; margin:0 auto; padding:24px 24px 60px; }
+
+    /* ── Hero ── */
+    .hero { display:flex; align-items:center; gap:14px; border-radius:14px; padding:18px 20px; margin-bottom:20px;
+            background:linear-gradient(135deg, var(--blue), color-mix(in srgb, var(--blue) 75%, #7b6bff)); color:#fff; }
+    .hero-avatar { width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.22); display:flex; align-items:center;
+                   justify-content:center; font-weight:700; font-size:17px; flex-shrink:0; }
+    .hero-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; opacity:.85; }
+    .hero-name { font-size:22px; font-weight:700; margin:2px 0 8px; }
+    .hero-phones { display:flex; gap:6px; flex-wrap:wrap; }
+    .hero-chip { font-size:11px; background:rgba(255,255,255,.18); border-radius:20px; padding:3px 10px; }
+
+    /* ── Calendar nav ── */
+    .cal-navbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .year-seg { display:inline-flex; background:var(--surface-2, var(--surface)); border:1px solid var(--border); border-radius:8px; padding:2px; }
+    .year-seg span { padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; }
+    .year-seg span.on { background:var(--blue); color:#fff; font-weight:700; }
+    .cal-search { border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:12px; background:var(--surface);
+                  color:var(--text); width:150px; }
+    .cal-nav-btns { display:flex; align-items:center; gap:6px; }
+    .cal-nav-btns button { display:flex; align-items:center; gap:4px; background:var(--surface); border:1px solid var(--border);
+                            border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; color:var(--text); }
+    .cal-nav-btns button.today-btn { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600; }
+
+    /* ── Calendar strip ── */
+    .month-row { display:flex; gap:6px; margin-bottom:4px; }
+    .month-lbl { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+    .week-strip { display:flex; gap:6px; margin-bottom:8px; }
+    .week-tile { flex:1; border:1px solid var(--border); border-radius:10px; padding:10px 8px; text-align:center;
+                 background:var(--surface); cursor:pointer; position:relative; transition:box-shadow .15s; }
+    .week-tile:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    .week-tile.today { border-color:var(--blue); box-shadow:0 0 0 2px color-mix(in srgb, var(--blue) 25%, transparent); }
+    .week-tile .tile-date { font-size:10px; color:var(--muted); }
+    .week-tile .tile-dot { width:30px; height:30px; border-radius:50%; margin:6px auto 4px; display:flex; align-items:center;
+                            justify-content:center; font-size:10px; font-weight:700; color:#fff; }
+    .week-tile .tile-name { font-size:11px; font-weight:600; }
+    .week-tile .ribbon { position:absolute; top:-8px; left:50%; transform:translateX(-50%); background:var(--blue); color:#fff;
+                          font-size:9px; padding:2px 8px; border-radius:10px; font-weight:700; }
+    .week-tile .tile-flags { position:absolute; top:5px; right:6px; display:flex; gap:3px; color:var(--muted); }
+    .week-tile .tile-flags svg { display:block; }
+
+    .overview-rail { display:flex; gap:2px; margin-bottom:20px; cursor:pointer; }
+    .overview-rail .rail-seg { flex:1; height:6px; border-radius:2px; opacity:.35; }
+    .overview-rail .rail-seg.in-view { opacity:1; }
+    .overview-rail .rail-seg.now { outline:1px solid var(--blue); }
+
+    /* ── Roster ── */
+    .roster-section { margin-top:24px; }
+    .roster-lbl { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 8px; }
+    .roster-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px; }
+    .roster-card { border:1px solid var(--border); border-radius:10px; padding:12px; background:var(--surface); cursor:pointer;
+                   transition:box-shadow .15s; }
+    .roster-card:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    .roster-card.dim { opacity:.6; }
+    .roster-card-top { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .roster-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                  font-size:11px; font-weight:700; color:#fff; flex-shrink:0; }
+    .roster-name { font-size:13px; font-weight:700; }
+    .roster-role { font-size:10px; color:var(--muted); }
+    .roster-chips { display:flex; gap:4px; flex-wrap:wrap; }
+    .roster-chip { font-size:10px; background:var(--surface-2, rgba(0,0,0,.05)); color:var(--muted); padding:2px 8px; border-radius:9px; }
+    .roster-chip.more { background:transparent; color:var(--blue); font-weight:700; padding:2px 2px; }
+    .add-tile { border:1px dashed var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center;
+                gap:6px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; min-height:70px; }
+    .add-tile:hover { border-color:var(--blue); color:var(--blue); }
+
+    /* ── Detail panel (shared: calendar week + roster contact) ── */
+    #panelBackdrop { position:fixed; inset:0; background:rgba(0,0,0,0); pointer-events:none; transition:background .15s; z-index:40; }
+    #panelBackdrop.open { background:rgba(0,0,0,.25); pointer-events:auto; }
+    #detailPanel { position:fixed; top:0; right:0; bottom:0; width:340px; background:var(--surface); border-left:1px solid var(--border);
+                   box-shadow:-8px 0 24px rgba(0,0,0,.12); transform:translateX(100%); transition:transform .2s; z-index:41;
+                   padding:20px; overflow-y:auto; }
+    #detailPanel.open { transform:translateX(0); }
+    .panel-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .panel-dot { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                 font-weight:700; font-size:12px; color:#fff; flex-shrink:0; }
+    .panel-title { font-size:14px; font-weight:700; color:var(--text); }
+    .panel-sub { font-size:11px; color:var(--muted); }
+    .panel-badge { font-size:10px; background:#fef3c7; color:#92400e; padding:2px 9px; border-radius:10px; font-weight:700; margin-left:auto; }
+    .panel-close { background:none; border:none; cursor:pointer; color:var(--muted); padding:4px; margin-left:4px; }
+    .panel-row, .panel-field { margin-bottom:12px; }
+    .panel-row label, .panel-field label { display:block; font-size:10px; text-transform:uppercase; color:var(--muted);
+                                            letter-spacing:.05em; margin-bottom:4px; font-weight:700; }
+    .panel-value { font-size:13px; color:var(--text); }
+    .panel-input, .panel-select { width:100%; border:1px solid var(--border); border-radius:6px; padding:7px 9px; font-size:12px;
+                                   background:var(--bg); color:var(--text); box-sizing:border-box; font-family:inherit; }
+    .panel-toggle-row { display:flex; align-items:center; justify-content:space-between; font-size:12px; margin-bottom:12px; }
+    .panel-toggle-row label { margin:0; text-transform:none; font-size:12px; font-weight:400; color:var(--text); }
+    .phone-chip-row { font-size:12px; color:var(--text); margin-bottom:4px; }
+    .phone-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+    .phone-row .panel-input.phone-label { flex:0 0 90px; }
+    .phone-row .panel-input.phone-num { flex:1; }
+    .phone-rm { color:#c33; cursor:pointer; display:flex; }
+    .add-phone-link { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--blue); font-weight:600; cursor:pointer;
+                       margin-bottom:14px; }
+    .panel-btnrow { display:flex; gap:8px; margin-top:16px; }
+    .panel-btnrow .btn { flex:1; }
   </style>
 </head>
 <body>
@@ -84,7 +166,33 @@ const ONCALL_ADMIN_GROUP = "SG-IT-Tools-OnCall-Admin";
 const ONCALL_GET_URL  = "";
 const ONCALL_SAVE_URL = "";
 
-const st = { data: null, year: "2026", isAdmin: false };
+const PERSON_PALETTE      = ["#059669", "#1a56db", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#db2777"];
+const OTHER_CONTACT_COLOR = "#9ca3af";
+const WEEKS_VISIBLE       = 5;
+
+const ICON_CHEVRON_LEFT  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>`;
+const ICON_CHEVRON_RIGHT = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
+const ICON_SEARCH        = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+const ICON_PLUS          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`;
+const ICON_X             = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+const ICON_FILE_TEXT     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`;
+const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/></svg>`;
+
+function initials(name) {
+  return name.split(" ").map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+}
+
+function buildPersonColors(data) {
+  const map = {};
+  data.rotationTechs.forEach((t, i) => { map[t.shortName] = PERSON_PALETTE[i % PERSON_PALETTE.length]; });
+  return map;
+}
+
+function personColorFor(shortName) {
+  return st.personColors[shortName] || OTHER_CONTACT_COLOR;
+}
+
+const st = { data: null, year: "2026", isAdmin: false, stripStart: 0, panel: null, draft: null };
 
 async function doSignIn() {
   try {
