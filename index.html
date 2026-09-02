@@ -901,6 +901,20 @@ async function runGateChecks(token) {
   }
   renderAccountDropdown(unlocked);
   await applyDenyGates(token);
+  applyAdminPreviewGates(unlocked);
+}
+
+// ── Coming-soon cards with a comingSoonGate: swap to live for unlocked gate keys ──
+// Reuses the membership result `runGateChecks`/`restoreFromLocalStorage` already
+// computed rather than re-checking Graph — this only ever runs right after one of those.
+function applyAdminPreviewGates(unlockedGateKeys) {
+  document.querySelectorAll("[data-preview-gate]").forEach(el => {
+    if (!unlockedGateKeys.includes(el.dataset.previewGate)) return;
+    el.outerHTML = buildLiveCard({
+      path: el.dataset.path, accent: el.dataset.accent, icon: el.dataset.icon,
+      status: "beta", name: el.dataset.name, desc: el.dataset.desc,
+    });
+  });
 }
 
 // ── Deny-gates: hide a card specifically for members of one group (inverse of GROUP_GATES) ──
@@ -930,6 +944,7 @@ function restoreFromLocalStorage() {
     }
   }
   renderAccountDropdown(unlocked);
+  applyAdminPreviewGates(unlocked);
 }
 
 // ── Clear all gate flags on sign-out ─────────────────────────────────────────
@@ -1044,6 +1059,24 @@ async function loadTools() {
         if (!_gateCardMeta["security"]) _gateCardMeta["security"] = [];
         _gateCardMeta["security"].push(meta);
         return buildLockedCard({ gateKey: "security", ...meta });
+      }
+
+      // "coming-soon" for everyone, except members of `comingSoonGate`'s group see it
+      // fully live (still in beta, still building) so work on it can continue without
+      // exposing it to the rest of the team. Distinct from financeOnly/reportingOnly/
+      // securityOnly above: those are ready tools gated by permission (locked-badge
+      // visual); this is an unready tool gated by "should you even know this exists yet."
+      if (tool.status === "coming-soon" && tool.comingSoonGate) {
+        return buildComingSoonCard({
+          accent: tool.accent, icon: tool.icon,
+          name: tool.name, desc: tool.description, status: tool.status,
+        }).replace(
+          '<div class="tool-card no-hover"',
+          `<div class="tool-card no-hover" data-preview-gate="${tool.comingSoonGate}"` +
+          `${tool.denyGate ? ` data-deny="${tool.denyGate}"` : ""}` +
+          ` data-path="${tool.path}" data-accent="${tool.accent}" data-icon="${tool.icon}"` +
+          ` data-name="${tool.name}" data-desc="${tool.description}"`
+        );
       }
 
       if (isClickableStatus(tool.status) && tool.path) {
