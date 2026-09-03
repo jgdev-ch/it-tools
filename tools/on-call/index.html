@@ -725,6 +725,21 @@ function applyBuildPopover() {
   renderBuildCanvas();
 }
 
+function commitBuild() {
+  const proposed = st.build.weeks.filter(w => !w.existing).map(w => ({
+    startDate: w.startDate, tech: w.tech, timeOff: w.timeOff || "", notes: w.notes || ""
+  }));
+  st.data.schedule.push(...proposed);
+  st.data.schedule.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+  const builtYear = st.build.year;
+  st.build = null;
+  setBuildViewVisibility();
+  st.year = builtYear;
+  st.stripStart = 0;
+  renderAll();
+  saveChanges();
+}
+
 // ── Edit mode toggle (schedule-side wiring finishes in a later task) ──
 let editMode = false;
 
