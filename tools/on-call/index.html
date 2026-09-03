@@ -127,26 +127,28 @@
     /* ── Roster ── */
     .roster-section { margin-top:24px; }
     .roster-lbl { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 8px; }
-    .roster-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px; }
-    .roster-card { border:1px solid var(--border); border-radius:10px; padding:12px; background:var(--surface); cursor:pointer;
-                   transition:box-shadow .15s; }
+    .roster-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-bottom:20px; }
+    .roster-card { position:relative; width:100%; max-width:150px; margin:0 auto; height:172px; box-sizing:border-box;
+                   border:1px solid var(--border); border-radius:16px; padding:16px 8px; background:var(--surface); cursor:pointer;
+                   transition:box-shadow .15s; display:flex; flex-direction:column; align-items:center; justify-content:center;
+                   gap:6px; text-align:center; }
     .roster-card:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
     .roster-card.dim { opacity:.6; }
-    .roster-card-top { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-    .roster-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-                  font-size:11px; font-weight:700; color:#fff; flex-shrink:0; }
+    .roster-drag-handle { position:absolute; top:8px; right:8px; display:flex; align-items:center; cursor:grab; color:var(--muted); }
+    .roster-dot { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                  font-size:14px; font-weight:700; color:#fff; flex-shrink:0; margin-bottom:2px; }
     .roster-name { font-size:13px; font-weight:700; }
-    .roster-role { font-size:10px; color:var(--muted); }
-    .roster-chips { display:flex; gap:5px; flex-wrap:wrap; }
+    .roster-role { font-size:10px; color:var(--muted); margin-bottom:4px; }
+    .roster-chips { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; }
     .roster-chip { font-size:10px; font-weight:600; padding:3px 10px; border-radius:20px;
                     background:color-mix(in srgb, var(--blue) 12%, var(--glass-fill));
                     border:1px solid color-mix(in srgb, var(--blue) 25%, var(--glass-border));
                     color:color-mix(in srgb, var(--blue) 70%, var(--text)); }
     .roster-chip.more { background:transparent; border:none; color:var(--blue); font-weight:700; padding:3px 2px; }
-    .add-tile { border:1px dashed var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center;
-                gap:6px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; min-height:70px; }
+    .add-tile { width:100%; max-width:150px; margin:0 auto; height:172px; box-sizing:border-box;
+                border:1px dashed var(--border); border-radius:16px; display:flex; flex-direction:column; align-items:center;
+                justify-content:center; gap:6px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; }
     .add-tile:hover { border-color:var(--blue); color:var(--blue); }
-    .roster-drag-handle { display:flex; align-items:center; cursor:grab; color:var(--muted); margin-right:2px; }
     .roster-card.dragging { opacity:.4; }
     .roster-card.drag-over { outline:2px dashed var(--blue); outline-offset:2px; }
 
@@ -897,14 +899,10 @@ function rosterCardHtml(person, group, idx) {
     : "";
   return `
     <div class="roster-card${group === "other" ? " dim" : ""}" ${dragAttrs} onclick="openContactPanel('${group}', ${idx})">
-      <div class="roster-card-top">
-        ${canReorder ? `<span class="roster-drag-handle">${ICON_GRIP}</span>` : ""}
-        <div class="roster-dot" style="background:${color}">${initials(person.name)}</div>
-        <div>
-          <div class="roster-name">${person.name}</div>
-          <div class="roster-role">${group === "rotation" ? "Rotation" : "Other"}</div>
-        </div>
-      </div>
+      ${canReorder ? `<span class="roster-drag-handle">${ICON_GRIP}</span>` : ""}
+      <div class="roster-dot" style="background:${color}">${initials(person.name)}</div>
+      <div class="roster-name">${person.name}</div>
+      <div class="roster-role">${group === "rotation" ? "Rotation" : "Other"}</div>
       <div class="roster-chips">
         ${visiblePhones.map(p => `<span class="roster-chip">${p.label}</span>`).join("")}
         ${extra > 0 ? `<span class="roster-chip more">+${extra}</span>` : ""}
