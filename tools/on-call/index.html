@@ -89,6 +89,9 @@
     .add-tile { border:1px dashed var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center;
                 gap:6px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; min-height:70px; }
     .add-tile:hover { border-color:var(--blue); color:var(--blue); }
+    .roster-drag-handle { display:flex; align-items:center; cursor:grab; color:var(--muted); margin-right:2px; }
+    .roster-card.dragging { opacity:.4; }
+    .roster-card.drag-over { outline:2px dashed var(--blue); outline-offset:2px; }
 
     /* ── Detail panel (shared: calendar week + roster contact) ── */
     #panelBackdrop { position:fixed; top:var(--topbar-h); left:0; right:0; bottom:0; background:rgba(0,0,0,0); pointer-events:none;
@@ -214,6 +217,7 @@ const ICON_X             = `<svg width="14" height="14" viewBox="0 0 24 24" fill
 const ICON_FILE_TEXT     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`;
 const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/></svg>`;
 const ICON_PENCIL        = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
+const ICON_GRIP          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`;
 
 function initials(name) {
   return name.split(" ").map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
@@ -221,7 +225,8 @@ function initials(name) {
 
 function buildPersonColors(data) {
   const map = {};
-  data.rotationTechs.forEach((t, i) => { map[t.shortName] = PERSON_PALETTE[i % PERSON_PALETTE.length]; });
+  const sortedNames = data.rotationTechs.map(t => t.shortName).slice().sort();
+  sortedNames.forEach((shortName, i) => { map[shortName] = PERSON_PALETTE[i % PERSON_PALETTE.length]; });
   return map;
 }
 
@@ -540,9 +545,14 @@ function rosterCardHtml(person, group, idx) {
   const color = group === "rotation" ? personColorFor(person.shortName) : OTHER_CONTACT_COLOR;
   const visiblePhones = person.phones.slice(0, 2);
   const extra = person.phones.length - visiblePhones.length;
+  const canReorder = group === "rotation" && st.isAdmin && editMode;
+  const dragAttrs = canReorder
+    ? `draggable="true" ondragstart="rosterDragStart(event, ${idx})" ondragover="rosterDragOver(event)" ondrop="rosterDrop(event, ${idx})" ondragend="rosterDragEnd(event)"`
+    : "";
   return `
-    <div class="roster-card${group === "other" ? " dim" : ""}" onclick="openContactPanel('${group}', ${idx})">
+    <div class="roster-card${group === "other" ? " dim" : ""}" ${dragAttrs} onclick="openContactPanel('${group}', ${idx})">
       <div class="roster-card-top">
+        ${canReorder ? `<span class="roster-drag-handle">${ICON_GRIP}</span>` : ""}
         <div class="roster-dot" style="background:${color}">${initials(person.name)}</div>
         <div>
           <div class="roster-name">${person.name}</div>
@@ -564,6 +574,38 @@ function renderRoster() {
   const addOtherTile = (st.isAdmin && editMode) ? `<div class="add-tile" onclick="addContact('other')">${ICON_PLUS} Add Contact</div>` : "";
   document.getElementById("rotationGrid").innerHTML = rotationHtml + addRotationTile;
   document.getElementById("otherGrid").innerHTML = otherHtml + addOtherTile;
+}
+
+let rosterDragSrcIdx = null;
+
+function rosterDragStart(evt, idx) {
+  rosterDragSrcIdx = idx;
+  evt.currentTarget.classList.add("dragging");
+  evt.dataTransfer.effectAllowed = "move";
+}
+
+function rosterDragOver(evt) {
+  evt.preventDefault();
+  evt.currentTarget.classList.add("drag-over");
+}
+
+function rosterDrop(evt, idx) {
+  evt.preventDefault();
+  evt.currentTarget.classList.remove("drag-over");
+  if (rosterDragSrcIdx === null || rosterDragSrcIdx === idx) return;
+  const arr = st.data.rotationTechs;
+  const [moved] = arr.splice(rosterDragSrcIdx, 1);
+  arr.splice(idx, 0, moved);
+  st.personColors = buildPersonColors(st.data);
+  rosterDragSrcIdx = null;
+  renderRoster();
+  renderCalendarStrip();
+  saveChanges();
+}
+
+function rosterDragEnd(evt) {
+  evt.currentTarget.classList.remove("dragging");
+  document.querySelectorAll(".roster-card.drag-over").forEach(el => el.classList.remove("drag-over"));
 }
 
 function addContact(group) {
