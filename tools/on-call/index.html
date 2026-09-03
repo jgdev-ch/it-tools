@@ -23,7 +23,8 @@
                    justify-content:center; font-weight:700; font-size:17px; flex-shrink:0; color:#fff; }
     .hero-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
                    color:color-mix(in srgb, var(--green) 70%, var(--text)); }
-    .hero-name { font-size:22px; font-weight:700; margin:2px 0 8px; color:var(--text); }
+    .hero-name { font-size:22px; font-weight:700; margin:2px 0 4px; color:var(--text); }
+    .hero-dates { font-size:12px; color:color-mix(in srgb, var(--green) 60%, var(--text)); margin-bottom:8px; }
     .hero-phones { display:flex; gap:6px; flex-wrap:wrap; }
     .hero-chip { font-size:11px; border-radius:20px; padding:3px 10px;
                  background:color-mix(in srgb, var(--green) 16%, transparent);
@@ -396,6 +397,7 @@ function renderHero() {
     <div>
       <div class="hero-label">On Call This Week</div>
       <div class="hero-name">${name}</div>
+      <div class="hero-dates">${weekRangeLabel(week.startDate)}</div>
       <div class="hero-phones">
         ${(tech ? tech.phones : []).map(p => `<span class="hero-chip">${p.label} ${p.number}</span>`).join("")}
       </div>
@@ -490,15 +492,19 @@ function monthLabelsHtml(weeks) {
   return groups.map(g => `<div class="month-lbl" style="flex:${g.count}">${g.label}</div>`).join("");
 }
 
+function weekRangeLabel(startDate) {
+  const start = new Date(startDate + "T00:00:00Z");
+  const end = new Date(start.getTime() + 6 * 86400000);
+  const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }) + " " : "") + ordinal(d.getUTCDate());
+  const crossesMonth = start.getUTCMonth() !== end.getUTCMonth();
+  return fmt(start, true) + " to " + fmt(end, crossesMonth);
+}
+
 function tileHtml(row, todayStr) {
   const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
   const name = tech ? tech.name : row.tech;
   const color = personColorFor(row.tech);
-  const start = new Date(row.startDate + "T00:00:00Z");
-  const end = new Date(start.getTime() + 6 * 86400000);
-  const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }) + " " : "") + ordinal(d.getUTCDate());
-  const crossesMonth = start.getUTCMonth() !== end.getUTCMonth();
-  const rangeLabel = fmt(start, true) + " to " + fmt(end, crossesMonth);
+  const rangeLabel = weekRangeLabel(row.startDate);
   const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
   const isToday = row.startDate === todayStr;
   return `
