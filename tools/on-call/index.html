@@ -603,13 +603,16 @@ function generateProposal() {
   renderBuildCanvas();
 }
 
-function buildBlockHtml(week) {
+function buildBlockHtml(week, idx) {
   const tech = st.data.rotationTechs.find(t => t.shortName === week.tech);
   const name = tech ? tech.name : week.tech;
   const color = personColorFor(week.tech);
   const dateLabel = new Date(week.startDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const dragAttrs = week.existing ? "" :
+    `draggable="true" ondragstart="buildDragStart(event, ${idx})" ondragover="buildDragOver(event)" ondrop="buildDrop(event, ${idx})" ondragend="buildDragEnd(event)"`;
   return `
-    <div class="build-block${week.existing ? " existing" : ""}" style="background:${color}" title="${name}${week.existing ? " (already saved)" : ""}">
+    <div class="build-block${week.existing ? " existing" : ""}" data-idx="${idx}" style="background:${color}"
+         title="${name}${week.existing ? " (already saved)" : ""}" ${dragAttrs}>
       <span class="build-block-initials">${initials(name)}</span>
       <span class="build-block-date">${dateLabel}</span>
     </div>`;
@@ -640,6 +643,36 @@ function renderBuildCanvas() {
       </div>
     </div>
   `;
+}
+
+let buildDragSrcIdx = null;
+
+function buildDragStart(evt, idx) {
+  buildDragSrcIdx = idx;
+  evt.currentTarget.classList.add("dragging");
+  evt.dataTransfer.effectAllowed = "move";
+}
+
+function buildDragOver(evt) {
+  evt.preventDefault();
+  evt.currentTarget.classList.add("drag-over");
+}
+
+function buildDrop(evt, idx) {
+  evt.preventDefault();
+  evt.currentTarget.classList.remove("drag-over");
+  if (buildDragSrcIdx === null || buildDragSrcIdx === idx) return;
+  const weeks = st.build.weeks;
+  const techA = weeks[buildDragSrcIdx].tech;
+  weeks[buildDragSrcIdx].tech = weeks[idx].tech;
+  weeks[idx].tech = techA;
+  buildDragSrcIdx = null;
+  renderBuildCanvas();
+}
+
+function buildDragEnd(evt) {
+  evt.currentTarget.classList.remove("dragging");
+  document.querySelectorAll(".build-block.drag-over").forEach(el => el.classList.remove("drag-over"));
 }
 
 // ── Edit mode toggle (schedule-side wiring finishes in a later task) ──
