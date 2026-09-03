@@ -258,6 +258,11 @@ const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill
 const ICON_PENCIL        = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
 const ICON_GRIP          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`;
 
+function ordinal(n) {
+  const suffixes = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+}
+
 function initials(name) {
   return name.split(" ").map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 }
@@ -450,7 +455,7 @@ function tileHtml(row, todayStr) {
   const color = personColorFor(row.tech);
   const start = new Date(row.startDate + "T00:00:00Z");
   const end = new Date(start.getTime() + 6 * 86400000);
-  const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }) + " " : "") + d.getUTCDate();
+  const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }) + " " : "") + ordinal(d.getUTCDate());
   const crossesMonth = start.getUTCMonth() !== end.getUTCMonth();
   const rangeLabel = fmt(start, true) + " to " + fmt(end, crossesMonth);
   const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
@@ -555,7 +560,7 @@ function openBuildSetup(year) {
 function renderBuildSetupBar() {
   const info = describeContinuation(st.build.year);
   document.getElementById("buildSetupBar").innerHTML = `
-    <div class="setup-field"><span class="tag">Start date</span><span class="val">January 1, ${st.build.year}</span></div>
+    <div class="setup-field"><span class="tag">Start date</span><span class="val">January 1st, ${st.build.year}</span></div>
     <div class="setup-field"><span class="tag">Length</span><span class="val">Full year</span></div>
     <div class="setup-field"><span class="tag">Continuing from</span><span class="val">${info.fromLabel} &rarr; next: ${info.nextLabel}</span></div>
     <button class="setup-go-btn" onclick="generateProposal()">Generate Proposal</button>
@@ -608,7 +613,8 @@ function buildBlockHtml(week, idx) {
   const tech = st.data.rotationTechs.find(t => t.shortName === week.tech);
   const name = tech ? tech.name : week.tech;
   const color = personColorFor(week.tech);
-  const dateLabel = new Date(week.startDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const blockDate = new Date(week.startDate + "T00:00:00Z");
+  const dateLabel = blockDate.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }) + " " + ordinal(blockDate.getUTCDate());
   const dragAttrs = week.existing ? "" :
     `draggable="true" ondragstart="buildDragStart(event, ${idx})" ondragover="buildDragOver(event)" ondrop="buildDrop(event, ${idx})" ondragend="buildDragEnd(event)" onclick="openBuildPopover(${idx})"`;
   return `
