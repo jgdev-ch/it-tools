@@ -43,7 +43,7 @@
     /* ── Admin toolbar ── */
     .admin-toolbar { display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:14px; border-radius:14px;
                       background:var(--glass-fill); border:1px solid var(--glass-border); backdrop-filter:blur(16px); }
-    .admin-toolbar-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-right:2px; }
+    .admin-toolbar-label { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-right:2px; }
 
     /* ── Jump to Person dropdown ── */
     .person-jump { position:relative; }
@@ -210,7 +210,7 @@
       <div id="toolContent" style="display:none">
         <h1>On-Call Rotation</h1>
         <div id="adminToolbar" class="admin-toolbar" style="display:none">
-          <span class="admin-toolbar-label">Admin</span>
+          <span class="admin-toolbar-label" id="adminToolbarLabel">Admin</span>
           <button class="edit-toggle-btn" id="editToggleBtn" onclick="toggleEditMode()" title="Edit Mode"></button>
           <button class="btn btn-primary" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
           <div id="buildTriggerWrap"></div>
@@ -283,6 +283,7 @@ const ICON_FILE_TEXT     = `<svg width="12" height="12" viewBox="0 0 24 24" fill
 const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/></svg>`;
 const ICON_HEADSET       = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M21 16v2a4 4 0 0 1-4 4h-5"/></svg>`;
 const ICON_USERS         = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg>`;
+const ICON_SHIELD        = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`;
 const ICON_PENCIL        = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
 const ICON_GRIP          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`;
 
@@ -912,7 +913,7 @@ function rosterCardHtml(person, group, idx) {
 }
 
 function renderRoster() {
-  document.getElementById("rotationLbl").innerHTML = `${ICON_USERS} Rotation: ${st.data.rotationTechs.length} techs`;
+  document.getElementById("rotationLbl").innerHTML = `${ICON_USERS} In Rotation: ${st.data.rotationTechs.length} techs`;
   document.getElementById("otherLbl").innerHTML = `${ICON_USERS} Additional EUS Team Contacts`;
   const rotationHtml = st.data.rotationTechs.map((t, i) => rosterCardHtml(t, "rotation", i)).join("");
   const otherHtml = st.data.otherContacts.map((t, i) => rosterCardHtml(t, "other", i)).join("");
@@ -1080,6 +1081,7 @@ async function init() {
   document.getElementById("navNextBtn").innerHTML = "Next " + ICON_CHEVRON_RIGHT;
   document.getElementById("panelCloseBtn").innerHTML = ICON_X;
   document.getElementById("editToggleBtn").innerHTML = ICON_PENCIL;
+  document.getElementById("adminToolbarLabel").innerHTML = `${ICON_SHIELD} Admin`;
   document.addEventListener("click", evt => {
     if (buildPopoverIdx === null) return;
     const pop = document.getElementById("buildPopover");
