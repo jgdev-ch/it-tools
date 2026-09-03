@@ -389,17 +389,19 @@ function renderHero() {
   const week = findCurrentWeek(st.data.schedule);
   const hero = document.getElementById("heroCard");
   if (!week) { hero.innerHTML = "<p>No current on-call week found.</p>"; return; }
-  const tech = st.data.rotationTechs.find(t => t.shortName === week.tech);
+  const techIdx = st.data.rotationTechs.findIndex(t => t.shortName === week.tech);
+  const tech = techIdx !== -1 ? st.data.rotationTechs[techIdx] : null;
   const name = tech ? tech.name : week.tech;
   const color = personColorFor(week.tech);
+  const avatarAttrs = tech ? `onclick="openContactPanel('rotation', ${techIdx})" style="background:${color}; cursor:pointer"` : `style="background:${color}"`;
   hero.innerHTML = `
-    <div class="hero-avatar" style="background:${color}">${initials(name)}</div>
+    <div class="hero-avatar" ${avatarAttrs} title="${tech ? "View " + name + "'s contact info" : ""}">${initials(name)}</div>
     <div>
       <div class="hero-label">On Call This Week</div>
       <div class="hero-name">${name}</div>
       <div class="hero-dates">${weekRangeLabel(week.startDate)}</div>
       <div class="hero-phones">
-        ${(tech ? tech.phones : []).map(p => `<span class="hero-chip">${p.label} ${p.number}</span>`).join("")}
+        ${(tech ? tech.phones : []).map(p => `<span class="hero-chip">${p.label}: ${p.number}</span>`).join("")}
       </div>
     </div>
   `;
