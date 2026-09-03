@@ -119,9 +119,12 @@
                   font-size:11px; font-weight:700; color:#fff; flex-shrink:0; }
     .roster-name { font-size:13px; font-weight:700; }
     .roster-role { font-size:10px; color:var(--muted); }
-    .roster-chips { display:flex; gap:4px; flex-wrap:wrap; }
-    .roster-chip { font-size:10px; background:var(--surface-2, rgba(0,0,0,.05)); color:var(--muted); padding:2px 8px; border-radius:9px; }
-    .roster-chip.more { background:transparent; color:var(--blue); font-weight:700; padding:2px 2px; }
+    .roster-chips { display:flex; gap:5px; flex-wrap:wrap; }
+    .roster-chip { font-size:10px; font-weight:600; padding:3px 10px; border-radius:20px;
+                    background:color-mix(in srgb, var(--blue) 12%, var(--glass-fill));
+                    border:1px solid color-mix(in srgb, var(--blue) 25%, var(--glass-border));
+                    color:color-mix(in srgb, var(--blue) 70%, var(--text)); }
+    .roster-chip.more { background:transparent; border:none; color:var(--blue); font-weight:700; padding:3px 2px; }
     .add-tile { border:1px dashed var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center;
                 gap:6px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; min-height:70px; }
     .add-tile:hover { border-color:var(--blue); color:var(--blue); }
