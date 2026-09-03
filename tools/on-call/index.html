@@ -12,7 +12,7 @@
     #authScreen { display:none; }
     body { opacity:0; transition:opacity .15s; }
 
-    .main-content { max-width:1200px; margin:0 auto; padding:32px 40px 60px; }
+    .main-content { max-width:1440px; margin:0 auto; padding:32px 40px 60px; }
 
     /* ── Hero ── */
     .hero { display:flex; align-items:center; gap:14px; border-radius:14px; padding:18px 20px; margin-bottom:20px;
@@ -34,12 +34,29 @@
     .year-seg { display:inline-flex; background:var(--surface-2, var(--surface)); border:1px solid var(--border); border-radius:8px; padding:2px; }
     .year-seg span { padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; }
     .year-seg span.on { background:var(--blue); color:#fff; font-weight:700; }
-    .cal-search { border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:12px; background:var(--surface);
-                  color:var(--text); width:150px; }
     .cal-nav-btns { display:flex; align-items:center; gap:6px; }
     .cal-nav-btns button { display:flex; align-items:center; gap:4px; background:var(--surface); border:1px solid var(--border);
                             border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; color:var(--text); }
     .cal-nav-btns button.today-btn { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600; }
+
+    /* ── Admin toolbar ── */
+    .admin-toolbar { display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:14px; border-radius:14px;
+                      background:var(--glass-fill); border:1px solid var(--glass-border); backdrop-filter:blur(16px); }
+    .admin-toolbar-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-right:2px; }
+
+    /* ── Jump to Person dropdown ── */
+    .person-jump { position:relative; }
+    .person-jump-trigger { display:flex; align-items:center; justify-content:space-between; gap:6px; width:170px;
+                            background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:5px 10px;
+                            font-size:12px; color:var(--text); cursor:pointer; }
+    .person-jump-trigger .pj-chevron { color:var(--muted); font-size:10px; }
+    .person-jump-panel { position:absolute; top:calc(100% + 6px); left:0; width:220px; max-height:220px; overflow-y:auto;
+                          background:var(--surface); border:1px solid var(--border); border-radius:10px;
+                          box-shadow:0 10px 24px rgba(0,0,0,.18); z-index:30; padding:4px; }
+    .person-jump-option { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; font-size:12px; cursor:pointer; }
+    .person-jump-option:hover { background:var(--surface-2, rgba(0,0,0,.05)); }
+    .person-jump-avatar { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                           font-size:9px; font-weight:700; color:#fff; flex-shrink:0; }
 
     /* ── Calendar strip ── */
     .month-row { display:flex; gap:6px; margin-bottom:4px; }
@@ -188,20 +205,23 @@
         <p>This tool isn't available for your access group.</p>
       </div>
       <div id="toolContent" style="display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <h1>On-Call Rotation</h1>
-          <div id="adminControls" style="display:none; align-items:center; gap:10px;">
-            <button class="edit-toggle-btn" id="editToggleBtn" onclick="toggleEditMode()" title="Edit Mode"></button>
-            <button class="btn btn-primary" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
-          </div>
+        <h1>On-Call Rotation</h1>
+        <div id="adminToolbar" class="admin-toolbar" style="display:none">
+          <span class="admin-toolbar-label">Admin</span>
+          <button class="edit-toggle-btn" id="editToggleBtn" onclick="toggleEditMode()" title="Edit Mode"></button>
+          <button class="btn btn-primary" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
+          <div id="buildTriggerWrap"></div>
         </div>
         <div class="hero" id="heroCard"></div>
 
         <div class="cal-navbar">
           <div class="year-seg" id="yearSeg"></div>
-          <div id="buildTriggerWrap"></div>
-          <input class="cal-search" id="searchInput" placeholder="Jump to person"
-                 onkeydown="if(event.key==='Enter') searchPerson(this.value)"/>
+          <div class="person-jump" id="personJumpWrap">
+            <button class="person-jump-trigger" id="personJumpTrigger" onclick="togglePersonJump()">
+              <span id="personJumpLabel">Jump to person</span> <span class="pj-chevron">&#9662;</span>
+            </button>
+            <div class="person-jump-panel" id="personJumpPanel" style="display:none"></div>
+          </div>
           <div class="cal-nav-btns">
             <button onclick="shiftStrip(-1)" id="navPrevBtn"></button>
             <button class="today-btn" onclick="goToday()">Today</button>
@@ -311,7 +331,7 @@ async function afterSignIn() {
   document.getElementById("toolContent").style.display = "block";
 
   await checkOnCallAdminAccess();
-  if (st.isAdmin) document.getElementById("adminControls").style.display = "flex";
+  if (st.isAdmin) document.getElementById("adminToolbar").style.display = "flex";
   await loadData();
 }
 
@@ -429,17 +449,35 @@ function goToday() {
   jumpToWeek(weeks.findIndex(w => w.startDate === week.startDate));
 }
 
-function searchPerson(query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return;
+function renderPersonJumpPanel() {
+  const panel = document.getElementById("personJumpPanel");
+  panel.innerHTML = st.data.rotationTechs.map(t => `
+    <div class="person-jump-option" onclick="jumpToPersonDate('${t.shortName}')">
+      <span class="person-jump-avatar" style="background:${personColorFor(t.shortName)}">${initials(t.name)}</span>
+      ${t.name}
+    </div>`).join("");
+}
+
+function togglePersonJump() {
+  const panel = document.getElementById("personJumpPanel");
+  const opening = panel.style.display === "none";
+  if (opening) renderPersonJumpPanel();
+  panel.style.display = opening ? "block" : "none";
+}
+
+function jumpToPersonDate(shortName) {
+  document.getElementById("personJumpPanel").style.display = "none";
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const rows = st.data.schedule.filter(r => r.tech === shortName).sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+  const target = rows.find(r => Date.parse(r.startDate + "T00:00:00Z") >= todayUtc) || rows[rows.length - 1];
+  if (!target) return;
+  st.year = target.startDate.slice(0, 4);
+  renderYearSeg();
   const weeks = getYearWeeks(st.year);
-  if (!weeks.length) return;
-  for (let step = 1; step <= weeks.length; step++) {
-    const idx = (st.stripStart + step) % weeks.length;
-    const tech = st.data.rotationTechs.find(t => t.shortName === weeks[idx].tech);
-    const name = (tech ? tech.name : weeks[idx].tech).toLowerCase();
-    if (name.includes(q)) { jumpToWeek(idx); return; }
-  }
+  jumpToWeek(weeks.findIndex(w => w.startDate === target.startDate));
+  const tech = st.data.rotationTechs.find(t => t.shortName === shortName);
+  document.getElementById("personJumpLabel").textContent = tech ? tech.name : shortName;
 }
 
 function monthLabelsHtml(weeks) {
@@ -1037,6 +1075,10 @@ async function init() {
     if (buildPopoverIdx === null) return;
     const pop = document.getElementById("buildPopover");
     if (pop && !pop.contains(evt.target) && !evt.target.closest(".build-block")) closeBuildPopover();
+  });
+  document.addEventListener("click", evt => {
+    const panel = document.getElementById("personJumpPanel");
+    if (panel.style.display !== "none" && !evt.target.closest("#personJumpWrap")) panel.style.display = "none";
   });
 
   let _sessionFound = false;
