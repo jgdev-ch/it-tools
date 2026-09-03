@@ -564,6 +564,7 @@ function renderBuildSetupBar() {
 }
 
 function cancelBuild() {
+  closeBuildPopover();
   st.build = null;
   setBuildViewVisibility();
   renderBuildTrigger();
@@ -609,7 +610,7 @@ function buildBlockHtml(week, idx) {
   const color = personColorFor(week.tech);
   const dateLabel = new Date(week.startDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   const dragAttrs = week.existing ? "" :
-    `draggable="true" ondragstart="buildDragStart(event, ${idx})" ondragover="buildDragOver(event)" ondrop="buildDrop(event, ${idx})" ondragend="buildDragEnd(event)"`;
+    `draggable="true" ondragstart="buildDragStart(event, ${idx})" ondragover="buildDragOver(event)" ondrop="buildDrop(event, ${idx})" ondragend="buildDragEnd(event)" onclick="openBuildPopover(${idx})"`;
   return `
     <div class="build-block${week.existing ? " existing" : ""}" data-idx="${idx}" style="background:${color}"
          title="${name}${week.existing ? " (already saved)" : ""}" ${dragAttrs}>
@@ -673,6 +674,55 @@ function buildDrop(evt, idx) {
 function buildDragEnd(evt) {
   evt.currentTarget.classList.remove("dragging");
   document.querySelectorAll(".build-block.drag-over").forEach(el => el.classList.remove("drag-over"));
+}
+
+let buildPopoverIdx = null;
+
+function openBuildPopover(idx) {
+  buildPopoverIdx = idx;
+  renderBuildPopover();
+}
+
+function closeBuildPopover() {
+  buildPopoverIdx = null;
+  const el = document.getElementById("buildPopover");
+  if (el) el.remove();
+}
+
+function renderBuildPopover() {
+  const existingEl = document.getElementById("buildPopover");
+  if (existingEl) existingEl.remove();
+  const week = st.build.weeks[buildPopoverIdx];
+  const blockEl = document.querySelector(`.build-block[data-idx="${buildPopoverIdx}"]`);
+  if (!blockEl) return;
+  const rect = blockEl.getBoundingClientRect();
+  const options = st.data.rotationTechs.map(t =>
+    `<option value="${t.shortName}"${t.shortName === week.tech ? " selected" : ""}>${t.name}</option>`
+  ).join("");
+  const pop = document.createElement("div");
+  pop.id = "buildPopover";
+  pop.className = "build-popover";
+  pop.style.top = (rect.bottom + window.scrollY + 6) + "px";
+  pop.style.left = (rect.left + window.scrollX) + "px";
+  pop.innerHTML = `
+    <div class="pop-field"><label>Week of ${week.startDate}</label></div>
+    <div class="pop-field"><label>Tech</label>
+      <select class="panel-select" onchange="st.build.weeks[${buildPopoverIdx}].tech=this.value">${options}</select>
+    </div>
+    <div class="pop-field"><label>Time off</label>
+      <input class="panel-input" value="${week.timeOff || ""}" onchange="st.build.weeks[${buildPopoverIdx}].timeOff=this.value"/>
+    </div>
+    <div class="pop-field"><label>Notes</label>
+      <input class="panel-input" value="${week.notes || ""}" onchange="st.build.weeks[${buildPopoverIdx}].notes=this.value"/>
+    </div>
+    <button class="setup-go-btn" style="width:100%" onclick="applyBuildPopover()">Apply</button>
+  `;
+  document.body.appendChild(pop);
+}
+
+function applyBuildPopover() {
+  closeBuildPopover();
+  renderBuildCanvas();
 }
 
 // ── Edit mode toggle (schedule-side wiring finishes in a later task) ──
@@ -959,6 +1009,11 @@ async function init() {
   document.getElementById("navNextBtn").innerHTML = "Next " + ICON_CHEVRON_RIGHT;
   document.getElementById("panelCloseBtn").innerHTML = ICON_X;
   document.getElementById("editToggleBtn").innerHTML = ICON_PENCIL;
+  document.addEventListener("click", evt => {
+    if (buildPopoverIdx === null) return;
+    const pop = document.getElementById("buildPopover");
+    if (pop && !pop.contains(evt.target) && !evt.target.closest(".build-block")) closeBuildPopover();
+  });
 
   let _sessionFound = false;
   await ITTools.auth.init({
