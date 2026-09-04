@@ -130,9 +130,13 @@
     .wk.swappable { cursor:grab; }
     .wk.dragging { opacity:.4; }
     .wk.drag-over { outline:2px dashed var(--text); outline-offset:2px; }
-    .wk-now-tag { position:absolute; top:-9px; left:50%; transform:translateX(-50%); background:var(--text);
+    /* top:-4px, not the brief's -9px: the tag is 14px tall and the grid row-gap is
+       only 5px, so a 9px overhang bled into the cell above in 44 of 52 weeks.
+       -4px keeps the tag straddling its own top edge without reaching the row
+       above, and without covering its own initials (which -2px does). */
+    .wk-now-tag { position:absolute; top:-4px; left:50%; transform:translateX(-50%); background:var(--text);
                   color:var(--bg); font-size:8px; font-weight:800; letter-spacing:.06em; padding:2px 7px;
-                  border-radius:8px; pointer-events:none; }
+                  border-radius:8px; pointer-events:none; z-index:2; }
     .wk-flags { position:absolute; top:2px; right:3px; display:flex; gap:2px; opacity:.8; }
     .wk-flags svg { display:block; width:10px; height:10px; }
 
