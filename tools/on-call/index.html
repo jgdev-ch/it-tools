@@ -659,6 +659,15 @@ function renderAttention() {
       text: `No time off recorded anywhere in ${st.year}. Worth a pass before the holidays.` });
   }
 
+  // Unmatched weeks that are still ahead of us are uncovered coverage, not
+  // history, so they belong here rather than in Roster notes.
+  const { upcoming } = unmatchedTechs(st.year);
+  Object.keys(upcoming).forEach(t => {
+    const n = upcoming[t].length;
+    items.push({ icon: ICON_FILE_TEXT,
+      text: `${n} upcoming week${n === 1 ? "" : "s"} ${n === 1 ? "is" : "are"} assigned to <strong>${t}</strong>, who is no longer in the roster. Reassign ${n === 1 ? "it" : "them"}. ${upcoming[t].map(shortDate).join(", ")}.` });
+  });
+
   if (!items.length) { el.style.display = "none"; return; }
   el.style.display = "block";
   el.innerHTML = `<div class="oc-card-lbl">Needs attention</div>` + items.map(i =>
@@ -668,14 +677,14 @@ function renderAttention() {
 
 function renderRosterNotes() {
   const el = document.getElementById("rosterNotesCard");
-  const byTech = unmatchedTechs(st.year);
-  const names = Object.keys(byTech);
+  const { past } = unmatchedTechs(st.year);
+  const names = Object.keys(past);
   if (!names.length) { el.style.display = "none"; return; }
   el.style.display = "block";
 
   const items = names.map(t => {
-    const dates = byTech[t].map(shortDate).join(", ");
-    const n = byTech[t].length;
+    const dates = past[t].map(shortDate).join(", ");
+    const n = past[t].length;
     return `<div class="oc-note-item info">
         <span class="oc-note-icon">${ICON_FILE_TEXT}</span>
         <span>${n} week${n === 1 ? "" : "s"} in ${st.year} ${n === 1 ? "is" : "are"} assigned to
@@ -925,13 +934,19 @@ function weekOrdinalInYear(startDate) {
   return weeks.findIndex(w => w.startDate === startDate) + 1;
 }
 
+// Returns { past, upcoming }, each a { shortName: [startDate] } map. Upcoming
+// weeks are a coverage gap needing action; past ones are historical record.
+// "Upcoming" uses the same test as the queue and the board's next-week ring.
 function unmatchedTechs(year) {
   const known = new Set(st.data.rotationTechs.map(t => t.shortName));
-  const out = {};
+  const past = {}, upcoming = {};
   sortedByDate(getYearWeeks(year))
     .filter(r => !known.has(r.tech))
-    .forEach(r => { (out[r.tech] = out[r.tech] || []).push(r.startDate); });
-  return out;
+    .forEach(r => {
+      const bucket = daysFromToday(r.startDate) > 0 ? upcoming : past;
+      (bucket[r.tech] = bucket[r.tech] || []).push(r.startDate);
+    });
+  return { past, upcoming };
 }
 
 function shortDate(startDate) {
