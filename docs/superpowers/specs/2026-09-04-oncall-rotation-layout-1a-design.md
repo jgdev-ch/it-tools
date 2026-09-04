@@ -122,9 +122,26 @@ detail panel carries the numbers and the now card already shows full numbers for
 is currently on call. This density is what buys the whole year on one screen.
 
 **Also reachable.** One line: label plus an avatar+name chip per `otherContacts` entry,
-and a dashed `+` chip in edit mode. This replaces the second 172px card grid and resolves
-the visual-redesign spec's open question about de-emphasizing Other Contacts. The answer
-is a different component, not a dimmed copy of the same one.
+and a dashed `+` chip in edit mode bound to `addContact('other')`. This replaces the second
+172px card grid and resolves the visual-redesign spec's open question about de-emphasizing
+Other Contacts. The answer is a different component, not a dimmed copy of the same one.
+
+### Capabilities carried over from the roster grid
+
+The design brief omits two admin affordances that exist today on `.roster-card` and would
+otherwise be silently lost when the tech strip replaces it. Both are additions to the
+brief, not deviations from it.
+
+- **Add to rotation.** `renderRoster` currently renders two add-tiles in edit mode:
+  `addContact('rotation')` and `addContact('other')`. The brief only provides the `+` chip
+  for other contacts. The tech strip therefore gains a dashed `+` card, appended in edit
+  mode only, bound to `addContact('rotation')`, so onboarding a new tech stays possible.
+  It wraps to a second grid row, which is acceptable because it appears only in edit mode.
+- **Drag-to-reorder.** `rosterDragStart` / `rosterDragOver` / `rosterDrop` /
+  `rosterDragEnd` define the `rotationTechs` order that Build Mode cycles through. They are
+  transplanted onto the tech strip cards unchanged, with the `ICON_GRIP` handle shown in
+  edit mode only. Losing this would make rotation order uneditable and break the premise of
+  Build Mode's generation logic.
 
 ## Find a Person
 
@@ -167,7 +184,9 @@ The new CSS contains **zero hardcoded colors**. Mapping of the brief's literals:
 ## Build Mode
 
 Carried forward unchanged. No edits to `generateProposal`, `buildBlockHtml`, drag-to-swap,
-the inline popover, `commitBuild`, or roster drag-to-reorder.
+the inline popover, or `commitBuild`. The roster drag-to-reorder handlers are also
+unmodified, but are re-bound to the tech strip cards since `.roster-card` no longer exists
+(see "Capabilities carried over from the roster grid").
 
 `setBuildViewVisibility` is repointed at the new IDs: entering build hides `#yearBoard`,
 `#techStrip`, and `#alsoReachable`, and shows the setup bar or canvas by phase. **The left
@@ -177,14 +196,21 @@ rail stays visible during build**, mirroring how the hero stays visible today.
 
 | Deleted | Rewritten | New |
 |---|---|---|
-| `st.stripStart`, `WEEKS_VISIBLE` | `renderHero` to `renderNowCard` | `renderQueue`, `renderAttention`, `renderRosterNotes` |
-| `shiftStrip`, `goToday`, `jumpToWeek` | `renderCalendarStrip` to `renderYearBoard` | `weekOrdinalInYear()`, `unmatchedTechs()` |
-| `renderMonthPills`, `jumpToMonth` | `tileHtml` to `weekCellHtml` | `st.highlightTech`, countdown handle |
-| `monthLabelsHtml` | `renderRoster` splits into `renderTechStrip` + `renderAlsoReachable` | |
+| `st.stripStart`, `WEEKS_VISIBLE` | `renderHero` to `renderNowCard` | `renderQueue`, `renderAttention`, `renderRosterNotes`, `renderToolbar` |
+| `shiftStrip`, `goToday`, `jumpToWeek` | `renderCalendarStrip` to `renderYearBoard` | `renderFindPanel`, `highlightPerson`, `clearHighlight`, `copyNumber` |
+| `renderMonthPills`, `jumpToMonth` | `tileHtml` to `weekCellHtml` | `st.highlightTech`, `countdownTimer` handle |
+| `monthLabelsHtml` | `renderRoster` splits into `renderTechStrip` + `renderAlsoReachable` | Helpers: `sortedByDate`, `weekOrdinalInYear`, `unmatchedTechs`, `shortDate`, `daysFromToday`, `nextWeekAfter`, `msToNextSunday`, `countdownLabel`, `coverageNote` |
+| `renderPersonJumpPanel`, `togglePersonJump`, `jumpToPersonDate` (replaced by the find-panel trio) | | |
+| Icon consts `ICON_CHEVRON_LEFT`, `ICON_CHEVRON_RIGHT`, `ICON_USERS`, `ICON_SHIELD`, `ICON_REFRESH_CW` (each unused once their only host element is deleted) | | |
 
 `renderAll()` becomes: `renderNowCard`, `renderQueue`, `renderAttention`,
-`renderRosterNotes`, `renderYearSeg`, `renderYearBoard`, `renderTechStrip`,
-`renderAlsoReachable`, `renderBuildTrigger`.
+`renderRosterNotes`, `renderYearSeg`, `renderToolbar`, `renderYearBoard`,
+`renderTechStrip`, `renderAlsoReachable`, `renderBuildTrigger`.
+
+`renderYearSeg` is preserved as-is for the year pills; `renderToolbar` separately owns the
+week/tech count and the admin button visibility that previously lived in `toggleEditMode`
+and `afterSignIn`. `MONTH_NAMES` must survive the deletion of the calendar-strip block that
+currently surrounds it, since the year board depends on it.
 
 Preserved as-is: `findCurrentWeek`, `weekRangeLabel`, `ordinal`, `initials`,
 `buildPersonColors`, `personColorFor`, `getYearWeeks`, `getScheduleYears`, `setYear`,
