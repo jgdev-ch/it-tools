@@ -417,8 +417,7 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stubs - replaced in Tasks 5-11.
-function renderQueue() {}
+// Temporary stubs - replaced in Tasks 6-11.
 function renderAttention() {}
 function renderRosterNotes() {}
 function renderToolbar() {}
@@ -508,6 +507,33 @@ function copyNumber(evt, number) {
     btn.textContent = "Copied";
     setTimeout(() => { btn.textContent = "Copy"; }, 1500);
   });
+}
+
+// ── Queue (next four weeks) ─────────────────────────────────
+function renderQueue() {
+  const el = document.getElementById("queueCard");
+  const week = findCurrentWeek(st.data.schedule);
+  const all = sortedByDate(st.data.schedule);
+  const startIdx = week ? all.findIndex(w => w.startDate === week.startDate) + 1 : 0;
+  const upcoming = all.slice(startIdx, startIdx + 4);
+  if (!upcoming.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+
+  const rows = upcoming.map((row, i) => {
+    const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+    const name = tech ? tech.name : row.tech;
+    const right = i === 0
+      ? `<span class="queue-next">next up</span>`
+      : `<span class="queue-rel">in ${daysFromToday(row.startDate)}d</span>`;
+    return `<div class="queue-row${i === 0 ? " first" : ""}" onclick="openWeekPanel('${row.startDate}')">
+        <span class="queue-dot" style="background:${personColorFor(row.tech)}"></span>
+        <span class="queue-name">${name}</span>
+        <span class="queue-date">${shortDate(row.startDate)}</span>
+        ${right}
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `<div class="oc-card-lbl">Queue</div>${rows}`;
 }
 
 // ── Hero card (current on-call week) ───────────────────────
