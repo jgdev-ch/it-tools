@@ -220,6 +220,10 @@
     .tog input:checked + .track { background:var(--blue); }
     .tog input:checked + .track::after { transform:translateX(16px); }
 
+    .btn-remove { background:transparent; color:var(--red); border:1.5px solid var(--red-border); }
+    .btn-remove:hover:not(:disabled) { background:var(--red-light); }
+    .btn-remove:disabled { opacity:.45; cursor:not-allowed; }
+
     /* ── Detail panel (shared: calendar week + roster contact) ── */
     #panelBackdrop { position:fixed; top:var(--topbar-h); left:0; right:0; bottom:0; background:rgba(0,0,0,0); pointer-events:none;
                      transition:background .15s; z-index:40; }
@@ -1333,6 +1337,29 @@ function addContact(group) {
   openContactPanel(group, arr.length - 1);
 }
 
+function removeContact() {
+  const { group, idx } = st.panel;
+  const arr = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"];
+  const person = arr[idx];
+  if (!person || person.locked) return;   // defensive; the button is disabled
+
+  // Count across every year, not just the selected one: the weeks being kept
+  // as history are not limited to whatever tab happens to be open.
+  const weeks = group === "rotation" && person.shortName
+    ? st.data.schedule.filter(r => r.tech === person.shortName).length
+    : 0;
+  const tail = weeks
+    ? `\n\nTheir ${weeks} scheduled week${weeks === 1 ? "" : "s"} are kept as historical record.`
+    : "";
+  if (!confirm(`Remove ${person.name} from the roster?${tail}`)) return;
+
+  arr.splice(idx, 1);
+  st.personColors = buildPersonColors(st.data);
+  closePanel();
+  renderAll();
+  saveChanges();
+}
+
 // ── Contact panel ────────────────────────────────────────────
 function openContactPanel(group, idx) {
   const person = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"][idx];
@@ -1367,9 +1394,16 @@ function renderContactPanelBody() {
       <label>In Rotation</label>
       <label class="tog"><input type="checkbox" id="draftInRotation" ${st.panel.group === "rotation" ? "checked" : ""}/><div class="track"></div></label>
     </div>
+    <div class="panel-toggle-row">
+      <label>Protected</label>
+      <label class="tog"><input type="checkbox" id="draftLocked" ${st.draft.locked ? "checked" : ""}
+        onchange="st.draft.locked=this.checked; renderContactPanelBody()"/><div class="track"></div></label>
+    </div>
     <div id="draftPhones"></div>
     <div class="add-phone-link" onclick="addDraftPhone()">${ICON_PLUS} Add phone number</div>
     <div class="panel-btnrow">
+      <button class="btn btn-remove" ${st.draft.locked ? `disabled title="Unlock to remove"` : ""}
+              onclick="removeContact()">Remove</button>
       <button class="btn btn-secondary" onclick="closePanel()">Cancel</button>
       <button class="btn btn-primary" onclick="saveContactPanel()">Save</button>
     </div>
