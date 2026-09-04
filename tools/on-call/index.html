@@ -417,8 +417,55 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stub - replaced in Task 11.
-function toggleFindPanel() {}
+// ── Find a person (board highlight) ─────────────────────────
+function renderFindPanel() {
+  document.getElementById("findPanel").innerHTML = st.data.rotationTechs.map(t => `
+    <div class="find-option${st.highlightTech === t.shortName ? " on" : ""}" onclick="highlightPerson('${t.shortName}')">
+      <span class="find-avatar" style="background:${personColorFor(t.shortName)}">${initials(t.name)}</span>
+      ${t.name}
+    </div>`).join("");
+}
+
+function toggleFindPanel() {
+  const panel = document.getElementById("findPanel");
+  const opening = panel.style.display === "none";
+  if (opening) renderFindPanel();
+  panel.style.display = opening ? "block" : "none";
+}
+
+function highlightPerson(shortName) {
+  document.getElementById("findPanel").style.display = "none";
+
+  if (st.highlightTech === shortName) { clearHighlight(); return; }
+  st.highlightTech = shortName;
+
+  // The design brief specs pure highlight, which would silently drop the
+  // jump-to-next-upcoming behaviour added 2026-09-03. If the tech has no weeks
+  // in the year on screen, switch to the year holding their next shift.
+  if (!getYearWeeks(st.year).some(r => r.tech === shortName)) {
+    const rows = sortedByDate(st.data.schedule.filter(r => r.tech === shortName));
+    const target = rows.find(r => daysFromToday(r.startDate) >= 0) || rows[rows.length - 1];
+    if (target) {
+      st.year = target.startDate.slice(0, 4);
+      renderYearSeg();
+      renderToolbar();
+      renderAttention();
+      renderRosterNotes();
+      renderTechStrip();
+    }
+  }
+
+  const tech = st.data.rotationTechs.find(t => t.shortName === shortName);
+  document.getElementById("findBtn").innerHTML = ICON_SEARCH + " " + (tech ? tech.name : shortName);
+  renderYearBoard();
+}
+
+function clearHighlight() {
+  if (!st.highlightTech) return;
+  st.highlightTech = null;
+  document.getElementById("findBtn").innerHTML = ICON_SEARCH + " Find a person";
+  renderYearBoard();
+}
 
 // ── On call now card ────────────────────────────────────────
 function renderNowCard() {
@@ -1290,6 +1337,11 @@ async function init() {
   document.addEventListener("click", evt => {
     const panel = document.getElementById("findPanel");
     if (panel.style.display !== "none" && !evt.target.closest("#findWrap")) panel.style.display = "none";
+  });
+  document.addEventListener("keydown", evt => {
+    if (evt.key !== "Escape") return;
+    document.getElementById("findPanel").style.display = "none";
+    clearHighlight();
   });
 
   let _sessionFound = false;
