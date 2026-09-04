@@ -417,8 +417,7 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stubs - replaced in Tasks 8-11.
-function renderYearBoard() {}
+// Temporary stubs - replaced in Tasks 9-11.
 function renderTechStrip() {}
 function renderAlsoReachable() {}
 function toggleFindPanel() {}
@@ -617,6 +616,47 @@ function renderToolbar() {
   editBtn.style.display = st.isAdmin ? "flex" : "none";
   editBtn.classList.toggle("active", editMode);
   document.getElementById("saveBtn").style.display = (st.isAdmin && editMode) ? "flex" : "none";
+}
+
+// ── Year board (12 rows x 5 week columns) ───────────────────
+function weekCellHtml(row, todayStr, nextStr) {
+  const known = st.data.rotationTechs.find(t => t.shortName === row.tech);
+  const name = known ? known.name : row.tech;
+  const d = new Date(row.startDate + "T00:00:00Z");
+  const cls = ["wk"];
+  if (!known) cls.push("unmatched");
+  if (row.startDate === todayStr) cls.push("today");
+  else if (row.startDate === nextStr) cls.push("next");
+  if (st.highlightTech && row.tech !== st.highlightTech) cls.push("dim");
+  const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
+  return `<div class="${cls.join(" ")}" ${known ? `style="background:${personColorFor(row.tech)}"` : ""}
+       title="${name}" onclick="openWeekPanel('${row.startDate}')">
+      ${row.startDate === todayStr ? `<span class="wk-now-tag">NOW</span>` : ""}
+      <span class="wk-day">${d.getUTCDate()}</span>
+      <span class="wk-ini">${initials(name)}</span>
+      ${flags ? `<span class="wk-flags">${flags}</span>` : ""}
+    </div>`;
+}
+
+function renderYearBoard() {
+  const el = document.getElementById("yearBoard");
+  const weeks = sortedByDate(getYearWeeks(st.year));
+  const cur = findCurrentWeek(st.data.schedule);
+  const todayStr = cur ? cur.startDate : null;
+  const nextRow = cur ? nextWeekAfter(cur.startDate) : null;
+  const nextStr = nextRow ? nextRow.startDate : null;
+  const todayMonth = todayStr && todayStr.slice(0, 4) === st.year
+    ? new Date(todayStr + "T00:00:00Z").getUTCMonth() : -1;
+
+  let html = "";
+  for (let m = 0; m < 12; m++) {
+    const inMonth = weeks.filter(w => new Date(w.startDate + "T00:00:00Z").getUTCMonth() === m);
+    html += `<div class="board-month${m === todayMonth ? " current" : ""}">${MONTH_NAMES[m].toUpperCase()}</div>`;
+    html += inMonth.map(w => weekCellHtml(w, todayStr, nextStr)).join("");
+    // Spacers keep the five columns aligned in months with only four Sundays.
+    for (let i = inMonth.length; i < 5; i++) html += `<div></div>`;
+  }
+  el.innerHTML = `<div class="board-grid">${html}</div>`;
 }
 
 function setYear(y) {
