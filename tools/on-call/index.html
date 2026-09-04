@@ -308,7 +308,7 @@ function personColorFor(shortName) {
   return st.personColors[shortName] || OTHER_CONTACT_COLOR;
 }
 
-const st = { data: null, year: "2026", isAdmin: false, stripStart: 0, panel: null, draft: null, build: null };
+const st = { data: null, year: "2026", isAdmin: false, stripStart: 0, panel: null, draft: null, build: null, highlightTech: null };
 
 async function doSignIn() {
   try {
@@ -506,6 +506,65 @@ function weekRangeLabel(startDate) {
   const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }) + " " : "") + ordinal(d.getUTCDate());
   const crossesMonth = start.getUTCMonth() !== end.getUTCMonth();
   return fmt(start, true) + " to " + fmt(end, crossesMonth);
+}
+
+// ── Derived helpers (layout 1a) ─────────────────────────────
+// getYearWeeks filters without sorting and trusts data.json's order. Everything
+// below sorts defensively so a commitBuild append can't scramble the board.
+function sortedByDate(rows) {
+  return rows.slice().sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+}
+
+function weekOrdinalInYear(startDate) {
+  const weeks = sortedByDate(getYearWeeks(startDate.slice(0, 4)));
+  return weeks.findIndex(w => w.startDate === startDate) + 1;
+}
+
+function unmatchedTechs(year) {
+  const known = new Set(st.data.rotationTechs.map(t => t.shortName));
+  const out = {};
+  sortedByDate(getYearWeeks(year))
+    .filter(r => !known.has(r.tech))
+    .forEach(r => { (out[r.tech] = out[r.tech] || []).push(r.startDate); });
+  return out;
+}
+
+function shortDate(startDate) {
+  const d = new Date(startDate + "T00:00:00Z");
+  return d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }) + " " + d.getUTCDate();
+}
+
+function daysFromToday(startDate) {
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((Date.parse(startDate + "T00:00:00Z") - todayUtc) / 86400000);
+}
+
+function nextWeekAfter(startDate) {
+  const all = sortedByDate(st.data.schedule);
+  const i = all.findIndex(w => w.startDate === startDate);
+  return i !== -1 ? all[i + 1] || null : null;
+}
+
+function msToNextSunday() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  next.setDate(next.getDate() + ((7 - next.getDay()) % 7 || 7));
+  return next.getTime() - now.getTime();
+}
+
+function countdownLabel() {
+  const totalHours = Math.floor(msToNextSunday() / 3600000);
+  return Math.floor(totalHours / 24) + "d " + String(totalHours % 24).padStart(2, "0") + "h";
+}
+
+function coverageNote(phones) {
+  if (!phones.length) return "No numbers on file.";
+  const labels = phones.map(p => p.label.toLowerCase()).join(" ");
+  const missing = ["8x8", "Teams"].filter(c => !labels.includes(c.toLowerCase()));
+  const lead = phones.length === 1 ? "Only number on file." : "";
+  const tail = missing.length ? "No " + missing.join(", no ") + " line." : "";
+  return [lead, tail].filter(Boolean).join(" ");
 }
 
 function tileHtml(row, todayStr) {

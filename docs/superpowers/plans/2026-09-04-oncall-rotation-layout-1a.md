@@ -13,10 +13,19 @@
 **Local static server** (run from repo root, used by every verification step):
 
 ```bash
-/c/dev/tools/nodejs/node.exe -e "require('http').createServer((q,s)=>require('fs').readFile('.'+decodeURI(q.url==='/'?'/tools/on-call/index.html':q.url),(e,d)=>{s.end(e?'404':d)})).listen(8790)"
+/c/dev/tools/nodejs/node.exe -e "require('http').createServer((q,s)=>{const p=decodeURI(q.url.split('?')[0]);const f='.'+(p==='/'?'/tools/on-call/index.html':p);require('fs').readFile(f,(e,d)=>{if(e){s.statusCode=404;s.end('not found')}else{s.end(d)}})}).listen(8850,()=>console.log('serving repo root on 8850'))"
 ```
 
-Then open `http://localhost:8790/` with Playwright. **Auth bypass** (same technique as both prior plans) via `browser_evaluate`:
+Then open **`http://localhost:8850/tools/on-call/index.html`** with Playwright.
+
+Two corrections to the command the two prior plans used, both found by hitting them during Task 2:
+
+1. **The query string must be stripped.** `loadData()` cache-busts with `data.json?v=<timestamp>`, and the old one-liner passed that straight to `readFile`, which cannot open a path containing `?`. Worse, it returned the literal string `404` with HTTP **200**, so `res.json()` parsed it as the *number* 404 and the failure surfaced later as an unrelated `Cannot read properties of undefined (reading 'map')` inside `buildPersonColors`. This version returns a real 404 status so the next such failure is obvious.
+2. **Load the tool at its real path, not `/`.** Serving it at `/` makes the page's relative `data.json` fetch resolve to `/data.json`, which does not exist.
+
+**Port note:** 8790-8799 were all occupied by orphaned servers from prior sessions, hence 8850. If 8850 is taken too, any free port works; nothing depends on the number.
+
+**Auth bypass** (same technique as both prior plans) via `browser_evaluate`:
 
 ```javascript
 document.getElementById('authScreen').style.display='none';
@@ -27,6 +36,10 @@ await loadData();
 ```
 
 To exercise admin paths, additionally run `st.isAdmin = true; renderAll();` and for edit mode `toggleEditMode()`.
+
+**Console baseline:** a single `404` for `/favicon.ico` is expected on this bare static server and is not a code fault. Wherever a task says "zero console errors", it means zero *other than* that. Treat anything else as a real failure.
+
+**Screenshots:** call `browser_take_screenshot` with **no `filename`** so the image is returned inline and can actually be looked at. Passing a filename writes it to the Playwright server's own filesystem, which is not readable from here, so the screenshot cannot be reviewed and the "verify visually" steps become unverifiable claims.
 
 **Theme switching** for the dark-mode checks in every task:
 
@@ -74,7 +87,7 @@ The dark alphas are much lower than a naive inversion of `.60`/`.70` on purpose:
 
 - [ ] **Step 3: Verify both themes resolve**
 
-Start the static server, load `http://localhost:8790/`, and via `browser_evaluate`:
+Start the static server, load `http://localhost:8850/tools/on-call/index.html`, and via `browser_evaluate`:
 
 ```javascript
 const g = t => { document.documentElement.setAttribute('data-theme', t);
@@ -87,7 +100,7 @@ JSON.stringify([g('light'), g('dark')]);
 
 Expected: `[["light","#4a4a52","rgba(255,255,255,.60)","rgba(255,255,255,.70)"],["dark","#c8cad2","rgba(255,255,255,.08)","rgba(255,255,255,.14)"]]`
 
-Also confirm no visual change to any existing tool: load `http://localhost:8790/index.html` (the hub) and confirm it renders as before. These tokens are additive; nothing existing references them yet.
+Also confirm no visual change to any existing tool: load `http://localhost:8850/index.html` (the hub) and confirm it renders as before. These tokens are additive; nothing existing references them yet.
 
 - [ ] **Step 4: Commit**
 
