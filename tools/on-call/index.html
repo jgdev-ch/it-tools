@@ -417,8 +417,7 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stubs - replaced in Tasks 10-11.
-function renderAlsoReachable() {}
+// Temporary stub - replaced in Task 11.
 function toggleFindPanel() {}
 
 // ── On call now card ────────────────────────────────────────
@@ -695,6 +694,24 @@ function renderTechStrip() {
     ? `<div class="tech-add" onclick="addContact('rotation')">${ICON_PLUS} Add tech</div>` : "";
 
   el.innerHTML = cards + addCard;
+}
+
+// ── Also reachable (non-rotation contacts) ──────────────────
+// One line, not a card grid: these people never appear on the calendar, so
+// they get a different component rather than a dimmed copy of the tech card.
+function renderAlsoReachable() {
+  const el = document.getElementById("alsoReachable");
+  const canEdit = st.isAdmin && editMode;
+  const chips = st.data.otherContacts.map((c, i) => `
+    <span class="also-chip" onclick="openContactPanel('other', ${i})">
+      <span class="also-avatar" style="background:${OTHER_CONTACT_COLOR}">${initials(c.name)}</span>${c.name}
+    </span>`).join("");
+  const addChip = canEdit
+    ? `<span class="also-add" onclick="addContact('other')">${ICON_PLUS} Add</span>` : "";
+
+  if (!chips && !addChip) { el.style.display = "none"; return; }
+  el.style.display = "flex";
+  el.innerHTML = `<span class="also-lbl">Also reachable</span>${chips}${addChip}`;
 }
 
 function setYear(y) {
