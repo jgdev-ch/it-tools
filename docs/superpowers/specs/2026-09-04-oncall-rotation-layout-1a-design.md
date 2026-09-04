@@ -6,10 +6,14 @@
 
 ## Overview
 
-A whole-page rearrangement of `tools/on-call/index.html` into a two-column layout: a
-376px left rail answering "who is on call right now and what is their number", and a right
-column showing the entire year as a 12x5 board of 52 week cells. Everything fits one
-1440x900 screen with no scrolling.
+A whole-page rearrangement of `tools/on-call/index.html` into a two-column layout: a left
+rail answering "who is on call right now and what is their number", and a right column
+showing the entire year as a 12x5 board of 52 week cells, with no scrolling.
+
+> **Dimensions revised 2026-09-04 — see the Sizing section at the end.** The figures quoted
+> through the rest of this spec (376px rail, 38px cells, 1440px container, and the small end
+> of the type scale) are the as-first-built values, superseded by the scale-up. Structure and
+> behavior are unchanged.
 
 The data model, auth, gating, and backend contract are unchanged. This is a presentation
 and information-hierarchy change only.
@@ -254,6 +258,49 @@ Per task: Playwright load, zero console errors, and a screenshot in **both** lig
 dark. Interactive pieces get a real click-through: week cell to panel, queue row to panel,
 Copy to clipboard, Find a person highlight and year switch, Edit toggle state, and Build
 Mode still reaching its canvas.
+
+## Sizing (revised 2026-09-04)
+
+The as-built sizes were too small to read comfortably on a 1080p or 2K panel: 62 rendered
+elements sat at 10px and 58 at 11px. Scaled up as follows.
+
+| | As built | Now |
+|---|---|---|
+| `.main-content` max-width | 1440px | **1680px** |
+| Rail column | 376px | **400px** |
+| Week cell | 181x38 | **225x42** |
+| Tech card width | 194px | **237px** |
+| Year board height | 541px | 589px |
+| Type scale, 15px and under | 8 / 9 / 10 / 10.5 / 11 / 11.5 / 12 / 13 / 15 | **+1px each:** 9 / 10 / 11 / 11.5 / 12 / 12.5 / 13 / 14 / 16 |
+| Display sizes (avatar 21, countdown 22, name 26) | unchanged | unchanged |
+
+**Widening is free; height is not.** Board cells are `1fr`, so a wider container grows them
+horizontally at zero vertical cost. Cell *height* is the expensive dimension: the board is
+589px, roughly 75% of the driving column, so every pixel of cell height multiplies by 12.
+
+**The binding constraint is a cramped 1080p screen**, not a 2K one. Measured at 1920x900
+(1080p with a bookmarks bar and taskbar):
+
+| Candidate | Content bottom | Headroom | Fits |
+|---|---|---|---|
+| As built (1440, 38px) | 795 | 105 | yes |
+| Widen only (1680, 38px) | 795 | 105 | yes |
+| **Chosen (1680, 42px, +1px type)** | **849** | **51** | **yes** |
+| Generous (1680, 46px, +2px type) | 903 | −3 | **no** |
+
+The generous option overflows by 3px, so 42px cells and +1px type is the ceiling that keeps
+every viewer scroll-free.
+
+**1680px is a design cap, not a fitting limit.** At 1680 the cells are already 225px wide for
+content like "30 NZ"; wider reads as stretched rather than generous. The consequence is that a
+2560px display shows 440px of margin each side and 451px of vertical headroom. That is
+accepted deliberately: a centered column is easier to scan than one spanning the full 2560px,
+and it keeps every viewer's layout identical rather than varying by screen.
+
+**Regression risk this created.** The `NOW` tag clearance (see the year board section) depends
+on the tag's height versus the 5px grid row-gap, and bumping the tag's font from 8px to 9px
+grows it. The full 52-week collision sweep was re-run in both themes after the scale-up: zero
+collisions, zero self-text overlaps. Any future type or gap change must re-run that sweep.
 
 ## Out of Scope
 
