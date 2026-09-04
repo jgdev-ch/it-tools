@@ -417,9 +417,7 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stubs - replaced in Tasks 6-11.
-function renderAttention() {}
-function renderRosterNotes() {}
+// Temporary stubs - replaced in Tasks 7-11.
 function renderToolbar() {}
 function renderYearBoard() {}
 function renderTechStrip() {}
@@ -534,6 +532,48 @@ function renderQueue() {
   }).join("");
 
   el.innerHTML = `<div class="oc-card-lbl">Queue</div>${rows}`;
+}
+
+// ── Derived note cards ──────────────────────────────────────
+// Two lists, deliberately separated. "Needs attention" is amber and actionable.
+// "Roster notes" is grey and informational: David's rows are a deliberate
+// historical-record keep, so filing them as a warning would create a nag that
+// can only be cleared by reversing that decision.
+function renderAttention() {
+  const el = document.getElementById("attentionCard");
+  const items = [];
+
+  const yearRows = getYearWeeks(st.year);
+  if (yearRows.length && !yearRows.some(r => r.timeOff)) {
+    items.push({ icon: ICON_PALMTREE,
+      text: `No time off recorded anywhere in ${st.year}. Worth a pass before the holidays.` });
+  }
+
+  if (!items.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.innerHTML = `<div class="oc-card-lbl">Needs attention</div>` + items.map(i =>
+    `<div class="oc-note-item warn"><span class="oc-note-icon">${i.icon}</span><span>${i.text}</span></div>`
+  ).join("");
+}
+
+function renderRosterNotes() {
+  const el = document.getElementById("rosterNotesCard");
+  const byTech = unmatchedTechs(st.year);
+  const names = Object.keys(byTech);
+  if (!names.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+
+  const items = names.map(t => {
+    const dates = byTech[t].map(shortDate).join(", ");
+    const n = byTech[t].length;
+    return `<div class="oc-note-item info">
+        <span class="oc-note-icon">${ICON_FILE_TEXT}</span>
+        <span>${n} week${n === 1 ? "" : "s"} in ${st.year} ${n === 1 ? "is" : "are"} assigned to
+        <strong>${t}</strong>, who has left the rotation. Kept as historical record. ${dates}.</span>
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `<div class="oc-card-lbl">Roster notes</div>${items}`;
 }
 
 // ── Hero card (current on-call week) ───────────────────────
