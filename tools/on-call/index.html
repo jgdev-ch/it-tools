@@ -358,14 +358,38 @@ function initials(name) {
 
 function buildPersonColors(data) {
   const map = {};
-  // Blank shortNames are filtered out, not just sorted: an abandoned "Add tech"
-  // leaves one behind, and an empty string sorts before every real name, which
-  // would shift the entire team down one palette slot and scramble the
-  // color-equals-identity mapping carried across the hero, board, and strip.
-  const sortedNames = data.rotationTechs.map(t => t.shortName)
-    .filter(s => s && s.trim())
-    .slice().sort();
-  sortedNames.forEach((shortName, i) => { map[shortName] = PERSON_PALETTE[i % PERSON_PALETTE.length]; });
+  const taken = new Set();
+
+  // Pass 1: honour any color already pinned on the tech.
+  data.rotationTechs.forEach(t => {
+    if (t.shortName && t.shortName.trim() && t.color) {
+      map[t.shortName] = t.color;
+      taken.add(t.color);
+    }
+  });
+
+  // Pass 2: backfill anyone without one, in sorted shortName order, taking the
+  // first palette entry nobody holds. With no pre-existing colors this
+  // reproduces the old sorted-position assignment exactly, so nothing changes
+  // visually the first time this runs.
+  //
+  // The write-back to t.color is load-bearing, not an optimisation: it is what
+  // makes deletion safe before the first save has ever happened. Every tech
+  // holds a concrete color in memory right after load, so a post-delete rebuild
+  // takes pass 1 for every survivor and cannot reshuffle them.
+  //
+  // Blank shortNames are skipped entirely: an abandoned "Add tech" leaves one
+  // behind, and an empty string sorts before every real name.
+  data.rotationTechs
+    .filter(t => t.shortName && t.shortName.trim() && !t.color)
+    .sort((a, b) => (a.shortName < b.shortName ? -1 : 1))
+    .forEach(t => {
+      const next = PERSON_PALETTE.find(c => !taken.has(c)) || PERSON_PALETTE[taken.size % PERSON_PALETTE.length];
+      t.color = next;
+      map[t.shortName] = next;
+      taken.add(next);
+    });
+
   return map;
 }
 
