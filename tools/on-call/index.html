@@ -344,7 +344,13 @@ function initials(name) {
 
 function buildPersonColors(data) {
   const map = {};
-  const sortedNames = data.rotationTechs.map(t => t.shortName).slice().sort();
+  // Blank shortNames are filtered out, not just sorted: an abandoned "Add tech"
+  // leaves one behind, and an empty string sorts before every real name, which
+  // would shift the entire team down one palette slot and scramble the
+  // color-equals-identity mapping carried across the hero, board, and strip.
+  const sortedNames = data.rotationTechs.map(t => t.shortName)
+    .filter(s => s && s.trim())
+    .slice().sort();
   sortedNames.forEach((shortName, i) => { map[shortName] = PERSON_PALETTE[i % PERSON_PALETTE.length]; });
   return map;
 }
@@ -564,10 +570,11 @@ function copyNumber(evt, number) {
 // ── Queue (next four weeks) ─────────────────────────────────
 function renderQueue() {
   const el = document.getElementById("queueCard");
-  const week = findCurrentWeek(st.data.schedule);
-  const all = sortedByDate(st.data.schedule);
-  const startIdx = week ? all.findIndex(w => w.startDate === week.startDate) + 1 : 0;
-  const upcoming = all.slice(startIdx, startIdx + 4);
+  // Date-based, not "index after the current week": with no current week the
+  // index approach fell back to 0 and listed the oldest rows in the data.
+  const upcoming = sortedByDate(st.data.schedule)
+    .filter(r => daysFromToday(r.startDate) > 0)
+    .slice(0, 4);
   if (!upcoming.length) { el.style.display = "none"; return; }
   el.style.display = "block";
 
@@ -637,11 +644,23 @@ function findCurrentWeek(schedule) {
   let best = null;
   for (const row of schedule) {
     const rowUtc = Date.parse(row.startDate + "T00:00:00Z");
-    if (rowUtc <= todayUtc && (!best || rowUtc > Date.parse(best.startDate + "T00:00:00Z"))) {
+    // Bounded to the row's own 7-day span. Without the upper bound, a gap over
+    // today (or the schedule simply running out) makes the most recent past
+    // week read as "on call now" indefinitely — worse than showing nothing,
+    // since someone could page the wrong person during an incident.
+    if (rowUtc <= todayUtc && todayUtc < rowUtc + 7 * 86400000 &&
+        (!best || rowUtc > Date.parse(best.startDate + "T00:00:00Z"))) {
       best = row;
     }
   }
   return best;
+}
+
+// First week starting after today, independent of whether a current week
+// exists. Used for the queue and the board's "next" ring so both stay correct
+// when there is no current week at all.
+function firstUpcomingWeek() {
+  return sortedByDate(st.data.schedule).find(r => daysFromToday(r.startDate) > 0) || null;
 }
 
 // ── Calendar strip ──────────────────────────────────────────
@@ -752,7 +771,7 @@ function renderYearBoard() {
   const weeks = sortedByDate(getYearWeeks(st.year));
   const cur = findCurrentWeek(st.data.schedule);
   const todayStr = cur ? cur.startDate : null;
-  const nextRow = cur ? nextWeekAfter(cur.startDate) : null;
+  const nextRow = firstUpcomingWeek();
   const nextStr = nextRow ? nextRow.startDate : null;
   const todayMonth = todayStr && todayStr.slice(0, 4) === st.year
     ? new Date(todayStr + "T00:00:00Z").getUTCMonth() : -1;
@@ -797,7 +816,7 @@ function renderTechStrip() {
         ${canEdit ? `<span class="tech-grip">${ICON_GRIP}</span>` : ""}
         <div class="tech-card-name">${t.name}</div>
         <div class="tech-card-meta">${count} week${count === 1 ? "" : "s"} · ${when}</div>
-        <div class="tech-card-meta${n === 1 ? " warn" : ""}">${n} number${n === 1 ? "" : "s"} on file</div>
+        <div class="tech-card-meta${n <= 1 ? " warn" : ""}">${n} number${n === 1 ? "" : "s"} on file</div>
       </div>`;
   }).join("");
 
