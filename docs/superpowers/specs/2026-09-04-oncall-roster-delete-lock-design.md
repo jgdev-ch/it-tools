@@ -76,6 +76,15 @@ remain available on a locked person.
 - **Panel control:** a "Protected" toggle row styled exactly like the existing "In Rotation"
   row, admin + edit mode only. The visible label is "Protected"; the underlying field stays
   `locked`. Do not rename the field to match the label.
+
+  **Prerequisite discovered 2026-09-04:** that "In Rotation" row is currently **broken**.
+  `.tog` and `.track` have no CSS anywhere in the repo, so the row renders as a raw native OS
+  checkbox beside a 13x0px invisible div, verified in the browser. It was almost certainly
+  orphaned when the Edit Mode checkbox+track switch was replaced by a pencil button on
+  2026-09-03. Since this spec says to copy that row's styling, the switch CSS has to be
+  restored first, or the new toggle inherits the same broken rendering. It is also the only
+  unstyled control left in the tool, and a raw checkbox is exactly what was removed from the
+  toolbar. Restoring it is the first implementation task.
 - **At-a-glance state:** a genuine inline Lucide `lock` icon on the tech card and on the
   also-reachable chip, rendered in **both view and edit mode**, so "this person is permanent"
   is legible without opening the panel.
@@ -130,13 +139,25 @@ Without this, deleting an active tech silently leaves unassigned weeks with no p
 
 | Modified | New |
 |---|---|
-| `buildPersonColors` (read-then-backfill) | `removeContact(group, idx)` |
-| `renderContactPanelBody` (Protected toggle + Remove button) | `toggleDraftLock()` |
-| `saveContactPanel` (persist `locked`) | `ICON_LOCK` constant (inline Lucide) |
-| `renderTechStrip` (lock icon) | CSS: `.tech-lock`, `.also-lock`, `.btn-danger`, `.btn[disabled]` |
+| CSS: restore `.tog` / `.track` (prerequisite above) | `removeContact()` — reads `st.panel`, takes no args |
+| `buildPersonColors` (read-then-backfill) | `ICON_LOCK` constant (the same Lucide `lock` path the hub already uses for its locked-tile badge) |
+| `renderContactPanelBody` (Protected toggle + Remove button) | CSS: `.tech-lock`, `.also-lock`, `.tech-card.has-grip`, `.btn-remove` |
+| `renderTechStrip` (lock icon + `has-grip`) | |
 | `renderAlsoReachable` (lock icon) | |
-| `unmatchedTechs` (return past/upcoming split) | |
+| `unmatchedTechs` (return `{ past, upcoming }`) | |
 | `renderAttention` / `renderRosterNotes` (consume the split) | |
+
+Two simplifications against an earlier draft of this table:
+
+- **No `toggleDraftLock()` function.** The Protected checkbox sets `st.draft.locked` inline and
+  re-renders the panel body, matching how the existing tech and phone inputs already work. The
+  re-render is deliberate: it refreshes the Remove button's disabled state the instant the
+  toggle flips.
+- **`.btn-remove`, not `.btn-danger`.** It mirrors `.btn-secondary`'s transparent-with-colored-border
+  shape using `--red` / `--red-border`, and reuses the existing `:disabled` convention from
+  `.btn-primary:disabled`. No new `.btn[disabled]` rule is needed.
+- **`saveContactPanel` needs no edit.** It already assigns the whole `st.draft` object into the
+  array, so `locked` persists for free.
 
 Unchanged: the backend, `shared/`, `config.json`, `data.json`'s existing shape (`color` and
 `locked` are additive and optional), Build Mode, and the week panel.
