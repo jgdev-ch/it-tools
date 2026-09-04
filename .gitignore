@@ -1,2 +1,18 @@
 .superpowers/
 *.zip
+
+# Claude Design mockup bundles under docs/superpowers/assets/.
+# preview-deploy.yml deploys the repo root (`folder: .`) to a public GitHub
+# Pages site, so anything committed here is world-readable and unauthenticated.
+# Keep the handoff README and the approved-layout screenshot; never commit the
+# prototype runtime or the copies of real schedule/contact data.
+docs/superpowers/assets/**/data.json
+docs/superpowers/assets/**/*.dc.html
+docs/superpowers/assets/**/support.js
+docs/superpowers/assets/**/styles.css
+docs/superpowers/assets/**/*.pdf
+
+# Non-approved reference layouts from the 2026-09-04 on-call bundle.
+docs/superpowers/assets/2026-09-04-oncall-rotation-design-mockup/screenshots/00-current-tool-today.png
+docs/superpowers/assets/2026-09-04-oncall-rotation-design-mockup/screenshots/1b-quarter-calendar.png
+docs/superpowers/assets/2026-09-04-oncall-rotation-design-mockup/screenshots/1c-handoff-conveyor.png
