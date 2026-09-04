@@ -12,81 +12,151 @@
     #authScreen { display:none; }
     body { opacity:0; transition:opacity .15s; }
 
-    .main-content { max-width:1440px; margin:0 auto; padding:32px 40px 60px; }
+    .main-content { max-width:1440px; margin:0 auto; padding:20px 24px 24px; }
+    .oc-layout { display:grid; grid-template-columns:376px 1fr; gap:16px; align-items:start; }
+    .oc-rail { display:flex; flex-direction:column; gap:12px; }
 
-    /* ── Hero ── */
-    .hero { display:flex; align-items:center; gap:14px; border-radius:14px; padding:18px 20px; margin-bottom:20px;
-            background:color-mix(in srgb, var(--green) 24%, var(--glass-fill));
-            border:1px solid color-mix(in srgb, var(--green) 30%, var(--glass-border));
-            backdrop-filter:blur(16px); color:var(--text); }
-    .hero-avatar { width:48px; height:48px; border-radius:50%; border:2px solid var(--glass-border); display:flex; align-items:center;
-                   justify-content:center; font-weight:700; font-size:17px; flex-shrink:0; color:#fff; }
-    .hero-label { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-                   color:color-mix(in srgb, var(--green) 70%, var(--text)); }
-    .hero-name { font-size:22px; font-weight:700; margin:2px 0 4px; color:var(--text); }
-    .hero-dates { font-size:12px; color:color-mix(in srgb, var(--green) 60%, var(--text)); margin-bottom:8px; }
-    .hero-phones { display:flex; gap:6px; flex-wrap:wrap; }
-    .hero-chip { font-size:11px; border-radius:20px; padding:3px 10px;
-                 background:color-mix(in srgb, var(--green) 16%, transparent);
-                 color:color-mix(in srgb, var(--green) 65%, var(--text)); }
+    /* ── Rail cards (shared glass shell) ── */
+    .oc-card { border-radius:16px; background:var(--glass-fill); border:1px solid var(--glass-border);
+               backdrop-filter:blur(22px) saturate(180%); }
+    #queueCard { padding:14px 16px 8px; }
+    #attentionCard, #rosterNotesCard { padding:14px 16px; }
+    .oc-card-lbl { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700;
+                   text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin-bottom:6px; }
 
-    /* ── Calendar nav ── */
-    .cal-navbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
-    .year-seg { display:inline-flex; background:var(--surface-2, var(--surface)); border:1px solid var(--border); border-radius:8px; padding:2px; }
-    .year-seg span { padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; }
+    /* ── On call now ── */
+    .now-card { border-radius:16px; padding:18px; color:var(--text);
+                background:color-mix(in srgb, var(--tech-color) 20%, var(--glass-fill));
+                border:1px solid color-mix(in srgb, var(--tech-color) 28%, var(--glass-border));
+                backdrop-filter:blur(22px) saturate(180%); }
+    .now-eyebrow { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700;
+                   text-transform:uppercase; letter-spacing:.12em;
+                   color:color-mix(in srgb, var(--tech-color) 72%, var(--text)); }
+    .now-id { display:flex; gap:14px; margin-top:12px; }
+    .now-avatar { width:60px; height:60px; border-radius:50%; flex-shrink:0; display:flex; align-items:center;
+                  justify-content:center; font-size:21px; font-weight:800; color:#fff;
+                  border:2px solid var(--glass-raise-border); cursor:pointer; }
+    .now-name { font-size:26px; font-weight:800; letter-spacing:-.02em; line-height:1.1; color:var(--text); }
+    .now-sub { font-size:12px; color:var(--text-secondary); margin-top:3px; }
+    .now-pips { display:flex; gap:4px; margin:16px 0 8px; }
+    .now-pip { flex:1; height:7px; border-radius:4px;
+               background:color-mix(in srgb, var(--tech-color) 22%, transparent); }
+    .now-pip.done { background:var(--tech-color); }
+    .now-pip.today { background:var(--tech-color); box-shadow:0 0 0 2px var(--glass-raise-border); }
+    .now-handoff { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    .now-handoff-txt { font-size:12px; color:var(--text-secondary); }
+    .now-handoff-txt strong { font-weight:700; color:var(--text); }
+    .now-countdown { font-size:22px; font-weight:800; letter-spacing:-.02em; white-space:nowrap;
+                     color:color-mix(in srgb, var(--tech-color) 80%, var(--text)); }
+    .now-divider { height:1px; background:var(--glass-raise-border); margin:14px 0 12px; }
+    .now-phone { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                 background:var(--glass-raise); border-radius:10px; padding:9px 12px; margin-bottom:6px; }
+    .now-phone:last-of-type { margin-bottom:0; }
+    .now-phone-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+    .now-phone-num { font-size:15px; font-weight:700; letter-spacing:-.01em; color:var(--text);
+                     font-family:'Cascadia Code','Consolas',monospace; }
+    .copy-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 11px;
+                font-size:11px; font-weight:600; color:var(--blue); cursor:pointer; font-family:inherit; flex-shrink:0; }
+    .now-note { font-size:10px; color:var(--muted); margin-top:8px; }
+
+    /* ── Queue ── */
+    .queue-row { display:flex; align-items:center; gap:10px; padding:9px 0; cursor:pointer;
+                 border-bottom:1px solid var(--border); }
+    .queue-row:last-child { border-bottom:none; }
+    .queue-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .queue-name { flex:1; font-size:13px; font-weight:600; color:var(--text); }
+    .queue-row.first .queue-name { font-weight:700; }
+    .queue-date { font-size:11px; color:var(--muted); }
+    .queue-next { font-size:10px; font-weight:700; background:var(--green-light); color:var(--green);
+                  border-radius:20px; padding:2px 8px; }
+    .queue-rel { font-size:10px; font-weight:600; color:var(--muted); min-width:44px; text-align:right; }
+
+    /* ── Derived note lists (needs attention / roster notes) ── */
+    .oc-note-item { display:flex; gap:9px; align-items:flex-start; font-size:11.5px; line-height:1.45;
+                    color:var(--text-secondary); margin-bottom:8px; }
+    .oc-note-item:last-child { margin-bottom:0; }
+    .oc-note-item strong { color:var(--text); font-weight:700; }
+    .oc-note-icon { flex-shrink:0; margin-top:1px; display:flex; }
+    .oc-note-item.warn .oc-note-icon { color:var(--amber); }
+    .oc-note-item.info .oc-note-icon { color:var(--muted2); }
+
+    /* ── Right column toolbar ── */
+    .oc-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .oc-toolbar-left, .oc-toolbar-right { display:flex; align-items:center; gap:10px; }
+    .oc-toolbar-right { gap:8px; }
+    .year-seg { display:inline-flex; background:var(--glass-raise); border:1px solid var(--glass-raise-border);
+                border-radius:10px; padding:3px; }
+    .year-seg span { padding:6px 14px; border-radius:7px; font-size:12px; font-weight:600; color:var(--muted);
+                     cursor:pointer; }
     .year-seg span.on { background:var(--blue); color:#fff; font-weight:700; }
-    .cal-nav-btns { display:flex; align-items:center; gap:6px; }
-    .cal-nav-btns button { display:flex; align-items:center; gap:4px; background:var(--surface); border:1px solid var(--border);
-                            border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; color:var(--text); }
-    .cal-nav-btns button.today-btn { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600; }
+    .oc-count { font-size:11px; color:var(--muted); }
+    .oc-btn { display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border);
+              border-radius:9px; padding:7px 12px; font-size:12px; font-weight:600; color:var(--text);
+              cursor:pointer; font-family:inherit; }
+    .oc-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
 
-    /* ── Admin toolbar ── */
-    .admin-toolbar { display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:14px; border-radius:14px;
-                      background:var(--glass-fill); border:1px solid var(--glass-border); backdrop-filter:blur(16px); }
-    .admin-toolbar-label { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-right:2px; }
+    /* ── Find a person ── */
+    .find-wrap { position:relative; }
+    .find-panel { position:absolute; top:calc(100% + 6px); right:0; width:220px; max-height:260px; overflow-y:auto;
+                  background:var(--panel-fill); border:1px solid var(--border); border-radius:10px;
+                  box-shadow:var(--shadow-md); z-index:30; padding:4px; }
+    .find-option { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; font-size:12px;
+                   cursor:pointer; color:var(--text); }
+    .find-option:hover { background:var(--surface2); }
+    .find-option.on { background:var(--blue-light); color:var(--blue); font-weight:700; }
+    .find-avatar { width:22px; height:22px; border-radius:50%; display:flex; align-items:center;
+                   justify-content:center; font-size:9px; font-weight:700; color:#fff; flex-shrink:0; }
 
-    /* ── Jump to Person dropdown ── */
-    .person-jump { position:relative; }
-    .person-jump-trigger { display:flex; align-items:center; justify-content:space-between; gap:6px; width:170px;
-                            background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:5px 10px;
-                            font-size:12px; color:var(--text); cursor:pointer; }
-    .person-jump-trigger .pj-chevron { color:var(--muted); font-size:10px; }
-    .person-jump-panel { position:absolute; top:calc(100% + 6px); left:0; width:220px; max-height:220px; overflow-y:auto;
-                          background:var(--surface); border:1px solid var(--border); border-radius:10px;
-                          box-shadow:0 10px 24px rgba(0,0,0,.18); z-index:30; padding:4px; }
-    .person-jump-option { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; font-size:12px; cursor:pointer; }
-    .person-jump-option:hover { background:var(--surface-2, rgba(0,0,0,.05)); }
-    .person-jump-avatar { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-                           font-size:9px; font-weight:700; color:#fff; flex-shrink:0; }
+    /* ── Year board ── */
+    .board-panel { border-radius:16px; padding:14px 16px; background:var(--glass-fill);
+                   border:1px solid var(--glass-border); backdrop-filter:blur(22px) saturate(180%); }
+    .board-grid { display:grid; grid-template-columns:34px repeat(5, 1fr); gap:5px; align-items:center; }
+    .board-month { font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--muted2); }
+    .board-month.current { color:var(--text); }
+    .wk { position:relative; height:38px; border-radius:8px; display:flex; align-items:center;
+          justify-content:center; gap:5px; color:#fff; cursor:pointer;
+          transition:transform .15s, box-shadow .15s, opacity .15s; }
+    .wk:hover { transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+    .wk-day { font-size:10px; opacity:.75; }
+    .wk-ini { font-size:11px; font-weight:800; }
+    .wk.today { box-shadow:0 0 0 2px var(--text), 0 4px 12px rgba(0,0,0,.2); }
+    .wk.next { box-shadow:0 0 0 1.5px color-mix(in srgb, var(--text) 35%, transparent); }
+    .wk.unmatched { background:var(--surface2); border:1px dashed var(--muted2); color:var(--muted); }
+    .wk.dim { opacity:.35; }
+    .wk-now-tag { position:absolute; top:-9px; left:50%; transform:translateX(-50%); background:var(--text);
+                  color:var(--bg); font-size:8px; font-weight:800; letter-spacing:.06em; padding:2px 7px;
+                  border-radius:8px; pointer-events:none; }
+    .wk-flags { position:absolute; top:2px; right:3px; display:flex; gap:2px; opacity:.8; }
+    .wk-flags svg { display:block; width:10px; height:10px; }
 
-    /* ── Calendar strip ── */
-    .month-row { display:flex; gap:6px; margin-bottom:4px; }
-    .month-lbl { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
-    .week-strip { display:flex; gap:6px; margin-bottom:8px; }
-    .week-tile { flex:1; border:1px solid var(--border); border-radius:10px; padding:0 0 12px; text-align:center;
-                 background:var(--surface); cursor:pointer; position:relative; transition:box-shadow .15s; overflow:hidden; }
-    .week-tile:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
-    .week-tile.today { border-color:var(--blue); box-shadow:0 0 0 2px color-mix(in srgb, var(--blue) 25%, transparent); }
-    .week-tile .tile-date-bar { display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
-                                 background:color-mix(in srgb, var(--text) 6%, transparent); padding:7px 8px; margin-bottom:10px;
-                                 box-sizing:border-box; }
-    .week-tile .tile-date { font-size:11px; font-weight:600; color:var(--text); }
-    .week-tile .tile-dot { width:30px; height:30px; border-radius:50%; margin:0 auto 4px; display:flex; align-items:center;
-                            justify-content:center; font-size:10px; font-weight:700; color:#fff; }
-    .week-tile .tile-name { font-size:11px; font-weight:600; }
-    .week-tile .ribbon { position:absolute; top:-16px; left:50%; transform:translateX(-50%); background:var(--blue); color:#fff;
-                          font-size:9px; padding:2px 8px; border-radius:10px; font-weight:700; z-index:1; }
-    .week-tile .tile-flags { display:flex; gap:3px; color:var(--muted); }
-    .week-tile .tile-flags svg { display:block; }
+    /* ── Per-tech summary strip ── */
+    .tech-strip { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-top:12px; }
+    .tech-card { position:relative; border-radius:12px; padding:10px 12px; background:var(--glass-fill);
+                 border:1px solid var(--glass-border); border-left:3px solid var(--tech-color);
+                 backdrop-filter:blur(16px); cursor:pointer; transition:transform .15s, box-shadow .15s; }
+    .tech-card:hover { transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+    .tech-card-name { font-size:12px; font-weight:700; color:var(--text); }
+    .tech-card-meta { font-size:10.5px; color:var(--muted); margin-top:2px; }
+    .tech-card-meta.warn { color:var(--amber); }
+    .tech-grip { position:absolute; top:6px; right:6px; display:flex; cursor:grab; color:var(--muted); }
+    .tech-card.dragging { opacity:.4; }
+    .tech-card.drag-over { outline:2px dashed var(--blue); outline-offset:2px; }
+    .tech-add { border-radius:12px; padding:10px 12px; border:1px dashed var(--border); display:flex;
+                align-items:center; justify-content:center; gap:5px; font-size:11px; font-weight:600;
+                color:var(--muted); cursor:pointer; }
+    .tech-add:hover { border-color:var(--blue); color:var(--blue); }
 
-    .month-pills { display:flex; gap:6px; margin-bottom:20px; }
-    .month-pill { flex:1; text-align:center; font-size:11px; background:var(--surface); border:1px solid var(--border); border-radius:14px;
-                  padding:7px 4px; cursor:pointer; color:var(--text); }
-    .month-pill.current { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700; }
-
-    .edit-toggle-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px;
-                        border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; }
-    .edit-toggle-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+    /* ── Also reachable ── */
+    .also-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; padding:9px 14px;
+                border-radius:12px; background:var(--glass-fill); border:1px solid var(--glass-border); }
+    .also-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+    .also-chip { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary);
+                 cursor:pointer; }
+    .also-avatar { width:20px; height:20px; border-radius:50%; display:flex; align-items:center;
+                   justify-content:center; font-size:8px; font-weight:800; color:#fff; flex-shrink:0; }
+    .also-add { display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:var(--muted);
+                border:1px dashed var(--border); border-radius:20px; padding:3px 10px; cursor:pointer; }
+    .also-add:hover { border-color:var(--blue); color:var(--blue); }
 
     /* ── Build Mode ── */
     .build-trigger-btn { display:flex; align-items:center; gap:6px; background:var(--green); color:#fff; border:none;
@@ -124,33 +194,6 @@
     .build-popover .pop-field label { display:block; font-size:10px; color:var(--muted); font-weight:700; margin-bottom:3px;
                                        text-transform:uppercase; }
 
-    /* ── Roster ── */
-    .roster-section { margin-top:24px; }
-    .roster-lbl { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 8px; }
-    .roster-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-bottom:20px; }
-    .roster-card { position:relative; width:100%; max-width:235px; margin:0 auto; height:172px; box-sizing:border-box;
-                   border:1px solid var(--border); border-radius:16px; padding:16px 8px; background:var(--surface); cursor:pointer;
-                   transition:box-shadow .15s; display:flex; flex-direction:column; align-items:center; justify-content:center;
-                   gap:6px; text-align:center; }
-    .roster-card:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
-    .roster-card.dim { opacity:.6; }
-    .roster-drag-handle { position:absolute; top:8px; right:8px; display:flex; align-items:center; cursor:grab; color:var(--muted); }
-    .roster-dot { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-                  font-size:14px; font-weight:700; color:#fff; flex-shrink:0; margin-bottom:2px; }
-    .roster-name { font-size:13px; font-weight:700; }
-    .roster-role { display:flex; align-items:center; justify-content:center; gap:4px; font-size:12px; color:var(--muted); margin-bottom:4px; }
-    .roster-chips { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; }
-    .roster-chip { font-size:10px; font-weight:600; padding:3px 10px; border-radius:20px;
-                    background:color-mix(in srgb, var(--blue) 12%, var(--glass-fill));
-                    border:1px solid color-mix(in srgb, var(--blue) 25%, var(--glass-border));
-                    color:color-mix(in srgb, var(--blue) 70%, var(--text)); }
-    .roster-chip.more { background:transparent; border:none; color:var(--blue); font-weight:700; padding:3px 2px; }
-    .add-tile { width:100%; max-width:235px; margin:0 auto; height:172px; box-sizing:border-box;
-                border:1px dashed var(--border); border-radius:16px; display:flex; flex-direction:column; align-items:center;
-                justify-content:center; gap:6px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; }
-    .add-tile:hover { border-color:var(--blue); color:var(--blue); }
-    .roster-card.dragging { opacity:.4; }
-    .roster-card.drag-over { outline:2px dashed var(--blue); outline-offset:2px; }
 
     /* ── Detail panel (shared: calendar week + roster contact) ── */
     #panelBackdrop { position:fixed; top:var(--topbar-h); left:0; right:0; bottom:0; background:rgba(0,0,0,0); pointer-events:none;
@@ -208,40 +251,37 @@
         <p>This tool isn't available for your access group.</p>
       </div>
       <div id="toolContent" style="display:none">
-        <h1>On-Call Rotation</h1>
-        <div id="adminToolbar" class="admin-toolbar" style="display:none">
-          <span class="admin-toolbar-label" id="adminToolbarLabel">Admin</span>
-          <button class="edit-toggle-btn" id="editToggleBtn" onclick="toggleEditMode()" title="Edit Mode"></button>
-          <button class="btn btn-primary" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
-          <div id="buildTriggerWrap"></div>
-        </div>
-        <div class="hero" id="heroCard"></div>
+        <div class="oc-layout">
+          <aside class="oc-rail">
+            <div class="now-card" id="nowCard"></div>
+            <div class="oc-card" id="queueCard" style="display:none"></div>
+            <div class="oc-card" id="attentionCard" style="display:none"></div>
+            <div class="oc-card" id="rosterNotesCard" style="display:none"></div>
+          </aside>
 
-        <div class="cal-navbar">
-          <div class="year-seg" id="yearSeg"></div>
-          <div class="person-jump" id="personJumpWrap">
-            <button class="person-jump-trigger" id="personJumpTrigger" onclick="togglePersonJump()">
-              <span id="personJumpLabel">Jump to person</span> <span class="pj-chevron">&#9662;</span>
-            </button>
-            <div class="person-jump-panel" id="personJumpPanel" style="display:none"></div>
-          </div>
-          <div class="cal-nav-btns">
-            <button onclick="shiftStrip(-1)" id="navPrevBtn"></button>
-            <button class="today-btn" onclick="goToday()">Today</button>
-            <button onclick="shiftStrip(1)" id="navNextBtn"></button>
-          </div>
-        </div>
-        <div class="month-row" id="monthRow"></div>
-        <div class="week-strip" id="weekStrip"></div>
-        <div class="month-pills" id="monthPills"></div>
-        <div id="buildSetupBar" class="build-setup-bar" style="display:none"></div>
-        <div id="buildCanvasSection" style="display:none"></div>
+          <section class="oc-main">
+            <div class="oc-toolbar">
+              <div class="oc-toolbar-left">
+                <div class="year-seg" id="yearSeg"></div>
+                <span class="oc-count" id="ocCount"></span>
+              </div>
+              <div class="oc-toolbar-right">
+                <div class="find-wrap" id="findWrap">
+                  <button class="oc-btn" id="findBtn" onclick="toggleFindPanel()"></button>
+                  <div class="find-panel" id="findPanel" style="display:none"></div>
+                </div>
+                <button class="oc-btn" id="editToggleBtn" style="display:none" onclick="toggleEditMode()" title="Edit Mode"></button>
+                <button class="oc-btn" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
+                <div id="buildTriggerWrap"></div>
+              </div>
+            </div>
 
-        <div class="roster-section" id="rosterSection">
-          <div class="roster-lbl" id="rotationLbl"></div>
-          <div class="roster-grid" id="rotationGrid"></div>
-          <div class="roster-lbl" id="otherLbl">Additional EUS Team Contacts</div>
-          <div class="roster-grid" id="otherGrid"></div>
+            <div class="board-panel" id="yearBoard"></div>
+            <div id="buildSetupBar" class="build-setup-bar" style="display:none"></div>
+            <div id="buildCanvasSection" style="display:none"></div>
+            <div class="tech-strip" id="techStrip"></div>
+            <div class="also-bar" id="alsoReachable"></div>
+          </section>
         </div>
       </div>
     </main>
@@ -272,19 +312,13 @@ const ONCALL_SAVE_URL = "";
 
 const PERSON_PALETTE      = ["#059669", "#1a56db", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#db2777"];
 const OTHER_CONTACT_COLOR = "#9ca3af";
-const WEEKS_VISIBLE       = 5;
 
-const ICON_CHEVRON_LEFT  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>`;
-const ICON_CHEVRON_RIGHT = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
 const ICON_SEARCH        = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
 const ICON_PLUS          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`;
 const ICON_X             = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 const ICON_FILE_TEXT     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`;
 const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/></svg>`;
 const ICON_HEADSET       = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M21 16v2a4 4 0 0 1-4 4h-5"/></svg>`;
-const ICON_USERS         = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg>`;
-const ICON_SHIELD        = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`;
-const ICON_REFRESH_CW    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`;
 const ICON_PENCIL        = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
 const ICON_GRIP          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`;
 
@@ -308,7 +342,7 @@ function personColorFor(shortName) {
   return st.personColors[shortName] || OTHER_CONTACT_COLOR;
 }
 
-const st = { data: null, year: "2026", isAdmin: false, stripStart: 0, panel: null, draft: null, build: null, highlightTech: null };
+const st = { data: null, year: "2026", isAdmin: false, panel: null, draft: null, build: null, highlightTech: null };
 
 async function doSignIn() {
   try {
@@ -338,7 +372,6 @@ async function afterSignIn() {
   document.getElementById("toolContent").style.display = "block";
 
   await checkOnCallAdminAccess();
-  if (st.isAdmin) document.getElementById("adminToolbar").style.display = "flex";
   await loadData();
 }
 
@@ -369,13 +402,31 @@ async function loadData() {
   renderAll();
 }
 
+let countdownTimer = null;
+
 function renderAll() {
-  renderHero();
+  renderNowCard();
+  renderQueue();
+  renderAttention();
+  renderRosterNotes();
   renderYearSeg();
-  renderCalendarStrip();
-  renderRoster();
+  renderToolbar();
+  renderYearBoard();
+  renderTechStrip();
+  renderAlsoReachable();
   renderBuildTrigger();
 }
+
+// Temporary stubs - replaced in Tasks 4-11.
+function renderNowCard() {}
+function renderQueue() {}
+function renderAttention() {}
+function renderRosterNotes() {}
+function renderToolbar() {}
+function renderYearBoard() {}
+function renderTechStrip() {}
+function renderAlsoReachable() {}
+function toggleFindPanel() {}
 
 // ── Hero card (current on-call week) ───────────────────────
 function findCurrentWeek(schedule) {
@@ -389,28 +440,6 @@ function findCurrentWeek(schedule) {
     }
   }
   return best;
-}
-
-function renderHero() {
-  const week = findCurrentWeek(st.data.schedule);
-  const hero = document.getElementById("heroCard");
-  if (!week) { hero.innerHTML = "<p>No current on-call week found.</p>"; return; }
-  const techIdx = st.data.rotationTechs.findIndex(t => t.shortName === week.tech);
-  const tech = techIdx !== -1 ? st.data.rotationTechs[techIdx] : null;
-  const name = tech ? tech.name : week.tech;
-  const color = personColorFor(week.tech);
-  const avatarAttrs = tech ? `onclick="openContactPanel('rotation', ${techIdx})" style="background:${color}; cursor:pointer"` : `style="background:${color}"`;
-  hero.innerHTML = `
-    <div class="hero-avatar" ${avatarAttrs} title="${tech ? "View " + name + "'s contact info" : ""}">${initials(name)}</div>
-    <div>
-      <div class="hero-label">${ICON_HEADSET} On Call This Week</div>
-      <div class="hero-name">${name}</div>
-      <div class="hero-dates">${weekRangeLabel(week.startDate)}</div>
-      <div class="hero-phones">
-        ${(tech ? tech.phones : []).map(p => `<span class="hero-chip">${p.label}: ${p.number}</span>`).join("")}
-      </div>
-    </div>
-  `;
 }
 
 // ── Calendar strip ──────────────────────────────────────────
@@ -433,71 +462,12 @@ function renderYearSeg() {
 
 function setYear(y) {
   st.year = y;
-  st.stripStart = 0;
   renderYearSeg();
-  renderCalendarStrip();
-}
-
-function shiftStrip(direction) {
-  st.stripStart += direction * WEEKS_VISIBLE;
-  renderCalendarStrip();
-}
-
-function jumpToWeek(indexInYear) {
-  const weeks = getYearWeeks(st.year);
-  const maxStart = Math.max(0, weeks.length - WEEKS_VISIBLE);
-  st.stripStart = Math.min(Math.max(0, indexInYear - Math.floor(WEEKS_VISIBLE / 2)), maxStart);
-  renderCalendarStrip();
-}
-
-function goToday() {
-  const week = findCurrentWeek(st.data.schedule);
-  if (!week) return;
-  st.year = week.startDate.slice(0, 4);
-  renderYearSeg();
-  const weeks = getYearWeeks(st.year);
-  jumpToWeek(weeks.findIndex(w => w.startDate === week.startDate));
-}
-
-function renderPersonJumpPanel() {
-  const panel = document.getElementById("personJumpPanel");
-  panel.innerHTML = st.data.rotationTechs.map(t => `
-    <div class="person-jump-option" onclick="jumpToPersonDate('${t.shortName}')">
-      <span class="person-jump-avatar" style="background:${personColorFor(t.shortName)}">${initials(t.name)}</span>
-      ${t.name}
-    </div>`).join("");
-}
-
-function togglePersonJump() {
-  const panel = document.getElementById("personJumpPanel");
-  const opening = panel.style.display === "none";
-  if (opening) renderPersonJumpPanel();
-  panel.style.display = opening ? "block" : "none";
-}
-
-function jumpToPersonDate(shortName) {
-  document.getElementById("personJumpPanel").style.display = "none";
-  const today = new Date();
-  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const rows = st.data.schedule.filter(r => r.tech === shortName).sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
-  const target = rows.find(r => Date.parse(r.startDate + "T00:00:00Z") >= todayUtc) || rows[rows.length - 1];
-  if (!target) return;
-  st.year = target.startDate.slice(0, 4);
-  renderYearSeg();
-  const weeks = getYearWeeks(st.year);
-  jumpToWeek(weeks.findIndex(w => w.startDate === target.startDate));
-  const tech = st.data.rotationTechs.find(t => t.shortName === shortName);
-  document.getElementById("personJumpLabel").textContent = tech ? tech.name : shortName;
-}
-
-function monthLabelsHtml(weeks) {
-  const groups = [];
-  weeks.forEach(w => {
-    const label = new Date(w.startDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase();
-    if (groups.length && groups[groups.length - 1].label === label) groups[groups.length - 1].count++;
-    else groups.push({ label, count: 1 });
-  });
-  return groups.map(g => `<div class="month-lbl" style="flex:${g.count}">${g.label}</div>`).join("");
+  renderToolbar();
+  renderAttention();
+  renderRosterNotes();
+  renderYearBoard();
+  renderTechStrip();
 }
 
 function weekRangeLabel(startDate) {
@@ -567,55 +537,7 @@ function coverageNote(phones) {
   return [lead, tail].filter(Boolean).join(" ");
 }
 
-function tileHtml(row, todayStr) {
-  const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
-  const name = tech ? tech.name : row.tech;
-  const color = personColorFor(row.tech);
-  const rangeLabel = weekRangeLabel(row.startDate);
-  const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
-  const isToday = row.startDate === todayStr;
-  return `
-    <div class="week-tile${isToday ? " today" : ""}" onclick="openWeekPanel('${row.startDate}')">
-      ${isToday ? `<div class="ribbon">This Week</div>` : ""}
-      <div class="tile-date-bar">
-        <div class="tile-date">${rangeLabel}</div>
-        ${flags ? `<div class="tile-flags">${flags}</div>` : ""}
-      </div>
-      <div class="tile-dot" style="background:${color}">${initials(name)}</div>
-      <div class="tile-name">${row.tech}</div>
-    </div>`;
-}
-
-function renderCalendarStrip() {
-  const weeks = getYearWeeks(st.year);
-  const todayWeek = findCurrentWeek(st.data.schedule);
-  const todayStr = todayWeek ? todayWeek.startDate : null;
-  const maxStart = Math.max(0, weeks.length - WEEKS_VISIBLE);
-  st.stripStart = Math.min(Math.max(0, st.stripStart), maxStart);
-  const visible = weeks.slice(st.stripStart, st.stripStart + WEEKS_VISIBLE);
-
-  document.getElementById("monthRow").innerHTML = monthLabelsHtml(visible);
-  document.getElementById("weekStrip").innerHTML = visible.map(w => tileHtml(w, todayStr)).join("");
-  renderMonthPills(visible);
-}
-
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function renderMonthPills(visible) {
-  const inViewMonths = new Set(visible.map(w => new Date(w.startDate + "T00:00:00Z").getUTCMonth()));
-  document.getElementById("monthPills").innerHTML = MONTH_NAMES.map((name, i) =>
-    `<div class="month-pill${inViewMonths.has(i) ? " current" : ""}" onclick="jumpToMonth(${i})">${name}</div>`
-  ).join("");
-}
-
-function jumpToMonth(monthIndex) {
-  const weeks = getYearWeeks(st.year);
-  const idx = weeks.findIndex(w => new Date(w.startDate + "T00:00:00Z").getUTCMonth() === monthIndex);
-  if (idx === -1) return;
-  const maxStart = Math.max(0, weeks.length - WEEKS_VISIBLE);
-  st.stripStart = Math.min(idx, maxStart);
-  renderCalendarStrip();
-}
 
 // ── Build Mode ──────────────────────────────────────────────
 function computeYearSundays(year) {
@@ -691,10 +613,9 @@ function cancelBuild() {
 
 function setBuildViewVisibility() {
   const inBuild = !!st.build;
-  document.getElementById("monthRow").style.display = inBuild ? "none" : "flex";
-  document.getElementById("weekStrip").style.display = inBuild ? "none" : "flex";
-  document.getElementById("monthPills").style.display = inBuild ? "none" : "flex";
-  document.getElementById("rosterSection").style.display = inBuild ? "none" : "block";
+  document.getElementById("yearBoard").style.display = inBuild ? "none" : "block";
+  document.getElementById("techStrip").style.display = inBuild ? "none" : "grid";
+  document.getElementById("alsoReachable").style.display = inBuild ? "none" : "flex";
   document.getElementById("buildSetupBar").style.display = (inBuild && st.build.phase === "setup") ? "flex" : "none";
   document.getElementById("buildCanvasSection").style.display = (inBuild && st.build.phase === "canvas") ? "block" : "none";
 }
@@ -855,7 +776,6 @@ function commitBuild() {
   st.build = null;
   setBuildViewVisibility();
   st.year = builtYear;
-  st.stripStart = 0;
   renderAll();
   saveChanges();
 }
@@ -865,12 +785,12 @@ let editMode = false;
 
 function toggleEditMode() {
   editMode = !editMode;
-  document.getElementById("editToggleBtn").classList.toggle("active", editMode);
-  document.getElementById("saveBtn").style.display = editMode ? "inline-block" : "none";
   if (!editMode && st.build) { st.build = null; setBuildViewVisibility(); }
   closePanel();
-  renderCalendarStrip();
-  renderRoster();
+  renderToolbar();
+  renderYearBoard();
+  renderTechStrip();
+  renderAlsoReachable();
   renderBuildTrigger();
 }
 
@@ -951,38 +871,6 @@ function saveWeekPanel() {
 }
 
 // ── Roster ──────────────────────────────────────────────────
-function rosterCardHtml(person, group, idx) {
-  const color = group === "rotation" ? personColorFor(person.shortName) : OTHER_CONTACT_COLOR;
-  const visiblePhones = person.phones.slice(0, 2);
-  const extra = person.phones.length - visiblePhones.length;
-  const canReorder = group === "rotation" && st.isAdmin && editMode;
-  const dragAttrs = canReorder
-    ? `draggable="true" ondragstart="rosterDragStart(event, ${idx})" ondragover="rosterDragOver(event)" ondrop="rosterDrop(event, ${idx})" ondragend="rosterDragEnd(event)"`
-    : "";
-  return `
-    <div class="roster-card${group === "other" ? " dim" : ""}" ${dragAttrs} onclick="openContactPanel('${group}', ${idx})">
-      ${canReorder ? `<span class="roster-drag-handle">${ICON_GRIP}</span>` : ""}
-      <div class="roster-dot" style="background:${color}">${initials(person.name)}</div>
-      <div class="roster-name">${person.name}</div>
-      <div class="roster-role">${group === "rotation" ? ICON_REFRESH_CW + " In Rotation" : "Other"}</div>
-      <div class="roster-chips">
-        ${visiblePhones.map(p => `<span class="roster-chip">${p.label}</span>`).join("")}
-        ${extra > 0 ? `<span class="roster-chip more">+${extra}</span>` : ""}
-      </div>
-    </div>`;
-}
-
-function renderRoster() {
-  document.getElementById("rotationLbl").innerHTML = `${ICON_USERS} In Rotation: ${st.data.rotationTechs.length} techs`;
-  document.getElementById("otherLbl").innerHTML = `${ICON_USERS} Additional EUS Team Contacts`;
-  const rotationHtml = st.data.rotationTechs.map((t, i) => rosterCardHtml(t, "rotation", i)).join("");
-  const otherHtml = st.data.otherContacts.map((t, i) => rosterCardHtml(t, "other", i)).join("");
-  const addRotationTile = (st.isAdmin && editMode) ? `<div class="add-tile" onclick="addContact('rotation')">${ICON_PLUS} Add to Rotation</div>` : "";
-  const addOtherTile = (st.isAdmin && editMode) ? `<div class="add-tile" onclick="addContact('other')">${ICON_PLUS} Add Contact</div>` : "";
-  document.getElementById("rotationGrid").innerHTML = rotationHtml + addRotationTile;
-  document.getElementById("otherGrid").innerHTML = otherHtml + addOtherTile;
-}
-
 let rosterDragSrcIdx = null;
 
 function rosterDragStart(evt, idx) {
@@ -1005,21 +893,21 @@ function rosterDrop(evt, idx) {
   arr.splice(idx, 0, moved);
   st.personColors = buildPersonColors(st.data);
   rosterDragSrcIdx = null;
-  renderRoster();
-  renderCalendarStrip();
+  renderTechStrip();
+  renderYearBoard();
   saveChanges();
 }
 
 function rosterDragEnd(evt) {
   evt.currentTarget.classList.remove("dragging");
-  document.querySelectorAll(".roster-card.drag-over").forEach(el => el.classList.remove("drag-over"));
+  document.querySelectorAll(".tech-card.drag-over").forEach(el => el.classList.remove("drag-over"));
 }
 
 function addContact(group) {
   const arr = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"];
   const blank = group === "rotation" ? { name: "New Person", shortName: "", phones: [] } : { name: "New Person", phones: [] };
   arr.push(blank);
-  renderRoster();
+  if (group === "rotation") renderTechStrip(); else renderAlsoReachable();
   openContactPanel(group, arr.length - 1);
 }
 
@@ -1137,19 +1025,17 @@ async function init() {
   ITTools.theme.init();
   ITTools.ui.renderTopbar({ toolName: "On-Call Rotation", hubRelPath: "../../", status: "beta" });
   ITTools.ui.syncThemeIcon();
-  document.getElementById("navPrevBtn").innerHTML = ICON_CHEVRON_LEFT + " Prev";
-  document.getElementById("navNextBtn").innerHTML = "Next " + ICON_CHEVRON_RIGHT;
   document.getElementById("panelCloseBtn").innerHTML = ICON_X;
-  document.getElementById("editToggleBtn").innerHTML = ICON_PENCIL;
-  document.getElementById("adminToolbarLabel").innerHTML = `${ICON_SHIELD} Admin`;
+  document.getElementById("editToggleBtn").innerHTML = ICON_PENCIL + " Edit";
+  document.getElementById("findBtn").innerHTML = ICON_SEARCH + " Find a person";
   document.addEventListener("click", evt => {
     if (buildPopoverIdx === null) return;
     const pop = document.getElementById("buildPopover");
     if (pop && !pop.contains(evt.target) && !evt.target.closest(".build-block")) closeBuildPopover();
   });
   document.addEventListener("click", evt => {
-    const panel = document.getElementById("personJumpPanel");
-    if (panel.style.display !== "none" && !evt.target.closest("#personJumpWrap")) panel.style.display = "none";
+    const panel = document.getElementById("findPanel");
+    if (panel.style.display !== "none" && !evt.target.closest("#findWrap")) panel.style.display = "none";
   });
 
   let _sessionFound = false;
