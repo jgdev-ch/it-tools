@@ -417,8 +417,7 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stubs - replaced in Tasks 9-11.
-function renderTechStrip() {}
+// Temporary stubs - replaced in Tasks 10-11.
 function renderAlsoReachable() {}
 function toggleFindPanel() {}
 
@@ -657,6 +656,45 @@ function renderYearBoard() {
     for (let i = inMonth.length; i < 5; i++) html += `<div></div>`;
   }
   el.innerHTML = `<div class="board-grid">${html}</div>`;
+}
+
+// ── Per-tech summary strip ──────────────────────────────────
+// Also hosts the two admin affordances the roster grid used to own: drag-to-
+// reorder (which defines the order Build Mode cycles through) and add-to-
+// rotation. The drag handlers are reused unchanged; only the host element moved.
+function renderTechStrip() {
+  const el = document.getElementById("techStrip");
+  const cur = findCurrentWeek(st.data.schedule);
+  const canEdit = st.isAdmin && editMode;
+  const yearRows = getYearWeeks(st.year);
+
+  const cards = st.data.rotationTechs.map((t, i) => {
+    const count = yearRows.filter(r => r.tech === t.shortName).length;
+    const isNow = cur && cur.tech === t.shortName;
+    const upcoming = sortedByDate(st.data.schedule)
+      .find(r => r.tech === t.shortName && daysFromToday(r.startDate) > 0);
+    let when = "no upcoming week";
+    if (isNow) when = "on call now";
+    else if (upcoming) when = "next " + shortDate(upcoming.startDate);
+
+    const n = t.phones.length;
+    const dragAttrs = canEdit
+      ? `draggable="true" ondragstart="rosterDragStart(event, ${i})" ondragover="rosterDragOver(event)" ondrop="rosterDrop(event, ${i})" ondragend="rosterDragEnd(event)"`
+      : "";
+
+    return `<div class="tech-card" ${dragAttrs} style="--tech-color:${personColorFor(t.shortName)}"
+         onclick="openContactPanel('rotation', ${i})">
+        ${canEdit ? `<span class="tech-grip">${ICON_GRIP}</span>` : ""}
+        <div class="tech-card-name">${t.name}</div>
+        <div class="tech-card-meta">${count} week${count === 1 ? "" : "s"} · ${when}</div>
+        <div class="tech-card-meta${n === 1 ? " warn" : ""}">${n} number${n === 1 ? "" : "s"} on file</div>
+      </div>`;
+  }).join("");
+
+  const addCard = canEdit
+    ? `<div class="tech-add" onclick="addContact('rotation')">${ICON_PLUS} Add tech</div>` : "";
+
+  el.innerHTML = cards + addCard;
 }
 
 function setYear(y) {
