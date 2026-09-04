@@ -417,8 +417,7 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stubs - replaced in Tasks 4-11.
-function renderNowCard() {}
+// Temporary stubs - replaced in Tasks 5-11.
 function renderQueue() {}
 function renderAttention() {}
 function renderRosterNotes() {}
@@ -427,6 +426,89 @@ function renderYearBoard() {}
 function renderTechStrip() {}
 function renderAlsoReachable() {}
 function toggleFindPanel() {}
+
+// ── On call now card ────────────────────────────────────────
+function renderNowCard() {
+  const el = document.getElementById("nowCard");
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+
+  const week = findCurrentWeek(st.data.schedule);
+  if (!week) {
+    el.style.removeProperty("--tech-color");
+    el.innerHTML = `<div class="now-eyebrow">${ICON_HEADSET} On call now</div>
+      <div class="now-sub" style="margin-top:10px">No current on-call week found.</div>`;
+    return;
+  }
+
+  const techIdx = st.data.rotationTechs.findIndex(t => t.shortName === week.tech);
+  const tech = techIdx !== -1 ? st.data.rotationTechs[techIdx] : null;
+  const name = tech ? tech.name : week.tech;
+  const color = personColorFor(week.tech);
+  el.style.setProperty("--tech-color", color);
+
+  const elapsed = daysFromToday(week.startDate) * -1;
+  const pips = Array.from({ length: 7 }, (_, i) =>
+    `<span class="now-pip${i < elapsed ? " done" : i === elapsed ? " today" : ""}"></span>`).join("");
+
+  const nextRow = nextWeekAfter(week.startDate);
+  let handoff = "";
+  if (nextRow) {
+    const nextTech = st.data.rotationTechs.find(t => t.shortName === nextRow.tech);
+    const nextName = nextTech ? nextTech.name : nextRow.tech;
+    const d = new Date(nextRow.startDate + "T00:00:00Z");
+    const dayName = d.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+    const monthName = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+    handoff = `<div class="now-handoff">
+        <span class="now-handoff-txt">Hands off to <strong>${nextName}</strong>, ${dayName} ${monthName} ${ordinal(d.getUTCDate())}</span>
+        <span class="now-countdown" id="nowCountdown">${countdownLabel()}</span>
+      </div>`;
+  }
+
+  const phones = tech ? tech.phones : [];
+  const phoneRows = phones.map(p => `
+    <div class="now-phone">
+      <div>
+        <div class="now-phone-lbl">${p.label}</div>
+        <div class="now-phone-num">${p.number}</div>
+      </div>
+      <button class="copy-btn" onclick="copyNumber(event, '${p.number}')">Copy</button>
+    </div>`).join("");
+
+  const note = coverageNote(phones);
+  const avatarClick = tech ? `onclick="openContactPanel('rotation', ${techIdx})"` : "";
+
+  el.innerHTML = `
+    <div class="now-eyebrow">${ICON_HEADSET} On call now</div>
+    <div class="now-id">
+      <div class="now-avatar" ${avatarClick} style="background:${color}"
+           title="${tech ? "View " + name + "'s contact info" : ""}">${initials(name)}</div>
+      <div>
+        <div class="now-name">${name}</div>
+        <div class="now-sub">${weekRangeLabel(week.startDate)} &middot; week ${weekOrdinalInYear(week.startDate)}</div>
+      </div>
+    </div>
+    <div class="now-pips">${pips}</div>
+    ${handoff}
+    ${phoneRows ? `<div class="now-divider"></div>${phoneRows}` : ""}
+    ${note ? `<div class="now-note">${note}</div>` : ""}`;
+
+  if (nextRow) {
+    countdownTimer = setInterval(() => {
+      const c = document.getElementById("nowCountdown");
+      if (!c) { clearInterval(countdownTimer); countdownTimer = null; return; }
+      c.textContent = countdownLabel();
+    }, 60000);
+  }
+}
+
+function copyNumber(evt, number) {
+  evt.stopPropagation();
+  const btn = evt.currentTarget;
+  navigator.clipboard.writeText(number).then(() => {
+    btn.textContent = "Copied";
+    setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+  });
+}
 
 // ── Hero card (current on-call week) ───────────────────────
 function findCurrentWeek(schedule) {
