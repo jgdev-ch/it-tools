@@ -417,8 +417,7 @@ function renderAll() {
   renderBuildTrigger();
 }
 
-// Temporary stubs - replaced in Tasks 7-11.
-function renderToolbar() {}
+// Temporary stubs - replaced in Tasks 8-11.
 function renderYearBoard() {}
 function renderTechStrip() {}
 function renderAlsoReachable() {}
@@ -606,6 +605,18 @@ function renderYearSeg() {
   document.getElementById("yearSeg").innerHTML = years.map(y =>
     `<span class="${y === st.year ? "on" : ""}" onclick="setYear('${y}')">${y}</span>`
   ).join("");
+}
+
+// renderYearSeg (above) owns the year pills. This owns the count text and the
+// admin button visibility that used to live in toggleEditMode and afterSignIn.
+function renderToolbar() {
+  document.getElementById("ocCount").textContent =
+    `${getYearWeeks(st.year).length} weeks · ${st.data.rotationTechs.length} techs`;
+
+  const editBtn = document.getElementById("editToggleBtn");
+  editBtn.style.display = st.isAdmin ? "flex" : "none";
+  editBtn.classList.toggle("active", editMode);
+  document.getElementById("saveBtn").style.display = (st.isAdmin && editMode) ? "flex" : "none";
 }
 
 function setYear(y) {
