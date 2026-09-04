@@ -112,6 +112,29 @@ never reflow.
   with the roster-notes entry.
 - `timeOff` / `notes` keep the existing palm-tree / file-text badges.
 
+**Board drag-to-swap (added 2026-09-04, after the initial build).** The design brief called
+for this ("Board cells become draggable to swap assignments, matching the build-canvas
+drag-to-swap behavior") but it was missed when this spec was first written and so was absent
+from the initial build. Restored on Josh's ask.
+
+In admin + Edit Mode, matched week cells get `draggable="true"` and `cursor: grab`. Dropping
+one cell on another **exchanges the two techs** and saves immediately via `saveChanges()`,
+matching how roster drag-to-reorder already behaves. Handlers are keyed by `startDate`, not
+by index, because the grid interleaves month labels and spacer divs so positional indexes do
+not line up with schedule rows. A drop on the same cell is a no-op.
+
+- **Unmatched cells are excluded as both source and target.** Swapping onto one would push a
+  departed tech's name into a week a real person currently owns, spreading the very data
+  problem the roster-notes card exists to surface. They remain editable via the panel.
+- **A swap calls `renderAll()`, not just `renderYearBoard()`.** Exchanging the current or
+  next week changes the now card (including its tint), the queue, and each tech's "next"
+  date in the summary strip. Verified: swapping Aug 30 with Sep 6 correctly moved Nick out
+  of the now card and into the queue's first row.
+- **Drag and click coexist.** Cells stay clickable to open the slide-over panel. Drag is a
+  *swap* (two weeks, techs exchanged); the panel is a *reassignment* (one week, plus time-off
+  and notes, which drag cannot carry). Verified a real click on a draggable cell still opens
+  the full edit form.
+
 **Tech strip.** Five cards, one per rotation tech in `rotationTechs` order, with
 `border-left: 3px solid <tech color>` as the only color carrier. Three lines: name;
 `10 weeks · next Sep 13` (or `on call now`); `4 numbers on file`, colored `--amber` when

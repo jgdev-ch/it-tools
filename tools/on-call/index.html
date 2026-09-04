@@ -127,6 +127,9 @@
     .wk.next { box-shadow:0 0 0 1.5px color-mix(in srgb, var(--text) 35%, transparent); }
     .wk.unmatched { background:var(--surface2); border:1px dashed var(--muted2); color:var(--muted); }
     .wk.dim { opacity:.35; }
+    .wk.swappable { cursor:grab; }
+    .wk.dragging { opacity:.4; }
+    .wk.drag-over { outline:2px dashed var(--text); outline-offset:2px; }
     .wk-now-tag { position:absolute; top:-9px; left:50%; transform:translateX(-50%); background:var(--text);
                   color:var(--bg); font-size:8px; font-weight:800; letter-spacing:.06em; padding:2px 7px;
                   border-radius:8px; pointer-events:none; }
@@ -677,14 +680,67 @@ function weekCellHtml(row, todayStr, nextStr) {
   if (row.startDate === todayStr) cls.push("today");
   else if (row.startDate === nextStr) cls.push("next");
   if (st.highlightTech && row.tech !== st.highlightTech) cls.push("dim");
+
+  // Unmatched cells (departed techs kept as historical record) are deliberately
+  // excluded as both drag source and drop target: swapping onto one would push a
+  // departed name into a week a real person currently owns. Edit them via the panel.
+  const canSwap = st.isAdmin && editMode && !!known;
+  if (canSwap) cls.push("swappable");
+  const dragAttrs = canSwap
+    ? `draggable="true" ondragstart="boardDragStart(event, '${row.startDate}')" ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="boardDrop(event, '${row.startDate}')" ondragend="boardDragEnd(event)"`
+    : "";
+
   const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
-  return `<div class="${cls.join(" ")}" ${known ? `style="background:${personColorFor(row.tech)}"` : ""}
+  return `<div class="${cls.join(" ")}" ${dragAttrs} ${known ? `style="background:${personColorFor(row.tech)}"` : ""}
        title="${name}" onclick="openWeekPanel('${row.startDate}')">
       ${row.startDate === todayStr ? `<span class="wk-now-tag">NOW</span>` : ""}
       <span class="wk-day">${d.getUTCDate()}</span>
       <span class="wk-ini">${initials(name)}</span>
       ${flags ? `<span class="wk-flags">${flags}</span>` : ""}
     </div>`;
+}
+
+// ── Board drag-to-swap (edit mode) ──────────────────────────
+// Keyed by startDate rather than index: the grid interleaves month labels and
+// spacer divs, so positional indexes would not line up with schedule rows.
+let boardDragSrc = null;
+
+function boardDragStart(evt, startDate) {
+  boardDragSrc = startDate;
+  evt.currentTarget.classList.add("dragging");
+  evt.dataTransfer.effectAllowed = "move";
+}
+
+function boardDragOver(evt) {
+  evt.preventDefault();
+  evt.currentTarget.classList.add("drag-over");
+}
+
+function boardDragLeave(evt) {
+  evt.currentTarget.classList.remove("drag-over");
+}
+
+function boardDrop(evt, startDate) {
+  evt.preventDefault();
+  evt.currentTarget.classList.remove("drag-over");
+  const src = boardDragSrc;
+  boardDragSrc = null;
+  if (!src || src === startDate) return;
+  const a = st.data.schedule.find(r => r.startDate === src);
+  const b = st.data.schedule.find(r => r.startDate === startDate);
+  if (!a || !b) return;
+  const moved = a.tech;
+  a.tech = b.tech;
+  b.tech = moved;
+  // A swap can change who is on call now, the queue, and each tech's "next"
+  // date, so re-render everything rather than just the board.
+  renderAll();
+  saveChanges();
+}
+
+function boardDragEnd(evt) {
+  evt.currentTarget.classList.remove("dragging");
+  document.querySelectorAll(".wk.drag-over").forEach(el => el.classList.remove("drag-over"));
 }
 
 function renderYearBoard() {
