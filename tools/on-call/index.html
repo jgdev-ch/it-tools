@@ -43,6 +43,10 @@
                background:color-mix(in srgb, var(--tech-color) 22%, transparent); }
     .now-pip.done { background:var(--tech-color); }
     .now-pip.today { background:var(--tech-color); box-shadow:0 0 0 2px var(--glass-raise-border); }
+    /* Dark's --glass-raise-border (.14 white) is too faint over a saturated pip
+       to separate "today" from the solid "done" pips. --text is near-white in
+       dark, so this keeps the halo bright without a hardcoded literal. */
+    [data-theme="dark"] .now-pip.today { box-shadow:0 0 0 2px color-mix(in srgb, var(--text) 45%, transparent); }
     .now-handoff { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
     .now-handoff-txt { font-size:12px; color:var(--text-secondary); }
     .now-handoff-txt strong { font-weight:700; color:var(--text); }
