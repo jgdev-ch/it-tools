@@ -150,6 +150,10 @@
     .tech-card-meta { font-size:11.5px; color:var(--muted); margin-top:2px; }
     .tech-card-meta.warn { color:var(--amber); }
     .tech-grip { position:absolute; top:6px; right:6px; display:flex; cursor:grab; color:var(--muted); }
+    .tech-lock { position:absolute; top:7px; right:7px; display:flex; color:var(--muted2); }
+    /* Shift the lock clear of the drag handle, which shares this corner in edit mode. */
+    .tech-card.has-grip .tech-lock { right:24px; }
+    .also-lock { display:flex; color:var(--muted2); margin-left:-2px; }
     .tech-card.dragging { opacity:.4; }
     .tech-card.drag-over { outline:2px dashed var(--blue); outline-offset:2px; }
     .tech-add { border-radius:12px; padding:10px 12px; border:1px dashed var(--border); display:flex;
@@ -350,6 +354,9 @@ const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill
 const ICON_HEADSET       = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M21 16v2a4 4 0 0 1-4 4h-5"/></svg>`;
 const ICON_PENCIL        = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
 const ICON_GRIP          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`;
+// Same Lucide `lock` path the hub already uses for its locked-tile badges,
+// kept at stroke-width 2.5 to match how the hub renders it at small sizes.
+const ICON_LOCK          = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 
 function ordinal(n) {
   const suffixes = ["th", "st", "nd", "rd"], v = n % 100;
@@ -853,9 +860,10 @@ function renderTechStrip() {
       ? `draggable="true" ondragstart="rosterDragStart(event, ${i})" ondragover="rosterDragOver(event)" ondrop="rosterDrop(event, ${i})" ondragend="rosterDragEnd(event)"`
       : "";
 
-    return `<div class="tech-card" ${dragAttrs} style="--tech-color:${personColorFor(t.shortName)}"
+    return `<div class="tech-card${canEdit ? " has-grip" : ""}" ${dragAttrs} style="--tech-color:${personColorFor(t.shortName)}"
          onclick="openContactPanel('rotation', ${i})">
         ${canEdit ? `<span class="tech-grip">${ICON_GRIP}</span>` : ""}
+        ${t.locked ? `<span class="tech-lock" title="Protected from removal">${ICON_LOCK}</span>` : ""}
         <div class="tech-card-name">${t.name}</div>
         <div class="tech-card-meta">${count} week${count === 1 ? "" : "s"} · ${when}</div>
         <div class="tech-card-meta${n <= 1 ? " warn" : ""}">${n} number${n === 1 ? "" : "s"} on file</div>
@@ -877,6 +885,7 @@ function renderAlsoReachable() {
   const chips = st.data.otherContacts.map((c, i) => `
     <span class="also-chip" onclick="openContactPanel('other', ${i})">
       <span class="also-avatar" style="background:${OTHER_CONTACT_COLOR}">${initials(c.name)}</span>${c.name}
+      ${c.locked ? `<span class="also-lock" title="Protected from removal">${ICON_LOCK}</span>` : ""}
     </span>`).join("");
   const addChip = canEdit
     ? `<span class="also-add" onclick="addContact('other')">${ICON_PLUS} Add</span>` : "";
