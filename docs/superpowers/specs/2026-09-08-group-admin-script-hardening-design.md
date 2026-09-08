@@ -121,7 +121,9 @@ A single fixed bar at the top of the console, carrying session health in its own
   (`if ($null -ne $PSStyle)`) because `$PSStyle` does not exist on 5.1.
 - The `Status` field carries `Connected`, `Reconnecting...`, or `Reconnected`, so the tech
   watches one spot for both progress and session state.
-- Called once per member. It is cheap and stream-only.
+- Throttled: redrawn at most every 250ms, and always on the final member. `Classic` redraws the
+  whole block, so 1896 unthrottled updates would flicker badly. Counters are still tracked per
+  member; only the redraw is rate-limited.
 - `-SecondsRemaining` is computed from mean elapsed time per completed member.
 
 **Deliberate deviation from the reference.** Mailbox Cleanup's `[####----]` bar uses carriage
@@ -219,13 +221,24 @@ update progress.
 
 - **Signature match** on the known-fatal module failure: `GetResponseHeader`,
   `Get-ClaimsFromExceptionDetails`, or an explicit session-state error.
-- **10 consecutive failures.** Consecutive only — the counter resets on any success, so bad rows
-  scattered across 1896 members never trip it. Ten is small enough to catch a poisoned session
-  in seconds and large enough to survive a few genuinely bad adjacent rows.
+- **10 consecutive non-permanent failures.** Both qualifiers are load-bearing.
+
+  *Consecutive*: the counter resets on any success, so failures scattered across 1896 members
+  never trip it.
+
+  *Non-permanent*: only transient and unclassified failures increment the counter. A **permanent**
+  per-member failure (unknown recipient, invalid address, unlicensed user) is a data problem, not
+  a session problem, and must **not** count. Without this, a 12-row CSV containing 10 typo'd
+  addresses would declare a perfectly healthy session dead and abort with rows unprocessed. The
+  breaker's only job is detecting a poisoned session.
+
+  Ten is small enough to catch a poisoned session in seconds and large enough to ride out a short
+  cluster of genuinely transient errors.
 
 **Response.** `Disconnect-ExchangeOnline`, `Connect-ExchangeOnline`, re-verify the target, reset
-the consecutive counter, and continue **at the member that failed** so nothing is skipped. This is in-run continuation, and is a different mechanism from the cross-run re-run behaviour in section 3. The
-progress status moves `Connected` to `Reconnecting...` to `Reconnected`.
+the consecutive counter, and continue **at the member that failed** so nothing is skipped. This
+is in-run continuation, a different mechanism from the cross-run re-run behaviour in section 3.
+The progress status moves `Connected` to `Reconnecting...` to `Reconnected`.
 
 If the reconnect itself fails, **abort immediately** and report the exact position reached.
 
@@ -237,6 +250,23 @@ connect exceeds 40 minutes, reconnect first. The 2026-09-08 run died at 62 minut
 **Cap of 3 successful reconnects per run**, then abort with the exact position. Without a cap, a
 flapping session ping-pongs between recovery and failure indefinitely, which is the unlimited-
 retry behaviour this design explicitly rejects.
+
+### Behaviour on an ordinary small run
+
+Everything above targets the 1800-member outlier. On a typical 20-member job none of it should be
+perceptible, and that is a design requirement, not a hope:
+
+| Mechanism | On a 20-member run |
+|---|---|
+| Chunking | One chunk. One session probe, one milestone line. |
+| Proactive 40-minute refresh | Never fires. The run finishes in well under a minute. |
+| Circuit breaker | Cannot fire on bad data at all, per the non-permanent rule above. |
+| Retry backoff | Only pays its 2s cost on an actual transient error. |
+| Progress bar | Fills and clears. Throttling makes it a handful of redraws. |
+| Failures CSV | Only written when something actually failed. |
+
+If any of these becomes visible noise on a small run, that is a defect. Verification includes a
+20-member render to confirm the console output stays short and quiet.
 
 ## 6. Phase 5: summary and failures CSV
 
