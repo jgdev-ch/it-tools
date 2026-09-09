@@ -771,111 +771,47 @@ if ($rows.Count -eq 0) {
              psEpilogue(ctx, 'Write-Detail ("Access entries: " + $rows.Count)\n');
     }
 
-    // Per-permission blocks. -WhatIf preview and live call are emitted side by side
-    // so the dry run exercises exactly the cmdlet the live run will use.
+    // Per-permission blocks. No -WhatIf half and no per-block try/catch:
+    // Invoke-WithRetry owns error handling, and a throw from any block fails the
+    // whole trustee, which is correct. A trustee who got FullAccess but failed
+    // SendAs is reported as failed and appears in the failures CSV.
     const fullBlock = isGrant
       ? `    if ($DoFullAccess) {
-        try {
-            if ($Preview) {
-                Add-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -AutoMapping $AutoMapping -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
-                Write-Item ("WOULD GRANT FullAccess (AutoMapping " + $AutoMapping + "): " + $Trustee) Yellow
-            } else {
-                Add-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -AutoMapping $AutoMapping -Confirm:$false -ErrorAction Stop | Out-Null
-                Write-Item ("GRANTED FullAccess (AutoMapping " + $AutoMapping + "): " + $Trustee) Green
-                $script:ok++
-            }
-        } catch {
-            Write-Item ("FullAccess FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
-            if (-not $Preview) { $script:failed++ }
-        }
+        Add-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -AutoMapping $AutoMapping -Confirm:$false -ErrorAction Stop | Out-Null
+        Write-Detail ("GRANTED FullAccess (AutoMapping " + $AutoMapping + "): " + $Trustee) Green
     }`
       : `    if ($DoFullAccess) {
-        try {
-            if ($Preview) {
-                Remove-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
-                Write-Item ("WOULD REMOVE FullAccess: " + $Trustee) Yellow
-            } else {
-                Remove-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -Confirm:$false -ErrorAction Stop | Out-Null
-                Write-Item ("REMOVED FullAccess: " + $Trustee) Green
-                $script:ok++
-            }
-        } catch {
-            Write-Item ("FullAccess FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
-            if (-not $Preview) { $script:failed++ }
-        }
+        Remove-MailboxPermission -Identity $Mailbox -User $Trustee -AccessRights FullAccess -Confirm:$false -ErrorAction Stop | Out-Null
+        Write-Detail ("REMOVED FullAccess: " + $Trustee) Green
     }`;
 
     const sendAsBlock = isGrant
       ? `    if ($DoSendAs) {
-        try {
-            if ($Preview) {
-                Add-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
-                Write-Item ("WOULD GRANT SendAs: " + $Trustee) Yellow
-            } else {
-                Add-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -ErrorAction Stop | Out-Null
-                Write-Item ("GRANTED SendAs: " + $Trustee) Green
-                $script:ok++
-            }
-        } catch {
-            Write-Item ("SendAs FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
-            if (-not $Preview) { $script:failed++ }
-        }
+        Add-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -ErrorAction Stop | Out-Null
+        Write-Detail ("GRANTED SendAs: " + $Trustee) Green
     }`
       : `    if ($DoSendAs) {
-        try {
-            if ($Preview) {
-                Remove-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -WhatIf -ErrorAction Stop | Out-Null
-                Write-Item ("WOULD REMOVE SendAs: " + $Trustee) Yellow
-            } else {
-                Remove-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -ErrorAction Stop | Out-Null
-                Write-Item ("REMOVED SendAs: " + $Trustee) Green
-                $script:ok++
-            }
-        } catch {
-            Write-Item ("SendAs FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
-            if (-not $Preview) { $script:failed++ }
-        }
+        Remove-RecipientPermission -Identity $Mailbox -Trustee $Trustee -AccessRights SendAs -Confirm:$false -ErrorAction Stop | Out-Null
+        Write-Detail ("REMOVED SendAs: " + $Trustee) Green
     }`;
 
     const onBehalfBlock = isGrant
       ? `    if ($DoSendOnBehalf) {
-        try {
-            if ($Preview) {
-                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Add=$Trustee} -WhatIf -ErrorAction Stop
-                Write-Item ("WOULD GRANT SendOnBehalf: " + $Trustee) Yellow
-            } else {
-                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Add=$Trustee} -ErrorAction Stop
-                Write-Item ("GRANTED SendOnBehalf: " + $Trustee) Green
-                $script:ok++
-            }
-        } catch {
-            Write-Item ("SendOnBehalf FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
-            if (-not $Preview) { $script:failed++ }
-        }
+        Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Add=$Trustee} -ErrorAction Stop
+        Write-Detail ("GRANTED SendOnBehalf: " + $Trustee) Green
     }`
       : `    if ($DoSendOnBehalf) {
-        try {
-            if ($Preview) {
-                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Remove=$Trustee} -WhatIf -ErrorAction Stop
-                Write-Item ("WOULD REMOVE SendOnBehalf: " + $Trustee) Yellow
-            } else {
-                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Remove=$Trustee} -ErrorAction Stop
-                Write-Item ("REMOVED SendOnBehalf: " + $Trustee) Green
-                $script:ok++
-            }
-        } catch {
-            Write-Item ("SendOnBehalf FAILED for " + $Trustee + " - " + $_.Exception.Message) Red
-            if (-not $Preview) { $script:failed++ }
-        }
+        Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Remove=$Trustee} -ErrorAction Stop
+        Write-Detail ("REMOVED SendOnBehalf: " + $Trustee) Green
     }`;
+
+    const permLabel = isGrant ? "Granting access on " : "Removing access on ";
+    const didWord   = isGrant ? "GRANTED" : "REMOVED";
 
     const body = `
 # --- Access change worker -----------------------------------------
-$script:ok = 0
-$script:failed = 0
-
 function Invoke-AccessChange {
-    param([string]$Trustee, [bool]$Preview)
+    param([string]$Trustee)
 
 ${fullBlock}
 
@@ -884,23 +820,132 @@ ${sendAsBlock}
 ${onBehalfBlock}
 }
 
-# --- Dry run (-WhatIf, nothing changes) ---------------------------
-Write-Head "Dry run. Showing what would change. No changes are made yet."
-foreach ($t in $Trustees) { Invoke-AccessChange -Trustee $t -Preview $true }
+# --- Phase 3: Compare against current access ----------------------
+Write-Step 3 ${ctx.phases} "Comparing your list against current access..."
 
-# --- Confirm ------------------------------------------------------
-Write-Host ""
-$answer = Read-Host "  Type YES to apply these changes for real (anything else aborts)"
-if ($answer -ne "YES") {
-    Write-Item "Aborted. No changes were made." Yellow
-    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-    Stop-Transcript | Out-Null
-    exit 0
+if (-not ($DoFullAccess -or $DoSendAs -or $DoSendOnBehalf)) {
+    Write-Detail "No permission types were selected. Nothing to do." Yellow
+    Stop-Run "" Yellow 0
 }
 
-# --- Live run -----------------------------------------------------
-Write-Head "Applying changes..."
-foreach ($t in $Trustees) { Invoke-AccessChange -Trustee $t -Preview $false }
+$ToApply = @()
+foreach ($t in $Trustees) {
+    $id = [string]$t
+    if (-not [string]::IsNullOrWhiteSpace($id)) { $ToApply += $id.Trim() }
+}
+$ToApply = @($ToApply)
+
+Write-Detail ($Trustees.Count.ToString() + " in list  |  " + $ToApply.Count + " to process")
+$permList = @()
+if ($DoFullAccess)   { $permList += "Full Access" }
+if ($DoSendAs)       { $permList += "Send As" }
+if ($DoSendOnBehalf) { $permList += "Send on Behalf" }
+Write-Detail ("Permissions: " + ($permList -join ", "))
+
+if ($ToApply.Count -eq 0) { Stop-Run "Nothing to do." Green 0 }
+
+# Capability probe. Confirms this account can change permissions on this mailbox
+# before any real change, and fails with actionable text if not.
+try {
+    Get-MailboxPermission -Identity $Mailbox -ErrorAction Stop | Out-Null
+    Write-Detail "Permission check passed." Green
+} catch {
+    Write-Detail ("ERROR: This account cannot read or change permissions on '$Mailbox'. " + $_.Exception.Message) Red
+    Write-Detail "You need a role with mailbox permission rights, for example Recipient Management." Yellow
+    Stop-Run "" Red 1
+}
+
+Confirm-Apply $ToApply.Count "users"
+
+# --- Phase 4: Apply changes ---------------------------------------
+Write-Step 4 ${ctx.phases} "Applying changes..."
+
+$script:RunTotal    = $ToApply.Count
+$script:RunActivity = "${permLabel}" + $Mailbox
+$script:RunStart    = Get-Date
+$script:RunCurrent  = 0
+Update-Run -Force
+
+$failRows    = New-Object System.Collections.Generic.List[object]
+$consecutive = 0
+$aborted     = $false
+$chunkCount  = [Math]::Ceiling($script:RunTotal / $script:ChunkSize)
+$i           = 0
+
+$applyOne = { param($Identity) Invoke-AccessChange -Trustee $Identity }
+
+for ($c = 1; $c -le $chunkCount; $c++) {
+    if ($aborted) { break }
+
+    $end = [Math]::Min($i + $script:ChunkSize, $script:RunTotal)
+    while ($i -lt $end) {
+        # Checked per entry, not per chunk, so a long run cannot sail past the
+        # refresh threshold waiting for the next chunk boundary.
+        if (((Get-Date) - $script:ConnectedAt).TotalMinutes -ge $script:RefreshMinutes) {
+            Write-Detail ("Session has been open " + $script:RefreshMinutes + "+ minutes. Refreshing before the next entry.") Yellow
+            if (-not (Reset-Session)) { $aborted = $true; break }
+        }
+
+        $identity = $ToApply[$i]
+        $res      = Invoke-WithRetry -Action $applyOne -Identity $identity
+        $i++
+        $script:RunCurrent = $i
+
+        if ($res.Ok) {
+            $script:RunOk++
+            $consecutive = 0
+        } else {
+            $suffix = ""
+            if ($res.Attempts -gt 1) { $suffix = " (after " + $res.Attempts + " attempts)" }
+            Write-Detail ("FAILED: " + $identity + " - " + $res.Message + $suffix) Red
+            $script:RunFailed++
+            $failRows.Add([pscustomobject]@{
+                Identity = $identity
+                Reason   = $res.Message
+                Class    = $res.Class
+                Attempts = $res.Attempts
+            })
+
+            if ($res.Class -ne "permanent") { $consecutive++ } else { $consecutive = 0 }
+
+            if ($res.Class -eq "dead" -or $consecutive -ge $script:BreakerLimit) {
+                if ($res.Class -eq "dead") {
+                    Write-Detail "The Exchange session is no longer usable." Yellow
+                } else {
+                    Write-Detail ($consecutive.ToString() + " consecutive failures. Treating the session as dead.") Yellow
+                }
+                if (Reset-Session) {
+                    $consecutive = 0
+                    $i--
+                    $script:RunCurrent = $i
+                    $failRows.RemoveAt($failRows.Count - 1)
+                    $script:RunFailed--
+                } else {
+                    $aborted = $true
+                    break
+                }
+            }
+        }
+        Update-Run
+    }
+
+    if (-not $aborted) {
+        Write-Detail ($script:RunCurrent.ToString() + "/" + $script:RunTotal + "   " + $script:RunOk + " ok, " + $script:RunFailed + " failed        (chunk " + $c + " of " + $chunkCount + " done, session ok)") Cyan
+    }
+}
+Update-Run -Force
+
+if ($aborted) {
+    Write-Detail "" Yellow
+    Write-Detail ("STOPPED EARLY at user " + $script:RunCurrent + " of " + $script:RunTotal + ".") Yellow
+    Write-Detail "Re-run this script to finish. Re-applying an existing permission is harmless." Yellow
+}
+
+$failFile = ""
+if ($failRows.Count -gt 0) {
+    $failFile = Join-Path $PSScriptRoot (${psStr(ctx.logBase)} + "-" + $stamp + "-failures.csv")
+    $failRows | Export-Csv -Path $failFile -NoTypeInformation -Encoding UTF8
+}
 `;
 
     const permNames = [];
@@ -913,7 +958,11 @@ foreach ($t in $Trustees) { Invoke-AccessChange -Trustee $t -Preview $false }
       "#  Users       : " + ctx.identities.length,
     ];
 
-    const summary = 'Write-Item ("Succeeded : " + $script:ok)\nWrite-Item ("Failed    : " + $script:failed)\n';
+    const summary =
+      'Write-Detail ("' + didWord.padEnd(10) + ' : " + $script:RunOk)\n' +
+      'Write-Detail ("Failed     : " + $script:RunFailed)\n' +
+      'Write-Detail ("Reconnects : " + $script:RunReconnects)\n' +
+      'if ($failFile) { Write-Detail ("Failures   : " + $failFile) Yellow }\n';
 
     return psPrologue(ctx, extraHeader) + inputs + psConnect(ctx) + verify + body + psEpilogue(ctx, summary);
   }
