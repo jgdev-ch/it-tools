@@ -444,31 +444,88 @@ try {
     const isAdd     = ctx.op === "add";
     const cmdlet    = isAdd ? "Add-DistributionGroupMember" : "Remove-DistributionGroupMember";
     const liveArgs  = isAdd ? "-BypassSecurityGroupManagerCheck" : "-BypassSecurityGroupManagerCheck -Confirm:$false";
-    const wouldWord = isAdd ? "WOULD ADD" : "WOULD REMOVE";
     const didWord   = isAdd ? "ADDED" : "REMOVED";
 
-    const body = `
-# --- Dry run (-WhatIf, nothing changes) ---------------------------
-Write-Head "Dry run. Showing what would change. No changes are made yet."
-foreach ($m in $Members) {
-    try {
-        ${cmdlet} -Identity $Target -Member $m ${liveArgs} -WhatIf -ErrorAction Stop
-        Write-Item ("${wouldWord}: " + $m) Yellow
-    } catch {
-        Write-Item ("WOULD FAIL: " + $m + " - " + $_.Exception.Message) Red
+    const desiredWord = isAdd ? "to add" : "to remove";
+    const haveWord    = isAdd ? "already members" : "not members";
+
+    const phase3 = `
+# --- Phase 3: Compare against current membership ------------------
+Write-Step 3 ${ctx.phases} "Comparing your list against current membership..."
+
+# One read instead of one -WhatIf call per member. The old dry run issued an API
+# call for every member before any real work started, consuming a large share of
+# the session's usable window, and printed two lines per member.
+$current = @()
+try {
+    $current = @(Get-DistributionGroupMember -Identity $Target -ResultSize Unlimited -ErrorAction Stop)
+} catch {
+    Write-Detail ("ERROR: Could not read current members. " + $_.Exception.Message) Red
+    Stop-Run "" Red 1
+}
+
+# A CSV row may hold a primary SMTP address, an alias, a UPN or a secondary
+# proxy address. Comparing on PrimarySmtpAddress alone would classify an existing
+# member as "to add" whenever the CSV used any other form of their address, so
+# every known address for every member goes into the lookup.
+$have = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
+foreach ($m in $current) {
+    if ($m.PrimarySmtpAddress) { $null = $have.Add([string]$m.PrimarySmtpAddress) }
+    if ($m.Alias)              { $null = $have.Add([string]$m.Alias) }
+    if ($m.WindowsLiveID)      { $null = $have.Add([string]$m.WindowsLiveID) }
+    foreach ($addr in @($m.EmailAddresses)) {
+        $a = [string]$addr
+        if ($a -like "smtp:*") { $a = $a.Substring(5) }
+        if ($a) { $null = $have.Add($a) }
     }
 }
 
-# --- Confirm ------------------------------------------------------
-Write-Host ""
-$answer = Read-Host "  Type YES to apply these changes for real (anything else aborts)"
-if ($answer -ne "YES") {
-    Write-Item "Aborted. No changes were made." Yellow
-    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-    Stop-Transcript | Out-Null
-    exit 0
+$ToApply   = New-Object System.Collections.Generic.List[string]
+$AlreadyOk = New-Object System.Collections.Generic.List[string]
+foreach ($m in $Members) {
+    $id = [string]$m
+    if ([string]::IsNullOrWhiteSpace($id)) { continue }
+    $inGroup = $have.Contains($id.Trim())
+    if (${isAdd ? "$inGroup" : "-not $inGroup"}) { $AlreadyOk.Add($id) } else { $ToApply.Add($id) }
+}
+$ToApply = @($ToApply)
+
+$script:RunSkipped = $AlreadyOk.Count
+Write-Detail ($Members.Count.ToString() + " in list  |  " + $current.Count + " currently in group  |  " + $ToApply.Count + " ${desiredWord}  |  " + $AlreadyOk.Count + " ${haveWord}")
+
+function Show-Sample {
+    param([string]$Label, $Items, [string]$Color = "Gray")
+    if (@($Items).Count -eq 0) { return }
+    $shown = @($Items) | Select-Object -First 10
+    Write-Detail ($Label + ":") $Color
+    foreach ($s in $shown) { Write-Detail ("  " + $s) $Color }
+    if (@($Items).Count -gt 10) { Write-Detail ("  and " + (@($Items).Count - 10) + " more") $Color }
 }
 
+Show-Sample "${desiredWord.charAt(0).toUpperCase() + desiredWord.slice(1)}" $ToApply Yellow
+Show-Sample "Skipping, ${haveWord}" $AlreadyOk Gray
+
+if ($ToApply.Count -eq 0) {
+    Write-Detail "Nothing to do. Every entry is already in the desired state." Green
+    Stop-Run "" Gray 0
+}
+
+# The old -WhatIf loop proved, as a side effect, that this account could write to
+# the target. A local diff cannot. One -WhatIf call against the first entry keeps
+# that guarantee and fails early with actionable text instead of mid-run.
+try {
+    ${cmdlet} -Identity $Target -Member $ToApply[0] ${liveArgs} -WhatIf -ErrorAction Stop
+    Write-Detail "Permission check passed." Green
+} catch {
+    Write-Detail ("ERROR: This account cannot modify '$Target'. " + $_.Exception.Message) Red
+    Write-Detail "You need a role with write access to this group, for example Recipient Management." Yellow
+    Stop-Run "" Red 1
+}
+
+Confirm-Apply $ToApply.Count "entries"
+`;
+
+    const body = `
 # --- Live run -----------------------------------------------------
 Write-Head "Applying changes..."
 $ok = 0
@@ -488,7 +545,7 @@ foreach ($m in $Members) {
     const summary = 'Write-Item ("Succeeded : " + $ok)\nWrite-Item ("Failed    : " + $failed)\n';
 
     return psPrologue(ctx, ["#  Members     : " + ctx.identities.length]) +
-           inputs + psConnect(ctx) + verify + body + psEpilogue(ctx, summary);
+           inputs + psConnect(ctx) + verify + phase3 + body + psEpilogue(ctx, summary);
   }
 
   // ── Shared mailbox access permissions ─────────────────────────
