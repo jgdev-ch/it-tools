@@ -145,8 +145,98 @@ ${steps.join("\n")}
 
 $ErrorActionPreference = "Continue"
 
+# Progress bar placement. PowerShell 7 defaults to "Minimal", which pins the bar to the
+# bottom of the console. "Classic" restores the 5.1 top block so the status line stays in
+# one fixed place while the log scrolls underneath. $PSStyle does not exist on 5.1.
+if ($null -ne $PSStyle) { try { $PSStyle.Progress.View = "Classic" } catch { } }
+
+# --- Run state ----------------------------------------------------
+$script:RunTotal      = 0
+$script:RunCurrent    = 0
+$script:RunOk         = 0
+$script:RunFailed     = 0
+$script:RunSkipped    = 0
+$script:RunReconnects = 0
+$script:RunStatus     = "Connected"
+$script:RunActivity   = "Working"
+$script:RunStart      = Get-Date
+$script:ConnectedAt   = Get-Date
+$script:LastDraw      = [datetime]::MinValue
+
+# --- Tunables -----------------------------------------------------
+$script:ChunkSize      = 150
+$script:MaxAttempts    = 3
+$script:Backoff        = @(2, 6)
+$script:BreakerLimit   = 10
+$script:MaxReconnects  = 3
+$script:RefreshMinutes = 40
+$script:DrawEveryMs    = 250
+
+# --- Console helpers ----------------------------------------------
 function Write-Head { param([string]$Message) Write-Host ""; Write-Host "  $Message" -ForegroundColor Cyan }
 function Write-Item { param([string]$Message, [string]$Color = "Gray") Write-Host "    $Message" -ForegroundColor $Color }
+
+function Write-Step {
+    param([int]$Step, [int]$Total, [string]$Message)
+    Write-Host ""
+    Write-Host ("  [" + $Step + "/" + $Total + "] " + $Message) -ForegroundColor Cyan
+}
+
+function Write-Detail {
+    param([string]$Message, [string]$Color = "Gray")
+    Write-Host ("      " + $Message) -ForegroundColor $Color
+}
+
+function Stop-Run {
+    param([string]$Message = "", [string]$Color = "Yellow", [int]$Code = 0)
+    if ($Message) { Write-Detail $Message $Color }
+    try { Write-Progress -Activity $script:RunActivity -Completed } catch { }
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Stop-Transcript | Out-Null
+    exit $Code
+}
+
+function Confirm-Continue {
+    param([string]$Prompt)
+    Write-Host ""
+    $response = Read-Host ("      " + $Prompt + " [Y/N]")
+    Write-Host ""
+    if ($response -notmatch "^[Yy]") { Stop-Run "Aborted. No changes were made." Yellow 0 }
+}
+
+function Confirm-Apply {
+    param([int]$Count, [string]$What = "entries")
+    Write-Host ""
+    $answer = Read-Host ("      Type YES to apply these changes to " + $Count + " " + $What + " for real (anything else aborts)")
+    if ($answer -ne "YES") { Stop-Run "Aborted. No changes were made." Yellow 0 }
+}
+
+function Update-Run {
+    param([switch]$Force)
+    $now = Get-Date
+    if (-not $Force -and ($now - $script:LastDraw).TotalMilliseconds -lt $script:DrawEveryMs) { return }
+    $script:LastDraw = $now
+
+    $pct = 0
+    if ($script:RunTotal -gt 0) {
+        $pct = [int](($script:RunCurrent / $script:RunTotal) * 100)
+        if ($pct -gt 100) { $pct = 100 }
+    }
+    $status = $script:RunStatus + "  |  " + $script:RunCurrent + "/" + $script:RunTotal + "  |  " + $script:RunOk + " ok, " + $script:RunFailed + " failed, " + $script:RunSkipped + " skipped"
+
+    $left = -1
+    if ($script:RunCurrent -gt 0 -and $script:RunTotal -gt 0) {
+        $per  = ($now - $script:RunStart).TotalSeconds / $script:RunCurrent
+        $left = [int]($per * ($script:RunTotal - $script:RunCurrent))
+    }
+    try {
+        if ($left -ge 0) {
+            Write-Progress -Activity $script:RunActivity -Status $status -PercentComplete $pct -SecondsRemaining $left
+        } else {
+            Write-Progress -Activity $script:RunActivity -Status $status -PercentComplete $pct
+        }
+    } catch { }
+}
 
 $stamp      = Get-Date -Format 'yyyyMMdd-HHmmss'
 $transcript = Join-Path $PSScriptRoot (${psStr(ctx.logBase)} + "-" + $stamp + ".log")
