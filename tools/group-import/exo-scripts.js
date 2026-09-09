@@ -92,9 +92,11 @@
         sendAs:   !!(input.perms && input.perms.sendAs),
         onBehalf: !!(input.perms && input.perms.onBehalf),
       },
-      // Export is read-only (connect, verify, export). Write ops add a compare
-      // phase and an apply phase. Step numbering must never be hardcoded.
-      phases: op === "export" ? 3 : 5,
+      // Export is read-only: connect, verify, read, complete. Write ops add a
+      // compare phase and an apply phase between verify and complete. psEpilogue
+      // numbers "Complete" as ctx.phases, so Complete is counted here.
+      // Step numbering must never be hardcoded.
+      phases: op === "export" ? 4 : 5,
       autoMapping: input.autoMapping !== false,
       tech: input.tech || "unknown",
       timestamp: now.toISOString().replace("T", " ").slice(0, 19) + " UTC",
@@ -337,21 +339,21 @@ Start-Transcript -Path $transcript | Out-Null
 `;
   }
 
-  /** ExchangeOnlineManagement install guard + Connect-ExchangeOnline. */
-  function psConnect() {
+  /** ExchangeOnlineManagement install guard + Connect-ExchangeOnline. Phase 1. */
+  function psConnect(ctx) {
     return `
-# --- Connect to Exchange Online ------------------------------------
-Write-Head "Connecting to Exchange Online..."
+# --- Phase 1: Connect to Exchange Online --------------------------
+Write-Step 1 ${ctx.phases} "Connecting to Exchange Online..."
 
 $minVersion = [Version]"3.9.0"
 $installed  = Get-Module -ListAvailable -Name ExchangeOnlineManagement | Sort-Object Version -Descending | Select-Object -First 1
 if ($null -eq $installed -or $installed.Version -lt $minVersion) {
-    Write-Item "ExchangeOnlineManagement 3.9.0 or newer not found. Installing for the current user..." Yellow
+    Write-Detail "ExchangeOnlineManagement 3.9.0 or newer not found. Installing for the current user..." Yellow
     try {
         Install-Module ExchangeOnlineManagement -MinimumVersion $minVersion -Force -AllowClobber -Scope CurrentUser -ErrorAction Stop
     } catch {
-        Write-Item ("ERROR: Could not install ExchangeOnlineManagement. " + $_.Exception.Message) Red
-        Write-Item "Install it manually, then re-run: Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force" Yellow
+        Write-Detail ("ERROR: Could not install ExchangeOnlineManagement. " + $_.Exception.Message) Red
+        Write-Detail "Install it manually, then re-run: Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force" Yellow
         Stop-Transcript | Out-Null
         exit 1
     }
@@ -360,9 +362,10 @@ if ($null -eq $installed -or $installed.Version -lt $minVersion) {
 try {
     Import-Module ExchangeOnlineManagement -MinimumVersion $minVersion -ErrorAction Stop
     Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
-    Write-Item "Connected." Green
+    $script:ConnectedAt = Get-Date
+    Write-Detail "Connected." Green
 } catch {
-    Write-Item ("ERROR: Could not connect to Exchange Online. " + $_.Exception.Message) Red
+    Write-Detail ("ERROR: Could not connect to Exchange Online. " + $_.Exception.Message) Red
     Stop-Transcript | Out-Null
     exit 1
 }
@@ -372,9 +375,10 @@ try {
   /** Summary tail, disconnect, transcript stop. extraSummary is raw PowerShell lines. */
   function psEpilogue(ctx, extraSummary) {
     return `
-# --- Finish --------------------------------------------------------
-Write-Head "Complete"
-${extraSummary || ""}Write-Item ("Transcript: " + $transcript)
+# --- Phase ${ctx.phases}: Complete ---------------------------------
+try { Write-Progress -Activity $script:RunActivity -Completed } catch { }
+Write-Step ${ctx.phases} ${ctx.phases} "Complete"
+${extraSummary || ""}Write-Detail ("Transcript : " + $transcript)
 Write-Host ""
 
 Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
@@ -395,16 +399,21 @@ ${memberBlock}
 `;
 
     const verify = `
-# --- Verify the target --------------------------------------------
-Write-Head "Verifying the target in Exchange Online..."
+# --- Phase 2: Verify the target -----------------------------------
+Write-Step 2 ${ctx.phases} "Verifying the target in Exchange Online..."
+
+# Re-verification after a reconnect uses this too, so it must be a function.
+function Test-Target {
+    $g = Get-DistributionGroup -Identity $Target -ErrorAction Stop
+    return $g
+}
+
 try {
-    $group = Get-DistributionGroup -Identity $Target -ErrorAction Stop
-    Write-Item ("Found: " + $group.DisplayName + " <" + $group.PrimarySmtpAddress + "> [" + $group.RecipientTypeDetails + "]") Green
+    $group = Test-Target
+    Write-Detail ("Found: " + $group.DisplayName + " <" + $group.PrimarySmtpAddress + "> [" + $group.RecipientTypeDetails + "]") Green
 } catch {
-    Write-Item ("ERROR: Could not find '$Target' in Exchange Online. " + $_.Exception.Message) Red
-    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-    Stop-Transcript | Out-Null
-    exit 1
+    Write-Detail ("ERROR: Could not find '$Target' in Exchange Online. " + $_.Exception.Message) Red
+    Stop-Run "" Red 1
 }
 `;
     // Export is read-only: no dry run, no confirmation gate, writes a CSV next to the script.
@@ -428,8 +437,8 @@ try {
     Write-Item ("ERROR: Could not read members. " + $_.Exception.Message) Red
 }
 `;
-      return psPrologue(ctx, []) + inputs + psConnect() + verify + exportBody +
-             psEpilogue(ctx, 'Write-Item ("Members read: " + $count)\n');
+      return psPrologue(ctx, []) + inputs + psConnect(ctx) + verify + exportBody +
+             psEpilogue(ctx, 'Write-Detail ("Members read: " + $count)\n');
     }
 
     const isAdd     = ctx.op === "add";
@@ -479,7 +488,7 @@ foreach ($m in $Members) {
     const summary = 'Write-Item ("Succeeded : " + $ok)\nWrite-Item ("Failed    : " + $failed)\n';
 
     return psPrologue(ctx, ["#  Members     : " + ctx.identities.length]) +
-           inputs + psConnect() + verify + body + psEpilogue(ctx, summary);
+           inputs + psConnect(ctx) + verify + body + psEpilogue(ctx, summary);
   }
 
   // ── Shared mailbox access permissions ─────────────────────────
@@ -501,19 +510,23 @@ $AutoMapping    = $${ctx.autoMapping}
 `;
 
     const verify = `
-# --- Verify the mailbox -------------------------------------------
-Write-Head "Verifying the mailbox in Exchange Online..."
+# --- Phase 2: Verify the mailbox ----------------------------------
+Write-Step 2 ${ctx.phases} "Verifying the mailbox in Exchange Online..."
+
+function Test-Target {
+    $m = Get-Mailbox -Identity $Mailbox -ErrorAction Stop
+    return $m
+}
+
 try {
-    $mbx = Get-Mailbox -Identity $Mailbox -ErrorAction Stop
-    Write-Item ("Found: " + $mbx.DisplayName + " <" + $mbx.PrimarySmtpAddress + "> [" + $mbx.RecipientTypeDetails + "]") Green
+    $mbx = Test-Target
+    Write-Detail ("Found: " + $mbx.DisplayName + " <" + $mbx.PrimarySmtpAddress + "> [" + $mbx.RecipientTypeDetails + "]") Green
     if ($mbx.RecipientTypeDetails -ne "SharedMailbox") {
-        Write-Item "WARNING: this is not a shared mailbox. Continue only if that is intentional." Yellow
+        Write-Detail "WARNING: this is not a shared mailbox. Continue only if that is intentional." Yellow
     }
 } catch {
-    Write-Item ("ERROR: Could not find mailbox '$Mailbox'. " + $_.Exception.Message) Red
-    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-    Stop-Transcript | Out-Null
-    exit 1
+    Write-Detail ("ERROR: Could not find mailbox '$Mailbox'. " + $_.Exception.Message) Red
+    Stop-Run "" Red 1
 }
 `;
 
@@ -580,8 +593,8 @@ if ($rows.Count -eq 0) {
     Write-Item $outFile
 }
 `;
-      return psPrologue(ctx, []) + inputs + psConnect() + verify + exportBody +
-             psEpilogue(ctx, 'Write-Item ("Access entries: " + $rows.Count)\n');
+      return psPrologue(ctx, []) + inputs + psConnect(ctx) + verify + exportBody +
+             psEpilogue(ctx, 'Write-Detail ("Access entries: " + $rows.Count)\n');
     }
 
     // Per-permission blocks. -WhatIf preview and live call are emitted side by side
@@ -728,7 +741,7 @@ foreach ($t in $Trustees) { Invoke-AccessChange -Trustee $t -Preview $false }
 
     const summary = 'Write-Item ("Succeeded : " + $script:ok)\nWrite-Item ("Failed    : " + $script:failed)\n';
 
-    return psPrologue(ctx, extraHeader) + inputs + psConnect() + verify + body + psEpilogue(ctx, summary);
+    return psPrologue(ctx, extraHeader) + inputs + psConnect(ctx) + verify + body + psEpilogue(ctx, summary);
   }
 
   /** Dispatch on object type. */
