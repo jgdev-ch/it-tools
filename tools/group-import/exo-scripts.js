@@ -182,9 +182,6 @@ $script:RefreshMinutes = 40
 $script:DrawEveryMs    = 250
 
 # --- Console helpers ----------------------------------------------
-function Write-Head { param([string]$Message) Write-Host ""; Write-Host "  $Message" -ForegroundColor Cyan }
-function Write-Item { param([string]$Message, [string]$Color = "Gray") Write-Host "    $Message" -ForegroundColor $Color }
-
 function Write-Step {
     param([int]$Step, [int]$Total, [string]$Message)
     Write-Host ""
@@ -452,21 +449,21 @@ try {
     if (ctx.op === "export") {
       const exportBody = `
 # --- Export members -----------------------------------------------
-Write-Head "Reading current members..."
+Write-Step 3 ${ctx.phases} "Reading current members..."
 $outFile = Join-Path $PSScriptRoot (${psStr(ctx.logBase + "-" + ctx.targetSlug)} + "-" + $stamp + ".csv")
 $count = 0
 try {
     $members = Get-DistributionGroupMember -Identity $Target -ResultSize Unlimited -ErrorAction Stop
     $count = @($members).Count
     if ($count -eq 0) {
-        Write-Item "This group has no members. No CSV was written." Yellow
+        Write-Detail "This group has no members. No CSV was written." Yellow
     } else {
         $members | Select-Object DisplayName, PrimarySmtpAddress, RecipientTypeDetails, Alias | Export-Csv -Path $outFile -NoTypeInformation -Encoding UTF8
-        Write-Item ("Exported " + $count + " members to:") Green
-        Write-Item $outFile
+        Write-Detail ("Exported " + $count + " members to:") Green
+        Write-Detail $outFile
     }
 } catch {
-    Write-Item ("ERROR: Could not read members. " + $_.Exception.Message) Red
+    Write-Detail ("ERROR: Could not read members. " + $_.Exception.Message) Red
 }
 `;
       return psPrologue(ctx, []) + inputs + psConnect(ctx) + verify + exportBody +
@@ -713,7 +710,7 @@ try {
     if (ctx.op === "export") {
       const exportBody = `
 # --- Export access list -------------------------------------------
-Write-Head "Reading access permissions..."
+Write-Step 3 ${ctx.phases} "Reading access permissions..."
 $outFile = Join-Path $PSScriptRoot (${psStr(ctx.logBase + "-" + ctx.targetSlug)} + "-" + $stamp + ".csv")
 $rows = New-Object System.Collections.Generic.List[object]
 
@@ -728,9 +725,9 @@ try {
                 Deny       = [bool]$_.Deny
             })
         }
-    Write-Item "Mailbox permissions read." Green
+    Write-Detail "Mailbox permissions read." Green
 } catch {
-    Write-Item ("Could not read mailbox permissions. " + $_.Exception.Message) Red
+    Write-Detail ("Could not read mailbox permissions. " + $_.Exception.Message) Red
 }
 
 try {
@@ -744,9 +741,9 @@ try {
                 Deny       = ($_.AccessControlType -eq "Deny")
             })
         }
-    Write-Item "Send As permissions read." Green
+    Write-Detail "Send As permissions read." Green
 } catch {
-    Write-Item ("Could not read Send As permissions. " + $_.Exception.Message) Red
+    Write-Detail ("Could not read Send As permissions. " + $_.Exception.Message) Red
 }
 
 try {
@@ -758,17 +755,17 @@ try {
             Deny       = $false
         })
     }
-    Write-Item "Send on Behalf permissions read." Green
+    Write-Detail "Send on Behalf permissions read." Green
 } catch {
-    Write-Item ("Could not read Send on Behalf permissions. " + $_.Exception.Message) Red
+    Write-Detail ("Could not read Send on Behalf permissions. " + $_.Exception.Message) Red
 }
 
 if ($rows.Count -eq 0) {
-    Write-Item "No explicit access entries found. No CSV was written." Yellow
+    Write-Detail "No explicit access entries found. No CSV was written." Yellow
 } else {
     $rows | Export-Csv -Path $outFile -NoTypeInformation -Encoding UTF8
-    Write-Item ("Exported " + $rows.Count + " access entries to:") Green
-    Write-Item $outFile
+    Write-Detail ("Exported " + $rows.Count + " access entries to:") Green
+    Write-Detail $outFile
 }
 `;
       return psPrologue(ctx, []) + inputs + psConnect(ctx) + verify + exportBody +
