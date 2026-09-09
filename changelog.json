@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "2.4.3",
+      "date": "2026-09-09",
+      "notes": [
+        "Group Administration: Exchange scripts now check current membership first, so anyone already in the group is skipped instead of being re-attempted, and the preview is a short summary instead of thousands of lines",
+        "Group Administration: Exchange scripts now show a progress bar with a running count, time remaining, and the current connection status",
+        "Group Administration: Exchange scripts now retry temporary Exchange errors and reconnect by themselves if the session drops during a long run",
+        "Group Administration: if anything fails, a failures CSV is saved next to the log so you can finish the job by re-uploading just those entries"
+      ]
+    },
+    {
       "version": "2.4.2",
       "date": "2026-09-01",
       "notes": [
