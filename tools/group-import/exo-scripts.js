@@ -92,6 +92,9 @@
         sendAs:   !!(input.perms && input.perms.sendAs),
         onBehalf: !!(input.perms && input.perms.onBehalf),
       },
+      // Export is read-only (connect, verify, export). Write ops add a compare
+      // phase and an apply phase. Step numbering must never be hardcoded.
+      phases: op === "export" ? 3 : 5,
       autoMapping: input.autoMapping !== false,
       tech: input.tech || "unknown",
       timestamp: now.toISOString().replace("T", " ").slice(0, 19) + " UTC",
