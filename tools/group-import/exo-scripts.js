@@ -333,6 +333,34 @@ function Invoke-WithRetry {
     }
 }
 
+# Re-establishes a dead session. Depends on Test-Target, which each generator
+# defines for its own object type. Returns $true if the session is usable again.
+function Reset-Session {
+    if ($script:RunReconnects -ge $script:MaxReconnects) {
+        Write-Detail ("Reconnect limit of " + $script:MaxReconnects + " reached. Stopping.") Red
+        return $false
+    }
+    $script:RunStatus = "Reconnecting..."
+    Update-Run -Force
+    Write-Detail "Re-establishing the Exchange Online session..." Yellow
+    try { Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue } catch { }
+    try {
+        Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
+        $null = Test-Target
+        $script:RunReconnects++
+        $script:ConnectedAt = Get-Date
+        $script:RunStatus   = "Connected"
+        Update-Run -Force
+        Write-Detail ("Reconnected. Reconnect " + $script:RunReconnects + " of " + $script:MaxReconnects + ".") Green
+        return $true
+    } catch {
+        Write-Detail ("Reconnect failed. " + $_.Exception.Message) Red
+        $script:RunStatus = "Disconnected"
+        Update-Run -Force
+        return $false
+    }
+}
+
 $stamp      = Get-Date -Format 'yyyyMMdd-HHmmss'
 $transcript = Join-Path $PSScriptRoot (${psStr(ctx.logBase)} + "-" + $stamp + ".log")
 Start-Transcript -Path $transcript | Out-Null
@@ -526,23 +554,112 @@ Confirm-Apply $ToApply.Count "entries"
 `;
 
     const body = `
-# --- Live run -----------------------------------------------------
-Write-Head "Applying changes..."
-$ok = 0
-$failed = 0
-foreach ($m in $Members) {
-    try {
-        ${cmdlet} -Identity $Target -Member $m ${liveArgs} -ErrorAction Stop
-        Write-Item ("${didWord}: " + $m) Green
-        $ok++
-    } catch {
-        Write-Item ("FAILED: " + $m + " - " + $_.Exception.Message) Red
-        $failed++
+# --- Phase 4: Apply changes ---------------------------------------
+Write-Step 4 ${ctx.phases} "Applying changes..."
+
+$script:RunTotal    = $ToApply.Count
+$script:RunActivity = "${isAdd ? "Adding members to" : "Removing members from"} " + $Target
+$script:RunStart    = Get-Date
+$script:RunCurrent  = 0
+Update-Run -Force
+
+$failRows    = New-Object System.Collections.Generic.List[object]
+$consecutive = 0
+$aborted     = $false
+$chunkCount  = [Math]::Ceiling($script:RunTotal / $script:ChunkSize)
+$i           = 0
+
+$applyOne = { param($Identity) ${cmdlet} -Identity $Target -Member $Identity ${liveArgs} -ErrorAction Stop }
+
+for ($c = 1; $c -le $chunkCount; $c++) {
+    if ($aborted) { break }
+
+    $end = [Math]::Min($i + $script:ChunkSize, $script:RunTotal)
+    while ($i -lt $end) {
+        # Proactive refresh. The 2026-09-08 run died at 62 minutes because the access
+        # token needed renewing and the module's own claims handler crashed. Refreshing
+        # before the token ages out means that path is never reached. Checked per entry,
+        # not per chunk: a chunk of 150 can span 10 minutes, which would let the token
+        # age out well past the refresh threshold before the next boundary arrived.
+        if (((Get-Date) - $script:ConnectedAt).TotalMinutes -ge $script:RefreshMinutes) {
+            Write-Detail ("Session has been open " + $script:RefreshMinutes + "+ minutes. Refreshing before the next entry.") Yellow
+            if (-not (Reset-Session)) { $aborted = $true; break }
+        }
+
+        $identity = $ToApply[$i]
+        $res      = Invoke-WithRetry -Action $applyOne -Identity $identity
+        $i++
+        $script:RunCurrent = $i
+
+        if ($res.Ok) {
+            Write-Detail ("${didWord}: " + $identity) Green
+            $script:RunOk++
+            $consecutive = 0
+        } else {
+            $suffix = ""
+            if ($res.Attempts -gt 1) { $suffix = " (after " + $res.Attempts + " attempts)" }
+            Write-Detail ("FAILED: " + $identity + " - " + $res.Message + $suffix) Red
+            $script:RunFailed++
+            $failRows.Add([pscustomobject]@{
+                Identity = $identity
+                Reason   = $res.Message
+                Class    = $res.Class
+                Attempts = $res.Attempts
+            })
+
+            # A permanent failure is a data problem with this one entry and must not
+            # count toward the session breaker. Without this, a list with ten bad
+            # addresses in a row would declare a healthy session dead.
+            if ($res.Class -ne "permanent") { $consecutive++ } else { $consecutive = 0 }
+
+            if ($res.Class -eq "dead" -or $consecutive -ge $script:BreakerLimit) {
+                if ($res.Class -eq "dead") {
+                    Write-Detail "The Exchange session is no longer usable." Yellow
+                } else {
+                    Write-Detail ($consecutive.ToString() + " consecutive failures. Treating the session as dead.") Yellow
+                }
+                if (Reset-Session) {
+                    $consecutive = 0
+                    # Retry the entry that tripped the breaker, so nothing is skipped.
+                    $i--
+                    $script:RunCurrent = $i
+                    $failRows.RemoveAt($failRows.Count - 1)
+                    $script:RunFailed--
+                } else {
+                    $aborted = $true
+                    break
+                }
+            }
+        }
+        Update-Run
     }
+
+    if (-not $aborted) {
+        Write-Detail ($script:RunCurrent.ToString() + "/" + $script:RunTotal + "   " + $script:RunOk + " ok, " + $script:RunFailed + " failed        (chunk " + $c + " of " + $chunkCount + " done, session ok)") Cyan
+    }
+}
+Update-Run -Force
+
+if ($aborted) {
+    Write-Detail "" Yellow
+    Write-Detail ("STOPPED EARLY at entry " + $script:RunCurrent + " of " + $script:RunTotal + ".") Yellow
+    Write-Detail "Re-run this script to finish. It will skip everything already applied." Yellow
+}
+
+# --- Failures CSV -------------------------------------------------
+$failFile = ""
+if ($failRows.Count -gt 0) {
+    $failFile = Join-Path $PSScriptRoot (${psStr(ctx.logBase)} + "-" + $stamp + "-failures.csv")
+    $failRows | Export-Csv -Path $failFile -NoTypeInformation -Encoding UTF8
 }
 `;
 
-    const summary = 'Write-Item ("Succeeded : " + $ok)\nWrite-Item ("Failed    : " + $failed)\n';
+    const summary =
+      'Write-Detail ("' + didWord.padEnd(10) + ' : " + $script:RunOk)\n' +
+      'Write-Detail ("Skipped    : " + $script:RunSkipped + "   (' + haveWord + ')")\n' +
+      'Write-Detail ("Failed     : " + $script:RunFailed)\n' +
+      'Write-Detail ("Reconnects : " + $script:RunReconnects)\n' +
+      'if ($failFile) { Write-Detail ("Failures   : " + $failFile) Yellow }\n';
 
     return psPrologue(ctx, ["#  Members     : " + ctx.identities.length]) +
            inputs + psConnect(ctx) + verify + phase3 + body + psEpilogue(ctx, summary);
