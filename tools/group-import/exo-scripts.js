@@ -238,6 +238,96 @@ function Update-Run {
     } catch { }
 }
 
+# --- Failure classification ---------------------------------------
+# "dead"      -> the EXO session is unusable; only a reconnect fixes it.
+# "transient" -> Exchange told us to retry.
+# "permanent" -> a data problem with this one entry. Never a session problem.
+# "unknown"   -> unclassified. Treated as retryable AND counted toward the breaker,
+#                because an unrecognised error is more likely session-related than benign.
+$script:DeadSessionPatterns = @(
+    "getresponseheader",
+    "get-claimsfromexceptiondetails",
+    "session has been closed",
+    "connection to the remote server",
+    "starting a command on the remote server",
+    "the runspace state is not valid",
+    "no longer available"
+)
+$script:TransientPatterns = @(
+    "server side error",
+    "please try again",
+    "try again after some time",
+    "operation could not be completed",
+    "timed out",
+    "timeout",
+    "too many requests",
+    "throttl",
+    "temporarily unavailable",
+    "service unavailable",
+    "(429)",
+    "(503)"
+)
+$script:PermanentPatterns = @(
+    "couldn't be found",
+    "could not be found",
+    "wasn't found",
+    "was not found",
+    "is not a valid",
+    "isn't a valid",
+    "already a member",
+    "already exists",
+    "already present",
+    "already has",
+    "is not a member",
+    "isn't a member",
+    "doesn't have a mailbox",
+    "does not have a mailbox",
+    "unlicensed",
+    "invalid smtp address"
+)
+
+function Test-AnyPattern {
+    param([string]$Text, [string[]]$Patterns)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+    $lower = $Text.ToLowerInvariant()
+    foreach ($p in $Patterns) { if ($lower.Contains($p)) { return $true } }
+    return $false
+}
+
+function Get-FailureClass {
+    param([string]$Message)
+    if (Test-AnyPattern -Text $Message -Patterns $script:DeadSessionPatterns) { return "dead" }
+    if (Test-AnyPattern -Text $Message -Patterns $script:TransientPatterns)   { return "transient" }
+    if (Test-AnyPattern -Text $Message -Patterns $script:PermanentPatterns)   { return "permanent" }
+    return "unknown"
+}
+
+# Runs one scriptblock against one identity with retry. Returns a hashtable:
+#   Ok (bool), Attempts (int), Message (string), Class (string)
+function Invoke-WithRetry {
+    param([scriptblock]$Action, [string]$Identity)
+    $attempt = 0
+    while ($true) {
+        $attempt++
+        try {
+            & $Action $Identity
+            return @{ Ok = $true; Attempts = $attempt; Message = ""; Class = "ok" }
+        } catch {
+            $msg   = $_.Exception.Message
+            $class = Get-FailureClass -Message $msg
+            if ($class -eq "dead") {
+                return @{ Ok = $false; Attempts = $attempt; Message = $msg; Class = $class }
+            }
+            $retryable = ($class -eq "transient" -or $class -eq "unknown")
+            if ($retryable -and $attempt -lt $script:MaxAttempts) {
+                Start-Sleep -Seconds $script:Backoff[$attempt - 1]
+                continue
+            }
+            return @{ Ok = $false; Attempts = $attempt; Message = $msg; Class = $class }
+        }
+    }
+}
+
 $stamp      = Get-Date -Format 'yyyyMMdd-HHmmss'
 $transcript = Join-Path $PSScriptRoot (${psStr(ctx.logBase)} + "-" + $stamp + ".log")
 Start-Transcript -Path $transcript | Out-Null
