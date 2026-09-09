@@ -134,8 +134,12 @@
       : [
           "#    1. Connects to Exchange Online in your own admin context.",
           "#    2. Starts a transcript next to this script for audit.",
-          "#    3. Runs every change with -WhatIf first, so nothing changes yet.",
+          "#    3. Reads the current state and shows you exactly what will change.",
           "#    4. Waits for you to type YES, then applies the changes for real.",
+          "#    5. Retries transient errors, and reconnects by itself if the",
+          "#       Exchange session drops part-way through a long run.",
+          "#    6. Writes a failures CSV next to this script if anything fails,",
+          "#       so you can finish the job by re-uploading just those entries.",
         ];
 
     return `# =====================================================================
@@ -987,8 +991,8 @@ if ($failRows.Count -gt 0) {
           "echo  next to this file. It does not change anything.",
         ]
       : [
-          "echo  This connects to Exchange Online, shows a dry run first,",
-          "echo  then asks you to type YES before changing anything.",
+          "echo  This connects to Exchange Online, shows you exactly what",
+          "echo  will change, then asks you to type YES before changing anything.",
         ];
     const countLine = readOnly ? "" : "echo  Users     : " + ctx.identities.length + "\n";
 
