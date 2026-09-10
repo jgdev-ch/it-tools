@@ -387,7 +387,15 @@ git commit -m "Group Admin: colour the generated-script progress bar teal instea
 
 ---
 
-## Task 3: Suppress the `-WhatIf` leak
+## Task 3: Label the `-WhatIf` leak
+
+> **Revised 2026-09-10 during execution.** Steps 1 and 2 ran as written and the harness
+> **disproved the planned fix**: `*> $null` does not suppress the line. `ShouldProcess` writes to
+> the host past all six streams. `-InformationAction Ignore` also has no effect, and muting
+> `[Console]::Out` suppresses it but permanently silences the host for the rest of the run. Josh
+> chose to label the line instead of removing the probe. Step 3 below is the revised fix; steps 1
+> and 2 are unchanged and are what found this. Expected output for step 2 is corrected to reflect
+> reality.
 
 Harness first. The trap here is fixing the visible half (text suppressed) while breaking the
 invisible half (the error must still reach `catch`).
@@ -436,37 +444,47 @@ Write-Host ("3. error still reaches catch  :  " + $(if ($c.Output -match '^CAUGH
 pwsh -NoProfile -File "$TEMP/gi-whatif.ps1"
 ```
 
-Expected all three `YES`:
+**Actual result on pwsh 7.6.5, 2026-09-10:**
 
 ```
 1. unsuppressed prints What if:  YES  (expected YES)
-2. suppressed prints nothing  :  YES  (expected YES)
+2. suppressed prints nothing  :  no   <-- FAIL: [What if: Performing the operation ...]
 3. error still reaches catch  :  YES  (expected YES)
 ```
 
-Line 1 proves the stub reproduces the real behaviour. Line 2 proves the fix. Line 3 proves the fix
-does not swallow the failure the probe exists to catch. If line 1 says `no`, the stub is not
-reproducing the leak and lines 2 and 3 prove nothing.
+Line 1 proves the stub reproduces the real behaviour. Line 3 proves a redirect does not swallow
+the failure the probe exists to catch. **Line 2 is the finding:** the announcement is not on any
+stream, so it cannot be redirected. This is expected output for this harness now, not a
+regression. Do not try to make line 2 say `YES`.
 
-- [ ] **Step 3: Apply the suppression to the probe**
+- [ ] **Step 3: Label the probe instead of suppressing it**
 
-In `buildGroupMemberScript`, inside the `phase3` template, find:
+In `buildGroupMemberScript`, inside the `phase3` template, find the three comment lines above the
+probe's `try {` and add a labelling line plus a record of what was tested. The probe call itself
+does **not** change:
 
 ```javascript
+# The old -WhatIf loop proved, as a side effect, that this account could write to
+# the target. A local diff cannot. One -WhatIf call against the first entry keeps
+# that guarantee and fails early with actionable text instead of mid-run.
+#
+# PowerShell writes its own "What if:" announcement directly to the host, past all
+# six streams, so it cannot be redirected or suppressed. Tested 2026-09-10:
+# "*> \$null" has no effect; -InformationAction Ignore has no effect; muting
+# [Console]::Out does suppress it but permanently silences the host for the rest of
+# the run, even after the writer is restored. The line is therefore labelled rather
+# than hidden. Do not spend time trying to suppress it again.
+Write-Detail 'Checking write permission. The "What if" line below is expected.'
+try {
     ${cmdlet} -Identity $Target -Member $ToApply[0] ${liveArgs} -WhatIf -ErrorAction Stop
     Write-Detail "Permission check passed." Green
 ```
 
-Replace with:
+Note `"*> \$null"` inside the comment: the backslash is required so the JS template literal emits
+a literal `$null` rather than interpolating. Verify after rendering.
 
-```javascript
-    ${cmdlet} -Identity $Target -Member $ToApply[0] ${liveArgs} -WhatIf -ErrorAction Stop *> $null
-    Write-Detail "Permission check passed." Green
-```
-
-`-ErrorAction Stop` still raises a terminating error, so the existing `catch` and its
-"You need a role with write access to this group" message are unaffected. Only PowerShell's own
-"What if:" host output is discarded.
+This fixes the line reading as a failure. It does **not** fix the column-zero indentation, which
+is not controllable. That limit is accepted; see the spec.
 
 Leave the mailbox generator alone. Its probe is a `Get-MailboxPermission` read piped to
 `Out-Null` and never had this problem.
@@ -475,19 +493,26 @@ Leave the mailbox generator alone. Its probe is a `Get-MailboxPermission` read p
 
 Expected: all clean.
 
-- [ ] **Step 5: Confirm the redirect reached the output and only the probe has it**
+- [ ] **Step 5: Confirm the label rendered and the escaping held**
 
 ```bash
-grep -n "WhatIf" "$TEMP/gi-distribution-list-add-large.ps1" | grep -v "^\s*[0-9]*:#"
+grep -n "Checking write permission" -A 3 "$TEMP/gi-distribution-list-add-large.ps1"
 ```
 
-Expected: exactly one line, the probe, ending `-WhatIf -ErrorAction Stop *> $null`.
+Expected: the `Write-Detail` label, then `try {`, then the unchanged probe call, then
+`Write-Detail "Permission check passed." Green`.
 
 ```bash
-grep -c '\*> \$null' "$TEMP/gi-shared-mailbox-grant-small.ps1"
+grep -c '\\\$null' "$TEMP/gi-distribution-list-add-large.ps1"
 ```
 
-Expected: `0`. The mailbox path must not have gained a redirect.
+Expected: `0`. A stray backslash here means the escaping in the comment leaked into the output.
+
+```bash
+grep -c 'Checking write permission' "$TEMP/gi-shared-mailbox-grant-small.ps1"
+```
+
+Expected: `0`. The mailbox path must not have gained a label it does not need.
 
 - [ ] **Step 6: Commit**
 

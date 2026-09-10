@@ -578,6 +578,14 @@ if ($ToApply.Count -eq 0) {
 # The old -WhatIf loop proved, as a side effect, that this account could write to
 # the target. A local diff cannot. One -WhatIf call against the first entry keeps
 # that guarantee and fails early with actionable text instead of mid-run.
+#
+# PowerShell writes its own "What if:" announcement directly to the host, past all
+# six streams, so it cannot be redirected or suppressed. Tested 2026-09-10:
+# "*> \$null" has no effect; -InformationAction Ignore has no effect; muting
+# [Console]::Out does suppress it but permanently silences the host for the rest of
+# the run, even after the writer is restored. The line is therefore labelled rather
+# than hidden. Do not spend time trying to suppress it again.
+Write-Detail 'Checking write permission. The "What if" line below is expected.'
 try {
     ${cmdlet} -Identity $Target -Member $ToApply[0] ${liveArgs} -WhatIf -ErrorAction Stop
     Write-Detail "Permission check passed." Green

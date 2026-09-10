@@ -132,16 +132,48 @@ with `Write-Host` plus cursor positioning allows any glyph but breaks on console
 wrapping, and would write ~160 bar redraws into the transcript, bloating the audit log for
 cosmetics. Keeping `o` also means the bar looks like every other PowerShell tool a tech has used.
 
-## Change 3: suppress the `-WhatIf` leak
+## Change 3: label the `-WhatIf` leak (revised 2026-09-10 during implementation)
+
+> **Revised.** This section originally specified suppressing the line with `*> $null`. That was
+> tested before editing and **does not work**; see "What was actually implemented" below. The
+> problem statement stands; the fix changed, with Josh's approval.
 
 **Problem.** The phase 3 capability probe runs the real cmdlet with `-WhatIf`. PowerShell prints
 its own "What if: Adding distribution group member ..." straight to the host at column zero,
 breaking the six-space indent every other line follows, and it lands *above*
 "Permission check passed." so it reads as though something failed.
 
-**Fix.** Append `*> $null` to the probe call. `-ErrorAction Stop` still raises a terminating
-error, so the existing `try/catch` and its actionable "You need a role with write access" message
-are untouched; only the host chatter is swallowed.
+**Why it cannot be suppressed.** `ShouldProcess` writes its WhatIf announcement directly to the
+host UI, past all six PowerShell streams. Three mechanisms were tested on pwsh 7.6.5 on
+2026-09-10, before any code was edited:
+
+| Mechanism | Result |
+|---|---|
+| `*> $null` (all six streams) | No effect. Line still printed. |
+| `-InformationAction Ignore` | No effect. Confirms it is not on the information stream. |
+| `[Console]::SetOut([TextWriter]::Null)` | Suppresses the line, but **permanently silences the host for the rest of the run**, even after the writer is restored, because ConsoleHost caches its output stream. A following `Write-Host` marker never appeared. Unusable in a script a tech runs unattended. |
+
+**What was actually implemented.** The line is labelled rather than hidden. One `Write-Detail`
+before the probe tells the reader the line is coming:
+
+```
+      Checking write permission. The "What if" line below is expected.
+What if: Adding distribution group member "..." on distribution group Identity:"...".
+      Permission check passed.
+```
+
+The generated script carries a comment recording all three failed mechanisms, so nobody attempts
+the suppression again.
+
+**Known limit, accepted.** This stops the line reading as a failure. It does **not** fix the
+column-zero indentation, because the column PowerShell writes at is not controllable. Josh
+accepted that trade on 2026-09-10 over the alternative of deleting the probe entirely.
+
+**Rejected alternative.** Dropping the `-WhatIf` probe and instead aborting on a permission
+failure from the first real add would remove the line completely. Rejected for this change because
+it converts a formatting fix into a run-logic change, moves the permission check to after the
+confirm gate, and would need a fourth stub scenario. Worth revisiting with the deferred house
+standard.
 
 **Group-member path only.** The mailbox path's probe is a `Get-MailboxPermission` read and never
 had this problem.
@@ -213,8 +245,12 @@ Three new gates, all runnable without a tenant:
 
 1. **WhatIf suppression.** A local advanced function with `[CmdletBinding(SupportsShouldProcess)]`
    called with `-WhatIf` and `*> $null`, asserting the "What if:" text is absent from captured
-   output **and** that `-ErrorAction Stop` still throws into `catch`. Proves the fix without
-   proving only half of it.
+   output **and** that `-ErrorAction Stop` still throws into `catch`.
+   **Outcome: this gate failed by design and produced the Change 3 revision.** It proved case 1
+   (the stub reproduces the leak) and case 3 (the throw survives) but not case 2 (suppression),
+   which is how the unsuppressible behaviour was found before any code was edited. Retained in
+   `%TEMP%\gi-whatif.ps1` as the evidence for why the line is labelled instead of hidden; it is
+   not a passing gate and should not be treated as one.
 2. **Column alignment.** Render chunk milestone lines at 2-, 3- and 4-digit totals and assert the
    character index of `(chunk` is identical across all three. This is the regression that existed.
 3. **Redraw count.** Instrument `Update-Run` with a counting stub for `Write-Progress`, drive it
