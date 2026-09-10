@@ -84,22 +84,53 @@ always-on bar wears the same colour as "something needs attention."
 **Decision: teal.** Chosen over hub blue specifically because it renders consistently across both
 hosts, which was the deciding factor.
 
-The bar is reverse video, so the colour becomes the background and text goes dark. Implement via
-the **ANSI BrightCyan slot rather than a 24-bit RGB value**, so PowerShell 7 and 5.1 both resolve
-through the same terminal palette and actually match, instead of a hardcoded RGB being merely
-close to 5.1's `Cyan`.
+**One mechanism, both hosts.** Verified against pwsh 7.6.5 on 2026-09-10 by enumerating the
+renderer's properties:
 
-Two mechanisms, each guarded, extending the `$PSStyle` guard already present:
+```
+$PSStyle.Progress  ->  MaxWidth, Style, UseOSCIndicator, View
+$Host.PrivateData  ->  ProgressBackgroundColor, ProgressForegroundColor
+```
 
-- **PowerShell 7:** `$PSStyle.Progress.Style`, set to BrightCyan plus reverse.
-- **PowerShell 5.1:** `$Host.PrivateData.ProgressBackgroundColor = 'Cyan'` and
-  `ProgressForegroundColor = 'Black'`. `PrivateData` is absent or differently shaped on non-console
-  hosts, so this must be wrapped in `try/catch` exactly as the `$PSStyle` line already is.
+`$Host.PrivateData` reports `ProgressBackgroundColor = Yellow` / `ProgressForegroundColor = Black`,
+which is exactly the yellow block with dark text in the 2026-09-09 screenshot. `$PSStyle.Progress.Style`
+is `ESC[33;1m`, bright yellow *foreground*, which would render as yellow text rather than a block.
+**Classic view therefore takes its colours from `PrivateData`, and `$PSStyle.Progress.Style` applies
+only to Minimal view.** Since the script already pins `View = 'Classic'` on PowerShell 7, both hosts
+run the same renderer and read the same two properties.
+
+So the implementation is:
+
+```
+$Host.PrivateData.ProgressBackgroundColor = 'Cyan'
+$Host.PrivateData.ProgressForegroundColor = 'Black'
+```
+
+wrapped in `try/catch`, because `PrivateData` is absent or differently shaped on non-console hosts.
+No `$PSStyle.Progress.Style` assignment: it would be dead code while Classic is pinned.
+
+This is stronger than the originally specced two-path approach. Using the named console colour
+`Cyan` rather than a 24-bit RGB value means both hosts resolve through the same terminal palette,
+so the result is genuinely identical rather than approximately matching, which was the deciding
+factor in choosing teal.
+
+**Confirm visually once.** Progress output cannot be captured from a piped session, so the colour
+change is the one item in this spec that no automated gate can verify. Eyeball it on the first run
+after implementation.
 
 **Known cosmetic consequence:** step headers and chunk milestone lines are already cyan, so the
-screen leans one colour. Accepted, because the bar is a reverse-video *block* and does not compete
-with cyan *text* the way two text colours would. If it reads busy on the next real run, dropping
-the chunk milestone lines to white is the adjustment; not doing that pre-emptively.
+screen leans one colour. Accepted, because the bar is a filled *block* and does not compete with
+cyan *text* the way two text colours would. If it reads busy on the next real run, dropping the
+chunk milestone lines to white is the adjustment; not doing that pre-emptively.
+
+**The bar's fill character is not configurable.** The `o` glyph in `[oooooooo    ]` is hardcoded
+in the Classic renderer; no glyph, character or fill property exists on `$PSStyle.Progress` or
+`$Host.PrivateData`. Asked and checked 2026-09-10. The two ways to change it were both rejected:
+`View = 'Minimal'` uses a solid-block renderer but pins the bar to the bottom of the console and
+does not exist on 5.1, losing both the top placement and cross-version parity; hand-rolling a bar
+with `Write-Host` plus cursor positioning allows any glyph but breaks on console resize and line
+wrapping, and would write ~160 bar redraws into the transcript, bloating the audit log for
+cosmetics. Keeping `o` also means the bar looks like every other PowerShell tool a tech has used.
 
 ## Change 3: suppress the `-WhatIf` leak
 
