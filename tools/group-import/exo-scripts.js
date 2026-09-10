@@ -680,7 +680,13 @@ for ($c = 1; $c -le $chunkCount; $c++) {
     }
 
     if (-not $aborted) {
-        Write-Detail ($script:RunCurrent.ToString() + "/" + $script:RunTotal + "   " + $script:RunOk + " ok, " + $script:RunFailed + " failed        (chunk " + $c + " of " + $chunkCount + " done, session ok)") Cyan
+        # Field widths come from the run's own totals, so the columns hold whether
+        # this is 20 entries or 20,000. The previous version separated fields with a
+        # fixed run of spaces, which drifted the moment a counter gained a digit.
+        $w   = $script:RunTotal.ToString().Length
+        $cw  = $chunkCount.ToString().Length
+        $fmt = "{0,$w}/{1}   {2,$w} ok, {3,$w} failed   (chunk {4,$cw} of {5} done, session ok)"
+        Write-Detail ($fmt -f $script:RunCurrent, $script:RunTotal, $script:RunOk, $script:RunFailed, $c, $chunkCount) Cyan
     }
 }
 Update-Run -Force
@@ -975,7 +981,13 @@ for ($c = 1; $c -le $chunkCount; $c++) {
     }
 
     if (-not $aborted) {
-        Write-Detail ($script:RunCurrent.ToString() + "/" + $script:RunTotal + "   " + $script:RunOk + " ok, " + $script:RunFailed + " failed        (chunk " + $c + " of " + $chunkCount + " done, session ok)") Cyan
+        # Field widths come from the run's own totals, so the columns hold whether
+        # this is 20 entries or 20,000. The previous version separated fields with a
+        # fixed run of spaces, which drifted the moment a counter gained a digit.
+        $w   = $script:RunTotal.ToString().Length
+        $cw  = $chunkCount.ToString().Length
+        $fmt = "{0,$w}/{1}   {2,$w} ok, {3,$w} failed   (chunk {4,$cw} of {5} done, session ok)"
+        Write-Detail ($fmt -f $script:RunCurrent, $script:RunTotal, $script:RunOk, $script:RunFailed, $c, $chunkCount) Cyan
     }
 }
 Update-Run -Force
