@@ -171,6 +171,9 @@ $script:RunActivity   = "Working"
 $script:RunStart      = Get-Date
 $script:ConnectedAt   = Get-Date
 $script:LastDraw      = [datetime]::MinValue
+$script:LastPct       = -1
+$script:LastLeft      = -1
+$script:LastState     = ""
 
 # --- Tunables -----------------------------------------------------
 $script:ChunkSize      = 150
@@ -179,7 +182,8 @@ $script:Backoff        = @(2, 6)
 $script:BreakerLimit   = 10
 $script:MaxReconnects  = 3
 $script:RefreshMinutes = 30
-$script:DrawEveryMs    = 250
+$script:EtaBucket      = 30
+$script:DrawEveryMs    = 500
 
 # --- Console helpers ----------------------------------------------
 function Write-Step {
@@ -220,21 +224,41 @@ function Confirm-Apply {
 function Update-Run {
     param([switch]$Force)
     $now = Get-Date
-    if (-not $Force -and ($now - $script:LastDraw).TotalMilliseconds -lt $script:DrawEveryMs) { return }
-    $script:LastDraw = $now
 
     $pct = 0
     if ($script:RunTotal -gt 0) {
         $pct = [int](($script:RunCurrent / $script:RunTotal) * 100)
         if ($pct -gt 100) { $pct = 100 }
     }
-    $status = $script:RunStatus + "  |  " + $script:RunCurrent + "/" + $script:RunTotal + "  |  " + $script:RunOk + " ok, " + $script:RunFailed + " failed, " + $script:RunSkipped + " skipped"
 
+    # ETA, quantised into buckets so it stops changing on every single entry.
     $left = -1
     if ($script:RunCurrent -gt 0 -and $script:RunTotal -gt 0) {
         $per  = ($now - $script:RunStart).TotalSeconds / $script:RunCurrent
-        $left = [int]($per * ($script:RunTotal - $script:RunCurrent))
+        $raw  = $per * ($script:RunTotal - $script:RunCurrent)
+        $left = [int]([Math]::Round($raw / $script:EtaBucket) * $script:EtaBucket)
     }
+
+    # Redraw only when something a viewer can actually see has changed. This is
+    # deliberately NOT a comparison of the composed status string: that string
+    # carries $script:RunCurrent, which increments on every entry, so comparing it
+    # would never match and the redraw rate would be unchanged. Percent, the ETA
+    # bucket and the connection state all change slowly. The visible cost is that
+    # the counter advances in steps of roughly 13 rather than 1.
+    if (-not $Force -and
+        $pct  -eq $script:LastPct  -and
+        $left -eq $script:LastLeft -and
+        $script:RunStatus -eq $script:LastState) { return }
+
+    # Time floor, measured from the last real draw rather than the last call.
+    if (-not $Force -and ($now - $script:LastDraw).TotalMilliseconds -lt $script:DrawEveryMs) { return }
+
+    $script:LastDraw  = $now
+    $script:LastPct   = $pct
+    $script:LastLeft  = $left
+    $script:LastState = $script:RunStatus
+
+    $status = $script:RunStatus + "  |  " + $script:RunCurrent + "/" + $script:RunTotal + "  |  " + $script:RunOk + " ok, " + $script:RunFailed + " failed, " + $script:RunSkipped + " skipped"
     try {
         if ($left -ge 0) {
             Write-Progress -Activity $script:RunActivity -Status $status -PercentComplete $pct -SecondsRemaining $left
