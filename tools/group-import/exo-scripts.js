@@ -231,6 +231,10 @@ function Confirm-Apply {
     Write-Host ""
     $answer = Read-Host ("      Type YES to apply these changes to " + $Count + " " + $What + " for real (anything else aborts)")
     if ($answer -ne "YES") { Stop-Run "Aborted. No changes were made." Yellow 0 }
+    # PowerShell does not record the Read-Host prompt in the transcript, so without
+    # this line the log shows changes being applied with no evidence anyone was asked,
+    # and the reader sees a doubled blank line where the prompt should have been.
+    Write-Detail ("Confirmed. Applying to " + $Count + " " + $What + " now.") Green
 }
 
 function Update-Run {
