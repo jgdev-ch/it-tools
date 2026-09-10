@@ -159,6 +159,18 @@ $ErrorActionPreference = "Continue"
 # one fixed place while the log scrolls underneath. $PSStyle does not exist on 5.1.
 if ($null -ne $PSStyle) { try { $PSStyle.Progress.View = "Classic" } catch { } }
 
+# Progress bar colour. Classic view reads its colours from $Host.PrivateData on both
+# 5.1 and 7, not from $PSStyle.Progress.Style, which applies only to Minimal view.
+# One code path therefore covers both hosts, and the named console colour resolves
+# through the terminal's own palette so the result is identical on each. The default
+# is yellow, which is already this script's warning colour for refresh, reconnect and
+# abort messages, so the always-on bar was competing with real warnings.
+# PrivateData is absent or differently shaped on non-console hosts, hence the guard.
+try {
+    $Host.PrivateData.ProgressBackgroundColor = "Cyan"
+    $Host.PrivateData.ProgressForegroundColor = "Black"
+} catch { }
+
 # --- Run state ----------------------------------------------------
 $script:RunTotal      = 0
 $script:RunCurrent    = 0
