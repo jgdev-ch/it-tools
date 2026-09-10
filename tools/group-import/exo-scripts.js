@@ -178,7 +178,7 @@ $script:MaxAttempts    = 3
 $script:Backoff        = @(2, 6)
 $script:BreakerLimit   = 10
 $script:MaxReconnects  = 3
-$script:RefreshMinutes = 40
+$script:RefreshMinutes = 30
 $script:DrawEveryMs    = 250
 
 # --- Console helpers ----------------------------------------------
