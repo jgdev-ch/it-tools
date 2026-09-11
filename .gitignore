@@ -1,5 +1,15 @@
 .superpowers/
+
+# The tools/*.zip bundles are real deliverables and are tracked on purpose.
+# Anything else zip-shaped is build noise and stays ignored.
+#
+# This negation also matters for the preview deploy: preview-deploy.yml uses
+# folder: . which copies this file to the preview repo, and the deploy action's
+# git add --all honors it there. So anything ignored here never reaches preview
+# at all, which is why the download bundles used to go stale on the preview
+# site while index.html and the JSON updated normally.
 *.zip
+!tools/*.zip
 
 # Claude Design mockup bundles under docs/superpowers/assets/.
 # preview-deploy.yml deploys the repo root (`folder: .`) to a public GitHub
