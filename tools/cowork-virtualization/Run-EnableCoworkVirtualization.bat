@@ -8,6 +8,12 @@ REM code back to whatever called it.
 REM
 REM Keep this file in the same folder as the .ps1.
 REM
+REM The banner is printed from the :run label rather than the top
+REM of the file on purpose. This launcher re-runs itself elevated,
+REM so anything echoed before the elevation check appears twice,
+REM once in the window the tech double-clicked and again in the
+REM elevated one.
+REM
 REM Calls powershell.exe (5.1) on purpose, not pwsh.exe. The DISM
 REM cmdlets the script uses are 5.1-native. See the .NOTES block
 REM in Enable-CoworkVirtualization.ps1 before changing this.
@@ -17,6 +23,37 @@ setlocal
 set "SELF=%~f0"
 set "PS1=%~dp0Enable-CoworkVirtualization.ps1"
 
+if not exist "%PS1%" goto :no_script
+
+net session >nul 2>&1
+if %errorlevel% equ 0 goto :run
+if /i "%~1"=="elevated" goto :elevation_failed
+
+echo.
+echo  Administrator rights are required. Requesting elevation...
+REM -Wait -PassThru so the elevated copy's exit code survives. Without it
+REM this launcher always returned 0, including when nothing ran at all.
+powershell.exe -NoProfile -Command "try { $p = Start-Process -FilePath $env:SELF -ArgumentList 'elevated' -Verb RunAs -Wait -PassThru -ErrorAction Stop; exit $p.ExitCode } catch { Write-Host '  Elevation was cancelled or refused.' -ForegroundColor Yellow; exit 1 }"
+exit /b %errorlevel%
+
+:run
+echo.
+echo                 ################################
+echo                 ################################
+echo                 ################################
+echo                 ######  ################  ######
+echo                 ######  ################  ######
+echo                 ######  ################  ######
+echo                 ################################
+echo                 ################################
+echo             ########################################
+echo             ########################################
+echo                 ################################
+echo                 ################################
+echo                 ################################
+echo                     ##    ##        ##    ##
+echo                     ##    ##        ##    ##
+echo.
 echo ==========================================================
 echo  Claude Cowork Virtualization Setup
 echo  IT Tools Hub
@@ -33,21 +70,6 @@ echo.
 echo  A log of the run is saved in this folder. Copy it into the
 echo  ticket, then delete this folder from the user's machine.
 echo.
-
-if not exist "%PS1%" goto :no_script
-
-net session >nul 2>&1
-if %errorlevel% equ 0 goto :run
-if /i "%~1"=="elevated" goto :elevation_failed
-
-echo  Administrator rights are required. Requesting elevation...
-echo.
-REM -Wait -PassThru so the elevated copy's exit code survives. Without it
-REM this launcher always returned 0, including when nothing ran at all.
-powershell.exe -NoProfile -Command "try { $p = Start-Process -FilePath $env:SELF -ArgumentList 'elevated' -Verb RunAs -Wait -PassThru -ErrorAction Stop; exit $p.ExitCode } catch { Write-Host '  Elevation was cancelled or refused.' -ForegroundColor Yellow; exit 1 }"
-exit /b %errorlevel%
-
-:run
 pause
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PS1%"
 set "PS_EXIT=%errorlevel%"
@@ -93,6 +115,7 @@ echo  The script exited with code %PS_EXIT%. See the log in this folder.
 goto :finish
 
 :elevation_failed
+echo.
 echo  ERROR: Elevation was granted but administrator rights are still
 echo  not present. Right-click this file and choose Run as administrator.
 echo.
@@ -100,6 +123,7 @@ pause
 exit /b 1
 
 :no_script
+echo.
 echo  ERROR: Enable-CoworkVirtualization.ps1 was not found next to this file.
 echo  Expected at: %PS1%
 echo.
