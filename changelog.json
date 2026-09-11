@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "2.4.4",
+      "date": "2026-09-11",
+      "notes": [
+        "Scripts and Downloads: new Cowork Virtualization Setup script that prepares a user's machine for Claude Cowork, checking firmware virtualization, the Virtual Machine Platform feature, the boot configuration, and the Host Compute Service in one pass",
+        "Cowork Virtualization Setup: asks before it changes anything in the boot configuration, and saves a full run log next to itself so you can attach it to the ticket and delete the folder afterwards"
+      ]
+    },
+    {
       "version": "2.4.3",
       "date": "2026-09-10",
       "notes": [
