@@ -16,3 +16,6 @@ docs/superpowers/assets/**/*.pdf
 docs/superpowers/assets/2026-09-04-oncall-rotation-design-mockup/screenshots/00-current-tool-today.png
 docs/superpowers/assets/2026-09-04-oncall-rotation-design-mockup/screenshots/1b-quarter-calendar.png
 docs/superpowers/assets/2026-09-04-oncall-rotation-design-mockup/screenshots/1c-handoff-conveyor.png
+
+# Run logs the Cowork virtualization script writes next to itself.
+tools/cowork-virtualization/CoworkVirtualization-*.log

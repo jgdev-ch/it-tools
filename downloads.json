@@ -14,8 +14,7 @@
       "files": [
         { "label": "Download (.zip)", "path": "tools/mailbox-cleanup.zip", "primary": true }
       ]
-    }
-  ,
+    },
     {
       "id": "shared-mailbox-repair",
       "name": "Shared Mailbox Repair Tool",
@@ -29,6 +28,21 @@
       "updated": "2026-05",
       "files": [
         { "label": "Download (.zip)", "path": "tools/shared-mailbox-repair.zip", "primary": true }
+      ]
+    },
+    {
+      "id": "cowork-virtualization",
+      "name": "Cowork Virtualization Setup",
+      "description": "Enable the Windows virtualization prerequisites Claude Cowork needs on a user's machine. Checks firmware, the Virtual Machine Platform feature, boot configuration, and the Host Compute Service, then reports whether a restart is required.",
+      "version": "1.0",
+      "type": "PowerShell",
+      "accent": "#6d28d9",
+      "iconBg": "#2a1e4a",
+      "roles": ["Local Administrator"],
+      "requires": "Windows 11 Pro, Enterprise, or Education",
+      "updated": "2026-09",
+      "files": [
+        { "label": "Download (.zip)", "path": "tools/cowork-virtualization.zip", "primary": true }
       ]
     }
   ]
