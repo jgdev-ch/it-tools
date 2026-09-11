@@ -1157,7 +1157,14 @@ async function loadTools() {
 }
 
 // ── Downloads section ─────────────────────────────────────────────────────────
-const GITHUB_RAW = "https://raw.githubusercontent.com/jgdev-ch/it-tools/main/";
+// Pinning this to main meant preview always handed out production's copy of a
+// script, so a change staged on testing could never be tested through the
+// download button, and a brand new tool 404'd until it was promoted. Preview
+// is deployed to its own repo (testing -> jgdev-ch/it-tools-preview@main), so
+// point at that repo when we are running there. Production is unaffected.
+const GITHUB_RAW = IS_PREVIEW
+  ? "https://raw.githubusercontent.com/jgdev-ch/it-tools-preview/main/"
+  : "https://raw.githubusercontent.com/jgdev-ch/it-tools/main/";
 
 const _DL_BTN_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 
