@@ -99,7 +99,7 @@ for (const s of shapes) {
   for (const [sizeName, ids] of [["small", small], ["large", large]]) {
     const ctx = EXO.buildContext({
       typeId: s.typeId, typeLabel: s.typeLabel, op: s.op,
-      target: "zGlobalProviderAll@corrohealth.com", targetDisplay: "zGlobalProviderAll",
+      target: "zExampleGroupAll@corrohealth.com", targetDisplay: "zGlobalProviderAll",
       identities: ids,
       perms: { full: true, sendAs: true, onBehalf: true },
       autoMapping: s.autoMapping !== false,
@@ -1481,7 +1481,7 @@ Invoke-Expression $helpers
 
 function Test-Target { Get-DistributionGroup -Identity "z@x.com" }
 
-$Target  = "zGlobalProviderAll@corrohealth.com"
+$Target  = "zExampleGroupAll@corrohealth.com"
 $stamp   = "stub"
 $PSScriptRoot = $env:TEMP
 $ToApply = @(1..1896 | ForEach-Object { "bulk$_@corrohealth.com" })
@@ -1631,7 +1631,7 @@ git commit -m "Group Admin: changelog and version bump for the script hardening"
 
 ---
 
-## Task 12: Manual live matrix (Josh and Krista)
+## Task 12: Manual live matrix (Josh and Ellis)
 
 Not automatable. This is Task 18 from the v2 plan, still never run, and the stub harness does
 **not** replace it. The stub proves the resilience logic; only a real tenant proves the cmdlets.
@@ -1666,14 +1666,14 @@ AutoMapping off; remove; export.
 
 - [ ] **Step 4: The real run**
 
-Krista re-runs the full `zGlobalProviderAll` list of 1896. Expected:
+Ellis re-runs the full `zGlobalProviderAll` list of 1896. Expected:
 
 - Phase 3 reports roughly 612 already members and roughly 1284 to add.
 - The run crosses 40 minutes and the **proactive refresh fires at least once**, visible as
   "Session has been open 40+ minutes" in the transcript and `Reconnects : 1` or more in the
   summary.
 - Final `Failed` is in single digits, not four.
-- `sangeeta.vedpal@corrohealth.com` is added this time. That member was silently lost to the
+- `jamie.rivera@corrohealth.com` is added this time. That member was silently lost to the
   un-retried transient error on 2026-09-08.
 
 - [ ] **Step 5: Promote to `main` only after step 4 passes**

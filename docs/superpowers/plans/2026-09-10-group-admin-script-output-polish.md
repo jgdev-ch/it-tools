@@ -148,7 +148,7 @@ $total   = 1284
 $perItem = 1.68
 
 $script:RunTotal    = $total
-$script:RunActivity = "Adding members to zGlobalProviderAll@corrohealth.com"
+$script:RunActivity = "Adding members to zExampleGroupAll@corrohealth.com"
 $script:RunStatus   = "Connected"
 $script:RunSkipped  = 612
 $script:RunStart    = $script:fakeNow

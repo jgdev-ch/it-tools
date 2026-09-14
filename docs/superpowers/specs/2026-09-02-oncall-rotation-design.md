@@ -20,26 +20,26 @@ Pulled from the live `On Call Rotation.xlsx` (2026-09-02) via the workbook's `20
 ```json
 {
   "schedule": [
-    { "startDate": "2026-01-04", "tech": "Joshua", "timeOff": "", "notes": "" }
+    { "startDate": "2026-01-04", "tech": "Avery", "timeOff": "", "notes": "" }
   ],
   "rotationTechs": [
     {
-      "name": "Joshua Garrett",
-      "shortName": "Joshua",
+      "name": "Avery Stone",
+      "shortName": "Avery",
       "phones": [
-        { "label": "8x8", "number": "484-380-9339" },
-        { "label": "Work", "number": "223-271-6479" },
-        { "label": "Personal", "number": "445-888-0009" },
-        { "label": "Teams", "number": "417-719-1960" }
+        { "label": "8x8", "number": "555-555-0101" },
+        { "label": "Work", "number": "555-555-0102" },
+        { "label": "Personal", "number": "555-555-0103" },
+        { "label": "Teams", "number": "555-555-0104" }
       ]
     }
   ],
   "otherContacts": [
     {
-      "name": "Andy Singh",
+      "name": "Jordan Reed",
       "phones": [
-        { "label": "Personal", "number": "714-757-9224" },
-        { "label": "Teams", "number": "417-719-1884" }
+        { "label": "Personal", "number": "555-555-0113" },
+        { "label": "Teams", "number": "555-555-0114" }
       ]
     }
   ]
@@ -47,9 +47,9 @@ Pulled from the live `On Call Rotation.xlsx` (2026-09-02) via the workbook's `20
 ```
 
 - **`schedule`**: all 161 rows across 2024 (Jan 7 – Dec 29), 2025 (Jan 5 – Dec 28), and 2026 (Jan 4 – Dec 27), taken verbatim from the workbook. `startDate` normalized to ISO `YYYY-MM-DD` for every year (the 2025 sheet stores Excel date serials rather than text dates — converted, not re-typed by hand, to avoid transcription error). `timeOff`/`notes` are empty for all 161 rows in the source (confirmed — never used in 3 years of real operation) but the fields stay on every row since the fields may see real use once this is an app instead of a spreadsheet.
-- **`rotationTechs`**: the 5 currently-active rotation members with contact cards — **Joshua Garrett, Nick Zoshak, Joe Randazzo, Robert Tyson, Krista Guthrie**. Phone label sets vary per person (e.g. Nick currently has only a Personal number on file; Joe and Robert use a combined `"Personal/Work"` label for one shared number) — preserved exactly as entered, not normalized into a fixed label set.
-- **`otherContacts`**: **Andy Singh, Justin Canales, Ian Sanchez** — current employees who are not currently in the rotation cycle. Shown in a visually separate "Other Contacts" group so an admin can pull one into the rotation later without re-entering their numbers.
-- **David Wilhite** is deliberately **not** in `rotationTechs` or `otherContacts` (no longer with the company) but his name stays as plain text in the historical `schedule` rows through his last on-call week (2026-04-26) — this is a historical record and isn't rewritten.
+- **`rotationTechs`**: the 5 currently-active rotation members with contact cards — **Avery Stone, Blake Rivers, Casey Lane, Drew Park, Ellis Vance**. Phone label sets vary per person (e.g. Blake currently has only a Personal number on file; Casey and Drew use a combined `"Personal/Work"` label for one shared number) — preserved exactly as entered, not normalized into a fixed label set.
+- **`otherContacts`**: **Jordan Reed, Quinn Marsh, Sawyer Bell** — current employees who are not currently in the rotation cycle. Shown in a visually separate "Other Contacts" group so an admin can pull one into the rotation later without re-entering their numbers.
+- **Morgan Hale Wilhite** is deliberately **not** in `rotationTechs` or `otherContacts` (no longer with the company) but his name stays as plain text in the historical `schedule` rows through his last on-call week (2026-04-26) — this is a historical record and isn't rewritten.
 - The workbook's `On Call Phone Number` column (per-row) is dropped entirely — it was empty in every row of every year; the real phone lookup is always "find this week's `tech` in `rotationTechs`," not a stored per-row number.
 
 ## Page Layout ("Spotlight + Table")
@@ -88,4 +88,4 @@ This Function App is intentionally generic (not Adobe-branded) — it's the firs
 
 - No algorithmic rotation generation — the schedule has real manual deviations from a strict 6-person cycle (confirmed in the source data), so all data is literal committed/stored rows, never computed.
 - No changes to the historical 2024/2025/2026 schedule data beyond format normalization (date parsing) — who was assigned which week is not being corrected or re-litigated as part of this build.
-- No re-inclusion of David Wilhite in any contact list.
+- No re-inclusion of Morgan Hale Wilhite in any contact list.

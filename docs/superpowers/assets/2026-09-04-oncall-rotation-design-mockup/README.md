@@ -82,7 +82,7 @@ Three stacked cards, `display: flex; flex-direction: column; gap: 12px`.
 - Border 1px `color-mix(in srgb, var(--tech-color) 28%, var(--glass-border))`.
 - `backdrop-filter: blur(22px) saturate(180%)`.
 - This is the existing `.hero` treatment, except tinted with **the on-call tech's own
-  color** rather than a fixed green. Nick Zoshak is `#9333ea`, so the whole card is
+  color** rather than a fixed green. Blake Rivers is `#9333ea`, so the whole card is
   purple-tinted. It changes color every Sunday, which is the point.
 - **Eyebrow:** existing headset Lucide icon (12px) + "On call now". 10px/700 uppercase,
   letter-spacing .12em, color `color-mix(in srgb, var(--tech-color) 72%, #1c1c1e)`.
@@ -98,7 +98,7 @@ Three stacked cards, `display: flex; flex-direction: column; gap: 12px`.
   tech color at 22% alpha. Computed client-side from today's date, same as
   `findCurrentWeek`. Nothing stored server-side.
 - **Handoff line:** `flex; align-items: baseline; justify-content: space-between`.
-  - Left, 12px, color `#4a4a52`: "Hands off to **Joe Randazzo**, Sunday Sep 6th" (name in
+  - Left, 12px, color `#4a4a52`: "Hands off to **Casey Lane**, Sunday Sep 6th" (name in
     700, `#1c1c1e`).
   - Right, 22px/800, letter-spacing -.02em, color
     `color-mix(in srgb, var(--tech-color) 80%, #1c1c1e)`: "3d 07h".
@@ -142,7 +142,7 @@ Three stacked cards, `display: flex; flex-direction: column; gap: 12px`.
   13px Lucide icon in `#92400e` (`--amber`), `margin-top: 1px`.
 - Items are **derived from the data, never authored**. The two shown are the two that
   `data.json` actually produces today:
-  - `file-text` icon: "3 weeks in 2026 are still assigned to **David**, who is not in the
+  - `file-text` icon: "3 weeks in 2026 are still assigned to **Morgan Hale**, who is not in the
     roster. Feb 1, Mar 15, Apr 26." Detection: any `schedule[].tech` with no matching
     `rotationTechs[].shortName`. This is a real bug in the live data that the current UI
     hides by falling back to gray.
@@ -193,7 +193,7 @@ margin-bottom: 12px`.
   "NOW" tag absolutely positioned at `top: -9px; left: 50%; translateX(-50%)`, background
   `#1c1c1e`, white, 8px/800, letter-spacing .06em, padding 2px 7px, radius 8px.
 - **Next week's cell:** `box-shadow: 0 0 0 1.5px rgba(28,28,30,.35)`, no tag.
-- **Unmatched tech cell** (the David case): background `#f0f2f5` (`--surface2`), 1px
+- **Unmatched tech cell** (the Morgan Hale case): background `#f0f2f5` (`--surface2`), 1px
   **dashed** `#9a9a9f`, text `#6e6e73`, initials from whatever string is in `tech`. This
   makes the data problem visible in place, and pairs with the "needs attention" item.
 - Cells with `timeOff` or `notes` get the existing `palm-tree` / `file-text` badge at
@@ -292,8 +292,8 @@ secondary body #4a4a52 (not tokenized; between `--text` and `--muted`)
 #92400e &middot; `--amber-light` #fef3c7 &middot; `--purple` #5b21b6 &middot;
 `--purple-light` #ede9fe
 **Per-tech palette** (`PERSON_PALETTE`, assigned by sorted `shortName`, unchanged):
-Joe #059669 &middot; Joshua #1a56db &middot; Krista #d97706 &middot; Nick #9333ea &middot;
-Robert #dc2626. Overflow: #0891b2, #db2777. `OTHER_CONTACT_COLOR` #9ca3af, also the
+Casey #059669 &middot; Avery #1a56db &middot; Ellis #d97706 &middot; Blake #9333ea &middot;
+Drew #dc2626. Overflow: #0891b2, #db2777. `OTHER_CONTACT_COLOR` #9ca3af, also the
 fallback for an unmatched tech.
 **Radii:** `--radius` 14px &middot; `--radius-sm` 9px &middot; `--radius-xs` 5px. Plus
 16px cards, 12px sub-cards, 8px week cells, 20px pills.
@@ -319,7 +319,7 @@ The Microsoft four-square logo in the topbar is unchanged and comes from
 `ITTools.ui.renderTopbar`.
 
 Every name, phone number, and week assignment in the prototypes is real data read from
-`tools/on-call/data.json`, including the "David" rows and the empty `timeOff`/`notes`
+`tools/on-call/data.json`, including the "Morgan Hale" rows and the empty `timeOff`/`notes`
 fields. Nothing was invented.
 
 ## Files

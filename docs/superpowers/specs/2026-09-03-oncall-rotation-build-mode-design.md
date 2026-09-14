@@ -26,7 +26,7 @@ Existing contact-card editing (name, phones, In Rotation toggle) is untouched by
 Clicking "Build [Year] Rotation" opens a setup bar:
 - **Start date:** defaults to January 1 of the target year (not editable in v1 — full-year cycles only, see Out of Scope).
 - **Length:** fixed at full year (52/53 weeks depending on the year's Sunday-start week count). No custom week-count option — admins can already trim/extend the result by editing individual proposed blocks after generation, so a shorter/partial build doesn't need its own setup path.
-- **Continuing from:** read-only, computed field showing the last real assigned tech before the target year and who comes next in rotation order (e.g. "Continuing from Krista Guthrie → next: Joe Randazzo").
+- **Continuing from:** read-only, computed field showing the last real assigned tech before the target year and who comes next in rotation order (e.g. "Continuing from Ellis Vance → next: Casey Lane").
 
 ## Generation Logic
 

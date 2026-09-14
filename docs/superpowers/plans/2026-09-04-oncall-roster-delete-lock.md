@@ -4,7 +4,7 @@
 
 **Goal:** Implement `docs/superpowers/specs/2026-09-04-oncall-roster-delete-lock-design.md`: let an admin delete a roster entry, protect permanent staff with a per-person lock, pin each tech's color so deletion stops recoloring the survivors, and route unmatched weeks to Needs attention or Roster notes depending on whether they are still upcoming.
 
-**Architecture:** All changes are in `tools/on-call/index.html`, plus one prerequisite CSS fix. `color` and `locked` are additive optional JSON fields, so `data.json`'s existing shape and the Function App contract are untouched. Deletion deliberately does **not** cascade to `schedule` rows: a removed tech's weeks become unmatched and fall into the historical-record treatment that already exists for David.
+**Architecture:** All changes are in `tools/on-call/index.html`, plus one prerequisite CSS fix. `color` and `locked` are additive optional JSON fields, so `data.json`'s existing shape and the Function App contract are untouched. Deletion deliberately does **not** cascade to `schedule` rows: a removed tech's weeks become unmatched and fall into the historical-record treatment that already exists for Morgan Hale.
 
 **Tech Stack:** Vanilla JS/HTML/CSS, no build step, no test framework. Verification is Playwright plus light and dark screenshots. Real inline Lucide SVG only. No em dashes in UI copy.
 
@@ -143,25 +143,25 @@ Load with the auth bypass. Via `browser_evaluate`:
 
 ```javascript
 JSON.stringify({
-  colors: Object.fromEntries(['Joshua','Nick','Joe','Robert','Krista'].map(s => [s, personColorFor(s)])),
+  colors: Object.fromEntries(['Avery','Blake','Casey','Drew','Ellis'].map(s => [s, personColorFor(s)])),
   written: st.data.rotationTechs.map(t => t.shortName + '=' + t.color)
 });
 ```
 
-Expected exactly: Joshua `#1a56db`, Nick `#9333ea`, Joe `#059669`, Robert `#dc2626`, Krista `#d97706`, and every tech now carrying a `color`.
+Expected exactly: Avery `#1a56db`, Blake `#9333ea`, Casey `#059669`, Drew `#dc2626`, Ellis `#d97706`, and every tech now carrying a `color`.
 
 - [ ] **Step 3: Verify deletion no longer recolors survivors**
 
 ```javascript
-const before = Object.fromEntries(['Joshua','Nick','Joe','Robert'].map(s => [s, personColorFor(s)]));
-const i = st.data.rotationTechs.findIndex(t => t.shortName === 'Krista');
+const before = Object.fromEntries(['Avery','Blake','Casey','Drew'].map(s => [s, personColorFor(s)]));
+const i = st.data.rotationTechs.findIndex(t => t.shortName === 'Ellis');
 st.data.rotationTechs.splice(i, 1);
 st.personColors = buildPersonColors(st.data);
-const after = Object.fromEntries(['Joshua','Nick','Joe','Robert'].map(s => [s, personColorFor(s)]));
+const after = Object.fromEntries(['Avery','Blake','Casey','Drew'].map(s => [s, personColorFor(s)]));
 JSON.stringify({ shifted: Object.keys(before).filter(k => before[k] !== after[k]) });
 ```
 
-Expected: `{"shifted":[]}`. Before this task the same test shifted Nick and Robert. Reload to discard.
+Expected: `{"shifted":[]}`. Before this task the same test shifted Blake and Drew. Reload to discard.
 
 - [ ] **Step 4: Verify a new tech gets an unused color**
 
@@ -170,7 +170,7 @@ addContact('rotation');
 st.data.rotationTechs[st.data.rotationTechs.length-1].shortName = 'Zoe';
 st.personColors = buildPersonColors(st.data);
 JSON.stringify({ zoe: personColorFor('Zoe'),
-                 clash: ['Joshua','Nick','Joe','Robert','Krista'].map(s=>personColorFor(s)).includes(personColorFor('Zoe')) });
+                 clash: ['Avery','Blake','Casey','Drew','Ellis'].map(s=>personColorFor(s)).includes(personColorFor('Zoe')) });
 ```
 
 Expected: a palette color, and `clash` false. Reload to discard.
@@ -385,12 +385,12 @@ Expected: `disabled` true, title "Unlock to remove", cursor `not-allowed`. Click
 
 - [ ] **Step 5: Verify the delete itself**
 
-With Protected off on Krista (index 4), click Remove and accept the dialog. Confirm:
-- The dialog text reads "Remove Krista Guthrie from the roster?" and "Their **25** scheduled weeks are kept as historical record." 25 is her real total across all years: 7 in 2024, 9 in 2025, 9 in 2026, verified 2026-09-04. Assert the exact number, not just that a number appears.
+With Protected off on Ellis (index 4), click Remove and accept the dialog. Confirm:
+- The dialog text reads "Remove Ellis Vance from the roster?" and "Their **25** scheduled weeks are kept as historical record." 25 is her real total across all years: 7 in 2024, 9 in 2025, 9 in 2026, verified 2026-09-04. Assert the exact number, not just that a number appears.
 - `st.data.rotationTechs.length` is 4, `st.data.schedule.length` is still 147.
 - The tech strip shows 4 cards; the board still has 52 cells with 12 dashed.
 - Every survivor's color is unchanged.
-- Roster notes now lists Krista alongside David.
+- Roster notes now lists Ellis alongside Morgan Hale.
 - Cancelling the dialog instead leaves everything untouched.
 
 - [ ] **Step 6: Verify gating**
@@ -492,16 +492,16 @@ function renderRosterNotes() {
 }
 ```
 
-- [ ] **Step 4: Verify David is unchanged**
+- [ ] **Step 4: Verify Morgan Hale is unchanged**
 
-Load with the auth bypass on 2026. All three of David's weeks (Feb 1, Mar 15, Apr 26) are in the past, so:
+Load with the auth bypass on 2026. All three of Morgan Hale's weeks (Feb 1, Mar 15, Apr 26) are in the past, so:
 - Needs attention shows **only** the time-off item.
-- Roster notes shows the David item, wording unchanged from before this task.
+- Roster notes shows the Morgan Hale item, wording unchanged from before this task.
 
 - [ ] **Step 5: Verify a deletion with upcoming weeks raises an amber item**
 
 ```javascript
-const i = st.data.rotationTechs.findIndex(t => t.shortName === 'Robert');
+const i = st.data.rotationTechs.findIndex(t => t.shortName === 'Drew');
 st.data.rotationTechs.splice(i, 1);
 st.personColors = buildPersonColors(st.data);
 renderAll();
@@ -511,7 +511,7 @@ JSON.stringify({
 });
 ```
 
-Expected: Robert appears in **Needs attention** with "upcoming week(s) ... Reassign them" for his post-today weeks, **and** in Roster notes for his pre-today 2026 weeks. Both cards list only their own dates. Confirm no em dashes in either string. Reload to discard.
+Expected: Drew appears in **Needs attention** with "upcoming week(s) ... Reassign them" for his post-today weeks, **and** in Roster notes for his pre-today 2026 weeks. Both cards list only their own dates. Confirm no em dashes in either string. Reload to discard.
 
 - [ ] **Step 6: Commit**
 

@@ -24,7 +24,7 @@ design reference authored in standalone HTML; its inline styles are NOT carried 
 This spec records structure, behavior, and the decisions that deviate from it.
 
 **Verified against live data 2026-09-04:** every figure in the mockup is real. Phone counts
-(Joshua 4, Nick 1, Joe 2, Robert 2, Krista 3), 2026 week counts (10/10/10/10/9), the
+(Avery 4, Blake 1, Casey 2, Drew 2, Ellis 3), 2026 week counts (10/10/10/10/9), the
 4-week queue, and zero `timeOff`/`notes` across all 147 rows.
 
 ## Page Structure
@@ -86,12 +86,12 @@ item: no `timeOff` recorded anywhere in the selected year.
 derived facts that are true but deliberately not actionable. Today it holds the unmatched
 tech case:
 
-> 3 weeks in 2026 are assigned to David, who has left the rotation. Kept as historical
+> 3 weeks in 2026 are assigned to Morgan Hale, who has left the rotation. Kept as historical
 > record.
 
 Detection is fully general: any `schedule[].tech` with no matching
 `rotationTechs[].shortName`. It lands in notes rather than in Needs attention because
-David's 22 rows (2024-01-21 through 2026-04-26, three of them in 2026) are a deliberate
+Morgan Hale's 22 rows (2024-01-21 through 2026-04-26, three of them in 2026) are a deliberate
 keep per the original spec's historical-record reasoning. Filing it as a warning would
 create a permanent nag that can only be cleared by reversing that decision. A future
 departure surfaces here automatically.
@@ -132,7 +132,7 @@ not line up with schedule rows. A drop on the same cell is a no-op.
   problem the roster-notes card exists to surface. They remain editable via the panel.
 - **A swap calls `renderAll()`, not just `renderYearBoard()`.** Exchanging the current or
   next week changes the now card (including its tint), the queue, and each tech's "next"
-  date in the summary strip. Verified: swapping Aug 30 with Sep 6 correctly moved Nick out
+  date in the summary strip. Verified: swapping Aug 30 with Sep 6 correctly moved Blake out
   of the now card and into the queue's first row.
 - **Drag and click coexist.** Cells stay clickable to open the slide-over panel. Drag is a
   *swap* (two weeks, techs exchanged); the panel is a *reassignment* (one week, plus time-off

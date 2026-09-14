@@ -25,7 +25,7 @@ are deliberately out of scope:
 - Removing a row from `schedule` for any reason.
 - Undo or restore for a week. It is not needed: the row keeps its `startDate`, `timeOff` and
   `notes`, so reassigning someone *is* the undo. Nothing is lost to restore.
-- Any `formerMembers` or archived-person concept (see "David's weeks" below).
+- Any `formerMembers` or archived-person concept (see "Morgan Hale's weeks" below).
 - Sub-week or day-level coverage. That is the next brainstorm, tracked separately.
 
 ## 1. Data model
@@ -212,7 +212,7 @@ no row gap.
 
 ## 7. Out of scope, confirmed
 
-- **David's weeks stay exactly as they are.** His 22 rows (2024-01-21 to 2026-04-26) name a
+- **Morgan Hale's weeks stay exactly as they are.** His 22 rows (2024-01-21 to 2026-04-26) name a
   person who exists nowhere in `rotationTechs` or `otherContacts`, so there is no profile to
   annotate. Josh's call: *"come next year he'll be gone from the 52 week display so it's a
   non-issue."* His three 2026 rows are already past weeks and already sit quietly in grey

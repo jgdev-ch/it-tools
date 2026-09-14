@@ -17,8 +17,8 @@ Applies to both `rotationTechs` and `otherContacts`, which already share one pan
 
 Deleting a tech today recolors the survivors. `buildPersonColors` assigns palette slots by
 sorted `shortName` position, so removing a name shifts everyone after it. Verified 2026-09-04
-by deleting Krista: Nick went `#9333ea` purple to `#d97706` orange, and Robert inherited
-Nick's purple. That breaks the color-equals-identity rule deliberately carried across the
+by deleting Ellis: Blake went `#9333ea` purple to `#d97706` orange, and Drew inherited
+Blake's purple. That breaks the color-equals-identity rule deliberately carried across the
 hero card, the year board, and the tech strip.
 
 Shipping delete without this would scramble the board on every departure, so pinned colors
@@ -29,7 +29,7 @@ are a prerequisite, not a nice-to-have.
 Add an optional `color` field to each entry in `rotationTechs`:
 
 ```json
-{ "name": "Nick Zoshak", "shortName": "Nick", "color": "#9333ea", "phones": [ ... ] }
+{ "name": "Blake Rivers", "shortName": "Blake", "color": "#9333ea", "phones": [ ... ] }
 ```
 
 `buildPersonColors` becomes read-then-backfill:
@@ -103,14 +103,14 @@ Save, rendered only for admins in Edit Mode.
 Confirmation is a native `confirm()`, matching the `alert()` already used for Short Name
 validation, and it names the person and their week count:
 
-> Remove Krista Guthrie from the roster?
+> Remove Ellis Vance from the roster?
 >
 > Her 9 scheduled weeks in 2026 are kept as historical record.
 
-**No cascade.** Schedule rows are never touched. Verified 2026-09-04: deleting Krista left all
+**No cascade.** Schedule rows are never touched. Verified 2026-09-04: deleting Ellis left all
 147 rows intact, her 9 week cells became dashed grey unmatched cells, and the Roster notes
 card picked her up automatically without any new code. Delete falls straight into the
-historical-record pattern already built for David.
+historical-record pattern already built for Morgan Hale.
 
 On confirm: splice the entry from its array, rebuild the color map (survivors keep their
 pinned colors), close the panel, `renderAll()`, `saveChanges()`.
@@ -118,7 +118,7 @@ pinned colors), close the panel, `renderAll()`, `saveChanges()`.
 ## 4. Split unmatched weeks by whether they still matter
 
 Adding delete exposes a gap in the existing detection. `unmatchedTechs` currently lumps every
-unmatched week in a year into "Roster notes" as history. That is right for David, whose weeks
+unmatched week in a year into "Roster notes" as history. That is right for Morgan Hale, whose weeks
 are all in the past. But deleting someone with **upcoming** weeks leaves real uncovered
 coverage, and the hero card would show a grey departed name with no phone number.
 
@@ -172,7 +172,7 @@ screenshots, per the layout 1a spec. Specifically:
 - Deleting a tech preserves all 147 schedule rows and produces dashed cells.
 - A locked person's Remove button is disabled; unlocking enables it.
 - Lock icons appear in view mode as well as edit mode, in both themes.
-- Deleting a tech with upcoming weeks produces an amber Needs attention item; David continues
+- Deleting a tech with upcoming weeks produces an amber Needs attention item; Morgan Hale continues
   to produce only a grey Roster notes item.
 - A new tech gets a palette color no current tech holds.
 - Remove is absent entirely for non-admins and outside Edit Mode.

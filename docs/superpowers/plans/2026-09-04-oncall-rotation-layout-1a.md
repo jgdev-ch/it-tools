@@ -210,19 +210,19 @@ JSON.stringify({
   short: shortDate('2026-09-06'),
   next: nextWeekAfter('2026-08-30').tech,
   countdown: countdownLabel(),
-  nickNote: coverageNote(st.data.rotationTechs.find(t => t.shortName === 'Nick').phones),
-  joshNote: coverageNote(st.data.rotationTechs.find(t => t.shortName === 'Joshua').phones)
+  nickNote: coverageNote(st.data.rotationTechs.find(t => t.shortName === 'Blake').phones),
+  joshNote: coverageNote(st.data.rotationTechs.find(t => t.shortName === 'Avery').phones)
 });
 ```
 
 Expected:
 - `ordinal` is `35`
-- `unmatched` is `{"David":["2026-02-01","2026-03-15","2026-04-26"]}`
+- `unmatched` is `{"Morgan Hale":["2026-02-01","2026-03-15","2026-04-26"]}`
 - `short` is `"Sep 6"`
-- `next` is `"Joe"`
+- `next` is `"Casey"`
 - `countdown` matches `/^\d+d \d\dh$/`
 - `nickNote` is `"Only number on file. No 8x8, no Teams line."`
-- `joshNote` is `""` (Joshua has 8x8, Work, Personal, and Teams, so nothing is missing)
+- `joshNote` is `""` (Avery has 8x8, Work, Personal, and Teams, so nothing is missing)
 
 Also confirm the page still renders the old layout unchanged and the console is clean.
 
@@ -752,13 +752,13 @@ function copyNumber(evt, number) {
 - [ ] **Step 4: Verify**
 
 Load with the auth bypass. Confirm:
-- The card is purple-tinted (Nick Zoshak is on call the week of 2026-08-30, color `#9333ea`).
-- Name reads "Nick Zoshak", sub-line reads "August 30th to September 5th &middot; week 35".
+- The card is purple-tinted (Blake Rivers is on call the week of 2026-08-30, color `#9333ea`).
+- Name reads "Blake Rivers", sub-line reads "August 30th to September 5th &middot; week 35".
 - Seven pips render; the elapsed ones and today are solid purple, the rest faint.
-- Handoff reads "Hands off to Joe Randazzo, Sunday Sep 6th" with a countdown matching `/^\d+d \d\dh$/`.
+- Handoff reads "Hands off to Casey Lane, Sunday Sep 6th" with a countdown matching `/^\d+d \d\dh$/`.
 - One phone row labelled PERSONAL with a monospace number and a Copy button.
 - Coverage note reads "Only number on file. No 8x8, no Teams line."
-- Clicking the avatar opens the contact panel for Nick.
+- Clicking the avatar opens the contact panel for Blake.
 - Clicking Copy flips the label to "Copied" then back after ~1.5s. (If the headless context denies clipboard access, confirm no console error is thrown and note it - the permission prompt is environmental, not a code fault.)
 - `renderNowCard(); renderNowCard();` twice in a row leaves exactly one interval: check via `countdownTimer` being a single handle and no duplicate tick.
 - Screenshot in both light and dark. In dark the card should read as a subtly purple-tinted dark glass panel, not a light slab.
@@ -812,7 +812,7 @@ function renderQueue() {
 - [ ] **Step 2: Verify**
 
 Load with the auth bypass. Confirm:
-- Four rows in date order: Joe Randazzo / Sep 6, Joshua Garrett / Sep 13, Krista Guthrie / Sep 20, Robert Tyson / Sep 27.
+- Four rows in date order: Casey Lane / Sep 6, Avery Stone / Sep 13, Ellis Vance / Sep 20, Drew Park / Sep 27.
 - Row one carries a green "next up" pill; rows two through four carry `in Nd` labels that agree with today's real date.
 - Each dot matches that person's colour from the now card and board.
 - Clicking a row opens the week detail panel for that `startDate`.
@@ -832,7 +832,7 @@ git commit -m "On-Call Rotation: add the upcoming-weeks queue card to the rail"
 **Files:**
 - Modify: `tools/on-call/index.html` (replace the `renderAttention` and `renderRosterNotes` stubs)
 
-Two derived lists sharing one visual pattern. "Needs attention" is amber and actionable; "Roster notes" is grey and informational. The split exists because David's three 2026 rows are a deliberate historical-record keep, so filing them as a warning would create a nag that can only be cleared by reversing that decision.
+Two derived lists sharing one visual pattern. "Needs attention" is amber and actionable; "Roster notes" is grey and informational. The split exists because Morgan Hale's three 2026 rows are a deliberate historical-record keep, so filing them as a warning would create a nag that can only be cleared by reversing that decision.
 
 - [ ] **Step 1: Implement `renderAttention`**
 
@@ -887,14 +887,14 @@ function renderRosterNotes() {
 
 Load with the auth bypass on year 2026. Confirm:
 - "Needs attention" shows exactly one item, with an amber palm-tree icon, reading "No time off recorded anywhere in 2026. Worth a pass before the holidays."
-- "Roster notes" shows exactly one item, with a grey file-text icon, reading "3 weeks in 2026 are assigned to **David**, who has left the rotation. Kept as historical record. Feb 1, Mar 15, Apr 26."
+- "Roster notes" shows exactly one item, with a grey file-text icon, reading "3 weeks in 2026 are assigned to **Morgan Hale**, who has left the rotation. Kept as historical record. Feb 1, Mar 15, Apr 26."
 - No em dashes appear in either string.
-- Switch to 2024 via `setYear('2024')`: roster notes should now list 10 David weeks and still read grammatically ("10 weeks in 2024 are assigned to...").
+- Switch to 2024 via `setYear('2024')`: roster notes should now list 10 Morgan Hale weeks and still read grammatically ("10 weeks in 2024 are assigned to...").
 - Force both cards empty and confirm they hide rather than showing an empty shell:
 
 ```javascript
 st.data.schedule.find(r => r.startDate === '2026-01-04').timeOff = 'x';
-st.data.rotationTechs.push({ name: 'David W', shortName: 'David', phones: [] });
+st.data.rotationTechs.push({ name: 'Morgan Hale W', shortName: 'Morgan Hale', phones: [] });
 renderAttention(); renderRosterNotes();
 ```
 
@@ -1016,7 +1016,7 @@ The spacer `<div></div>` loop is what keeps columns aligned in months with only 
 
 Load with the auth bypass on 2026. Confirm:
 - Twelve rows, each led by a 3-letter month label. SEP is the only label in `--text` (today is in September); the rest are `--muted2`.
-- 52 cells total for 2026: 49 coloured plus 3 dashed grey. Check via `document.querySelectorAll('#yearBoard .wk').length` returning `52`, and `document.querySelectorAll('#yearBoard .wk.unmatched').length` returning `3`. (The three David rows are part of the 52, not extra: 10+10+10+10+9 known plus 3 unmatched.)
+- 52 cells total for 2026: 49 coloured plus 3 dashed grey. Check via `document.querySelectorAll('#yearBoard .wk').length` returning `52`, and `document.querySelectorAll('#yearBoard .wk.unmatched').length` returning `3`. (The three Morgan Hale rows are part of the 52, not extra: 10+10+10+10+9 known plus 3 unmatched.)
 - The three dashed cells fall on Feb 1, Mar 15, and Apr 26 and show initials "D".
 - The 2026-08-30 cell carries a 2px ring and a floating "NOW" tag; the 2026-09-06 cell carries a lighter ring and no tag.
 - Column alignment holds: `getComputedStyle(document.querySelector('.board-grid')).gridTemplateColumns` starts with `34px` followed by five equal widths.
@@ -1085,11 +1085,11 @@ function renderTechStrip() {
 - [ ] **Step 2: Verify the view-mode strip**
 
 Load with the auth bypass on 2026. Confirm five cards in `rotationTechs` order, each with a coloured left border matching that person elsewhere, and:
-- Joshua Garrett - "10 weeks &middot; next Sep 13" - "4 numbers on file"
-- Nick Zoshak - "10 weeks &middot; on call now" - "1 number on file" **in amber**
-- Joe Randazzo - "10 weeks &middot; next Sep 6" - "2 numbers on file"
-- Robert Tyson - "10 weeks &middot; next Sep 27" - "2 numbers on file"
-- Krista Guthrie - "9 weeks &middot; next Sep 20" - "3 numbers on file"
+- Avery Stone - "10 weeks &middot; next Sep 13" - "4 numbers on file"
+- Blake Rivers - "10 weeks &middot; on call now" - "1 number on file" **in amber**
+- Casey Lane - "10 weeks &middot; next Sep 6" - "2 numbers on file"
+- Drew Park - "10 weeks &middot; next Sep 27" - "2 numbers on file"
+- Ellis Vance - "9 weeks &middot; next Sep 20" - "3 numbers on file"
 
 Clicking a card opens that person's contact panel. No grip handles and no add tile are visible.
 
@@ -1142,7 +1142,7 @@ function renderAlsoReachable() {
 - [ ] **Step 2: Verify**
 
 Load with the auth bypass. Confirm:
-- One line reading "ALSO REACHABLE" followed by three grey-avatar chips: Andy Singh, Justin Canales, Ian Sanchez.
+- One line reading "ALSO REACHABLE" followed by three grey-avatar chips: Jordan Reed, Quinn Marsh, Sawyer Bell.
 - Total height is one row, materially shorter than the 172px card grid it replaces.
 - Clicking a chip opens that contact's panel.
 - In edit mode a dashed "+ Add" chip appears; clicking it appends a contact and opens the panel. Reload to discard.
@@ -1234,12 +1234,12 @@ In `init`, insert after the find-panel click-outside listener added in Task 3:
 
 Load with the auth bypass. Confirm:
 - Clicking "Find a person" opens a dropdown of all five techs, each with their real avatar colour.
-- Picking Krista Guthrie dims every non-Krista cell to 35% opacity, leaves her 9 cells at full colour, and relabels the button "Find a person" -> "Krista Guthrie". Verify via `document.querySelectorAll('#yearBoard .wk.dim').length` equalling `52 - 9` = `43`.
-- Picking Krista again clears the highlight and restores the button label.
+- Picking Ellis Vance dims every non-Ellis cell to 35% opacity, leaves her 9 cells at full colour, and relabels the button "Find a person" -> "Ellis Vance". Verify via `document.querySelectorAll('#yearBoard .wk.dim').length` equalling `52 - 9` = `43`.
+- Picking Ellis again clears the highlight and restores the button label.
 - Pressing Escape clears an active highlight.
 - Clicking outside the open dropdown closes it without selecting.
 - The dropdown is opaque, not see-through (it uses `--panel-fill`).
-- **Year-switch fallback:** run `setYear('2024'); highlightPerson('Krista');`. Krista has no 2024 rows, so the board should switch to the year holding her next upcoming shift (2026) and highlight there. Confirm the year segment updates to match.
+- **Year-switch fallback:** run `setYear('2024'); highlightPerson('Ellis');`. Ellis has no 2024 rows, so the board should switch to the year holding her next upcoming shift (2026) and highlight there. Confirm the year segment updates to match.
 - Screenshot both themes with a highlight active.
 
 - [ ] **Step 4: Commit**

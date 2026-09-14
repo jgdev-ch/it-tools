@@ -12,7 +12,7 @@ reads while it runs and what the transcript preserves afterwards.
 
 ## Background
 
-Krista ran the hardened `Add-DistributionListMembers.ps1` against `zGlobalProviderAll` on
+Ellis ran the hardened `Add-DistributionListMembers.ps1` against `zGlobalProviderAll` on
 2026-09-09: **1284 added, 0 failed, 0 reconnects, 38.4 minutes**, against 612 added / 1284 failed
 / 62 minutes on 2026-09-08. The logic works. Reviewing that transcript and Josh's screenshot
 surfaced five presentation defects and no logic defects.

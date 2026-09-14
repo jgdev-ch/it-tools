@@ -425,7 +425,7 @@ Reload the tool against the local static server (same bypass approach as Task 2)
 - Whichever tile contains the real current date has the "Today" ribbon and highlighted border
 - Prev/Next buttons page the strip by 5 weeks, clamped at both ends (clicking Prev repeatedly does not go negative, clicking Next repeatedly does not run past the last week)
 - The Today button jumps to the correct year and centers the strip on today's tile
-- Typing a rotation tech's name (e.g. "Krista") into the search box and pressing Enter jumps the strip to their next occurrence
+- Typing a rotation tech's name (e.g. "Ellis") into the search box and pressing Enter jumps the strip to their next occurrence
 - Clicking a segment in the full-year overview rail jumps the main strip there
 - Clicking any tile does nothing yet (expected, Task 4 wires it up)
 
@@ -532,7 +532,7 @@ function renderWeekPanelBody() {
 Reload the tool. Confirm:
 - Clicking any week-tile slides the panel in from the right with a backdrop dimming the rest of the page
 - The panel header shows the correct colored avatar, initials, week label, and person name (matching that tile)
-- The body shows the phone list (or "No numbers on file" for a historical tech no longer in `rotationTechs`, e.g. an old David Wilhite row if one is visible)
+- The body shows the phone list (or "No numbers on file" for a historical tech no longer in `rotationTechs`, e.g. an old Morgan Hale Wilhite row if one is visible)
 - A week with `notes`/`timeOff` set (if any exist in `data.json`; if none do, temporarily edit a row's `notes` field in the loaded `st.data` via the console to test, without saving it back) shows those rows
 - Clicking the backdrop or the close (X) button closes the panel
 - The `Edit Mode` badge never appears (expected, `st.draft` is always `null` in this task)
@@ -868,7 +868,7 @@ function addContact(group) {
 
 With `st.isAdmin = true` and Edit Mode on:
 - Clicking a rotation contact's card opens the panel with Full Name, Short Name, an "In Rotation" toggle (checked), and editable phone rows with a working remove (✕) button and "+ Add phone number" link
-- Turning "In Rotation" off and clicking Save moves that person's card into the Other Contacts section and it disappears from the calendar's color legend going forward (their old schedule rows fall back to the gray "no color match" rendering, same as a departed tech like David Wilhite)
+- Turning "In Rotation" off and clicking Save moves that person's card into the Other Contacts section and it disappears from the calendar's color legend going forward (their old schedule rows fall back to the gray "no color match" rendering, same as a departed tech like Morgan Hale Wilhite)
 - Turning "In Rotation" on for an Other Contact without filling Short Name and clicking Save shows the alert and does not save
 - Filling Short Name and saving moves them into Rotation with their own new color
 - "+ Add to Rotation" and "+ Add Contact" tiles appear only in Edit Mode, and clicking one adds a blank card and immediately opens its edit panel

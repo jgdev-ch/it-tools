@@ -91,11 +91,11 @@ async function main() {
     else if (r.A && r.B && current) { people[current].push({ label: r.A, number: r.B }); }
   });
 
-  const rotationNames = { Joshua: 'Joshua Garrett', Nick: 'Nick Zoshak', Joe: 'Joe Randazzo', Robert: 'Robert Tyson', Krista: 'Krista Guthrie' };
+  const rotationNames = { Avery: 'Avery Stone', Blake: 'Blake Rivers', Casey: 'Casey Lane', Drew: 'Drew Park', Ellis: 'Ellis Vance' };
   const rotationTechs = Object.entries(rotationNames).map(([shortName, fullName]) => ({
     name: fullName, shortName, phones: people[fullName] || []
   }));
-  const otherNames = ['Andy Singh', 'Justin Canales', 'Ian Sanchez'];
+  const otherNames = ['Jordan Reed', 'Quinn Marsh', 'Sawyer Bell'];
   const otherContacts = otherNames.map(name => ({ name, phones: people[name] || [] }));
 
   const out = { schedule, rotationTechs, otherContacts };
@@ -115,9 +115,9 @@ mkdir -p "C:/dev/projects/it-tools/tools/on-call"
 /c/dev/tools/nodejs/node.exe "C:/Users/JOSHUA~1/AppData/Local/Temp/claude/C--dev/767580f2-0a2b-489a-a6cd-a11d230ff1d9/scratchpad/generate-oncall-data.js"
 ```
 
-Expected output: `schedule rows: 147` (43 in 2024 + 52 in 2025 + 52 in 2026 — actual row ranges are one shorter per year than the loose "~53 rows/year" estimate made during brainstorming), `rotationTechs:` listing all 5 names each with >0 numbers (Nick shows `(1 numbers)`), `otherContacts:` listing all 3 names each with >0 numbers.
+Expected output: `schedule rows: 147` (43 in 2024 + 52 in 2025 + 52 in 2026 — actual row ranges are one shorter per year than the loose "~53 rows/year" estimate made during brainstorming), `rotationTechs:` listing all 5 names each with >0 numbers (Blake shows `(1 numbers)`), `otherContacts:` listing all 3 names each with >0 numbers.
 
-- [ ] **Step 3: Verify no David Wilhite leaked into the output**
+- [ ] **Step 3: Verify no Morgan Hale Wilhite leaked into the output**
 
 ```bash
 grep -c "Wilhite" "C:/dev/projects/it-tools/tools/on-call/data.json"
@@ -175,7 +175,7 @@ Built all five pieces together into a single file in one pass rather than five s
 - Everything else (hero card via `findCurrentWeek`, year tabs, schedule table with edit-mode inputs, contact cards, `ONCALL_GET_URL`/`ONCALL_SAVE_URL` blank-fallback pattern, `saveChanges()`) matches the original drafts below as written.
 
 **Verified via Playwright** against a local static server, bypassing the real MSAL wall the same way as Task 2 (revealing `appScreen`/`toolContent` directly, setting `st.isAdmin = true`, then calling the real functions):
-- Hero card correctly resolved to Nick Zoshak / 253-314-8135 for "today" (2026-09-02, in the Sunday-2026-08-30 week) — matches the Task 4 Node-only check.
+- Hero card correctly resolved to Blake Rivers / 555-555-0105 for "today" (2026-09-02, in the Sunday-2026-08-30 week) — matches the Task 4 Node-only check.
 - 3 year tabs; 52 schedule rows for 2026, 43 for 2024 after `setYear('2024')`; 5 rotation cards, 3 other-contact cards.
 - Edit Mode toggle correctly swapped the table to 52×4 = 208 input fields and revealed the Save button.
 - `saveChanges()` with `ONCALL_SAVE_URL` still blank correctly no-ops with a console warning and flips the button to "Saved" rather than throwing.

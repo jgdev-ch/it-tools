@@ -525,7 +525,7 @@ Note `buildBlockHtml(it.week, it.idx)` already passes `idx` even though the Task
 Reload against the local static server, `st.isAdmin = true`, `toggleEditMode()`. Confirm:
 - Year segmented control now reads directly from `data.json`'s years (still 2024/2025/2026 today) instead of a hardcoded list.
 - A green "Build 2027 Rotation" button appears next to the year tabs (2026 is fully populated, 2027 has zero rows).
-- Clicking it hides the calendar strip and roster, and shows a setup bar reading "Continuing from Krista Guthrie (2026-12-27) → next: Joshua Garrett" (or whoever the real last 2026 row and array order resolve to).
+- Clicking it hides the calendar strip and roster, and shows a setup bar reading "Continuing from Ellis Vance (2026-12-27) → next: Avery Stone" (or whoever the real last 2026 row and array order resolve to).
 - Clicking "Generate Proposal" shows a canvas of blocks grouped by month (JANUARY 2027, FEBRUARY 2027, ...), each showing initials + date, colored per the same palette as the calendar/roster, cycling through the 5 rotation techs in order starting from the "next" tech shown in setup.
 - The bottom bar reads "52 weeks proposed" (or 53, whichever `computeYearSundays("2027")` produces).
 - Clicking "Discard" (the `cancelBuild()`-bound button, currently just labeled Discard in the commit bar) returns to the normal calendar/roster view and the Build button reappears.
