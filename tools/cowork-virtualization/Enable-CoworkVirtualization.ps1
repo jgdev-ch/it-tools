@@ -216,17 +216,49 @@ if ($isGuest) {
 }
 
 # Informational only. Cowork's own service appears after Claude Desktop runs.
-$claudeRoot = Join-Path $env:LOCALAPPDATA 'AnthropicClaude'
-if (Test-Path $claudeRoot) {
-    $appDir = Get-ChildItem -Path $claudeRoot -Directory -Filter 'app-*' -ErrorAction SilentlyContinue |
-        Sort-Object Name -Descending | Select-Object -First 1
-    if ($appDir) {
-        Write-Detail ("Claude Desktop installed: " + $appDir.Name.Replace('app-', 'v')) Green
-    } else {
-        Write-Detail "Claude Desktop installed." Green
+#
+# This has to measure the END USER's profile, not the caller's. Under a tech run
+# the script is elevated as an admin account, so $env:LOCALAPPDATA resolves to
+# the tech's own profile and Claude Desktop looks absent on every invocation.
+# Win32_ComputerSystem.UserName gives the interactively signed-in user instead,
+# which is the person we actually care about. Verified against an AzureAD\ account,
+# whose SID translates correctly through NTAccount.
+$claudeRoot = $null
+$targetUser = if ($cs) { $cs.UserName } else { $null }
+
+if ($targetUser) {
+    try {
+        $targetSid  = (New-Object System.Security.Principal.NTAccount($targetUser)).Translate(
+                          [System.Security.Principal.SecurityIdentifier]).Value
+        $targetHome = (Get-CimInstance -ClassName Win32_UserProfile -ErrorAction Stop |
+                          Where-Object { $_.SID -eq $targetSid }).LocalPath
+        if ($targetHome) {
+            $claudeRoot = Join-Path $targetHome 'AppData\Local\AnthropicClaude'
+        } else {
+            Write-Detail ("NOTE: No local profile found for " + $targetUser + ", so the Claude Desktop check was skipped.") Yellow
+        }
+    } catch {
+        Write-Detail ("NOTE: Could not resolve the profile for " + $targetUser + ", so the Claude Desktop check was skipped.") Yellow
     }
 } else {
-    Write-Detail "NOTE: Claude Desktop is not installed for this user yet. Install it after the restart." Yellow
+    Write-Detail "NOTE: Nobody is signed in interactively, so the Claude Desktop check was skipped." Yellow
+}
+
+if ($claudeRoot) {
+    if (Test-Path $claudeRoot) {
+        # Reports the Squirrel folder version. The machine may also carry an MSIX
+        # package on an unrelated version scheme, so this one is treated as
+        # authoritative rather than compared against it.
+        $appDir = Get-ChildItem -Path $claudeRoot -Directory -Filter 'app-*' -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending | Select-Object -First 1
+        if ($appDir) {
+            Write-Detail ("Claude Desktop installed for " + $targetUser + ": " + $appDir.Name.Replace('app-', 'v')) Green
+        } else {
+            Write-Detail ("Claude Desktop installed for " + $targetUser + ".") Green
+        }
+    } else {
+        Write-Detail ("NOTE: Claude Desktop is not installed for " + $targetUser + " yet. Install it after the restart.") Yellow
+    }
 }
 
 # --- Phase 2: Hardware virtualization -----------------------------

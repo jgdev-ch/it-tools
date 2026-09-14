@@ -56,7 +56,7 @@ WHAT THE SCRIPT DOES
 Phase 1 - Checks the host: administrator rights, Windows
           edition and build, CPU architecture, whether this is
           a physical machine, and whether Claude Desktop is
-          installed
+          installed for the signed-in user
 Phase 2 - Checks that hardware virtualization is enabled in
           firmware. It cannot change BIOS/UEFI settings, so if
           this is off you get told to go do it by hand

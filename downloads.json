@@ -34,7 +34,7 @@
       "id": "cowork-virtualization",
       "name": "Cowork Virtualization Setup",
       "description": "Enable the Windows virtualization prerequisites Claude Cowork needs on a user's machine. Checks firmware, the Virtual Machine Platform feature, boot configuration, and the Host Compute Service, then reports whether a restart is required.",
-      "version": "1.0",
+      "version": "1.1",
       "type": "PowerShell",
       "accent": "#6d28d9",
       "iconBg": "#2a1e4a",

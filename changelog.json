@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "2.4.5",
+      "date": "2026-09-14",
+      "notes": [
+        "Cowork Virtualization Setup: the Claude Desktop check now reads the signed-in user's profile instead of the account running the script, so it no longer reports Claude Desktop as missing on every technician-run setup",
+        "Cowork Virtualization Setup: Claw'd now appears in his proper colour when the launcher starts"
+      ]
+    },
+    {
       "version": "2.4.4",
       "date": "2026-09-11",
       "notes": [

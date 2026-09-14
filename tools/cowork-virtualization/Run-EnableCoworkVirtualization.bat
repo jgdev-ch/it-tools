@@ -23,6 +23,16 @@ setlocal
 set "SELF=%~f0"
 set "PS1=%~dp0Enable-CoworkVirtualization.ps1"
 
+REM Claw'd is #DA7757. cmd cannot type an ESC byte directly, and editors strip a
+REM literal one silently, so capture it from prompt $E instead. Setting variables
+REM echoes nothing, so this is safe above the elevation check. If the capture ever
+REM fails, CLAWON and CLAWOFF stay empty and the art prints uncoloured rather than
+REM spraying escape codes. The art lives in this .bat, which runs before the PS1
+REM starts its transcript, so the escape bytes never reach the run log.
+for /f %%a in ('echo prompt $E^| cmd') do set "ESC=%%a"
+if defined ESC (set "CLAWON=%ESC%[38;2;218;119;87m") else (set "CLAWON=")
+if defined ESC (set "CLAWOFF=%ESC%[0m") else (set "CLAWOFF=")
+
 if not exist "%PS1%" goto :no_script
 
 net session >nul 2>&1
@@ -37,7 +47,7 @@ powershell.exe -NoProfile -Command "try { $p = Start-Process -FilePath $env:SELF
 exit /b %errorlevel%
 
 :run
-echo.
+echo.%CLAWON%
 echo                 ################################
 echo                 ################################
 echo                 ################################
@@ -53,7 +63,7 @@ echo                 ################################
 echo                 ################################
 echo                     ##    ##        ##    ##
 echo                     ##    ##        ##    ##
-echo.
+echo.%CLAWOFF%
 echo ==========================================================
 echo  Claude Cowork Virtualization Setup
 echo  IT Tools Hub
