@@ -667,8 +667,9 @@ const GROUP_GATES = {
   },
   "oncall-admin": {
     // No hub card uses data-gate="oncall-admin" (unlockCard() safely no-ops for it) —
-    // this entry exists purely so runGateChecks()/restoreFromLocalStorage() pick up
-    // membership and pass it to renderAccountDropdown() for the pill below.
+    // this entry exists so runGateChecks()/restoreFromLocalStorage() pick up membership
+    // and pass it on to renderAccountDropdown() for the pill below, and to
+    // applyAdminPreviewGates() for the On-Call card's preview-only unlock.
     id:       "036477e6-92a0-4eb7-b372-0849bd404bd9",
     localKey: "it-tools-oncall-admin-unlocked",
   },
@@ -907,7 +908,11 @@ async function runGateChecks(token) {
 // ── Coming-soon cards with a comingSoonGate: swap to live for unlocked gate keys ──
 // Reuses the membership result `runGateChecks`/`restoreFromLocalStorage` already
 // computed rather than re-checking Graph — this only ever runs right after one of those.
+// Preview-only, matching how IS_PREVIEW keeps other coming-soon tools clickable there:
+// production stays greyed out for everyone, including members of the gate's own group,
+// so an unfinished tool is never reachable from the production hub by anyone.
 function applyAdminPreviewGates(unlockedGateKeys) {
+  if (!IS_PREVIEW) return;
   document.querySelectorAll("[data-preview-gate]").forEach(el => {
     if (!unlockedGateKeys.includes(el.dataset.previewGate)) return;
     el.outerHTML = buildLiveCard({
@@ -1061,11 +1066,13 @@ async function loadTools() {
         return buildLockedCard({ gateKey: "security", ...meta });
       }
 
-      // "coming-soon" for everyone, except members of `comingSoonGate`'s group see it
-      // fully live (still in beta, still building) so work on it can continue without
-      // exposing it to the rest of the team. Distinct from financeOnly/reportingOnly/
-      // securityOnly above: those are ready tools gated by permission (locked-badge
-      // visual); this is an unready tool gated by "should you even know this exists yet."
+      // "coming-soon" for everyone on both sites, except that on preview members of
+      // `comingSoonGate`'s group see it fully live (still in beta, still building) so
+      // work can continue without exposing it to the rest of the team. Production is
+      // greyed out for everyone. Distinct from financeOnly/reportingOnly/securityOnly
+      // above: those are ready tools gated by permission (locked-badge visual); this is
+      // an unready tool gated by "should you even know this exists yet."
+      // The preview swap happens in applyAdminPreviewGates() after sign-in.
       if (tool.status === "coming-soon" && tool.comingSoonGate) {
         return buildComingSoonCard({
           accent: tool.accent, icon: tool.icon,
