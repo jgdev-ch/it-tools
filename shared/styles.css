@@ -66,6 +66,15 @@ button, input, select, textarea { font-family: inherit; }
   /* Near-opaque fill for floating panels (dropdowns) so page content behind
      them doesn't bleed through — glass-fill is too transparent over content. */
   --panel-fill:   rgba(255,255,255,.97);
+  /* Secondary body text — sits between --text and --muted. Used for supporting
+     copy that should recede from a heading but stay clearly readable. */
+  --text-secondary: #4a4a52;
+  /* A surface raised ON TOP of a glass card (inset phone rows, segmented
+     controls, avatar rings). Deliberately not --glass-fill: that is tuned for a
+     card floating over the blurred page, and reads as flat when nested inside
+     one. Deliberately not --panel-fill: that is near-opaque, for dropdowns. */
+  --glass-raise:        rgba(255,255,255,.60);
+  --glass-raise-border: rgba(255,255,255,.70);
   /* Scrollbar thumb — deliberately not --glass-fill/--glass-border: those are
      tuned for translucent surfaces over a blurred backdrop, and a white-tinted
      thumb over a flat white panel is invisible. Dark tint here, light tint in
@@ -126,6 +135,11 @@ button, input, select, textarea { font-family: inherit; }
   --glass-fill:   rgba(255,255,255,.055);
   --glass-border: rgba(255,255,255,.10);
   --panel-fill:   rgba(22,23,28,.96);
+  /* Much lower alpha than a naive inversion of the light values: over dark
+     glass a 60%-white fill blows out into an opaque light slab. */
+  --text-secondary:     #c8cad2;
+  --glass-raise:        rgba(255,255,255,.08);
+  --glass-raise-border: rgba(255,255,255,.14);
   --scroll-thumb:       rgba(255,255,255,.18);
   --scroll-thumb-hover: rgba(255,255,255,.32);
 
@@ -276,11 +290,13 @@ a:hover { text-decoration: underline; }
 .account-pill--green { background: rgba(4,120,87,.10);  border: 1px solid rgba(4,120,87,.22);  color: var(--green); }
 .account-pill--amber { background: rgba(146,64,14,.10); border: 1px solid rgba(146,64,14,.22); color: var(--amber); }
 .account-pill--blue  { background: rgba(26,86,219,.10); border: 1px solid rgba(26,86,219,.20); color: var(--blue);  }
-.account-pill--slate { background: rgba(91,100,114,.12); border: 1px solid rgba(91,100,114,.28); color: #5b6472;  }
-[data-theme="dark"] .account-pill--green { background: rgba(52,199,111,.12); border-color: rgba(52,199,111,.25); }
-[data-theme="dark"] .account-pill--amber { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25);  }
-[data-theme="dark"] .account-pill--blue  { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25);  }
-[data-theme="dark"] .account-pill--slate { background: rgba(148,158,174,.16); border-color: rgba(148,158,174,.32); color: #b0b8c4; }
+.account-pill--slate  { background: rgba(91,100,114,.12); border: 1px solid rgba(91,100,114,.28); color: #5b6472;  }
+.account-pill--purple { background: rgba(91,33,182,.10);  border: 1px solid rgba(91,33,182,.22);  color: var(--purple); }
+[data-theme="dark"] .account-pill--green  { background: rgba(52,199,111,.12); border-color: rgba(52,199,111,.25); }
+[data-theme="dark"] .account-pill--amber  { background: rgba(226,161,61,.12); border-color: rgba(226,161,61,.25);  }
+[data-theme="dark"] .account-pill--blue   { background: rgba(76,141,255,.12); border-color: rgba(76,141,255,.25);  }
+[data-theme="dark"] .account-pill--slate  { background: rgba(148,158,174,.16); border-color: rgba(148,158,174,.32); color: #b0b8c4; }
+[data-theme="dark"] .account-pill--purple { background: rgba(168,120,240,.14); border-color: rgba(168,120,240,.28); }
 
 /* ── Tool-title access badges ──
    Sit next to the tool name in the topbar. Palette mirrors the account

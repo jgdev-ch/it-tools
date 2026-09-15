@@ -392,7 +392,7 @@ Open the tool, sign in. Click "Paste names". Paste the following:
 
 ```
 1. @Dr. Jane Smith (Finance)
-2) Williams, Robert
+2) Williams, Drew
 • Mrs. Carol White [HR]
 - @Tom Jones
 Jane Smith
@@ -400,7 +400,7 @@ Jane Smith
 
 Expected detected panel:
 - Jane Smith — `@ stripped`, `Dr. removed`, `(Finance) removed`
-- Robert Williams — `Last, First → flipped`
+- Drew Williams — `Last, First → flipped`
 - Carol White — `Mrs. removed`, `[HR] removed`
 - Tom Jones — `@ stripped`
 - (Jane Smith deduped — 5th line is a case-insensitive duplicate)

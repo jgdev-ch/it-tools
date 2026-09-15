@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>On-Call Rotation: IT Tools Hub</title>
+  <script src="../../shared/msal-browser.min.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <link rel="stylesheet" href="../../shared/styles.css"/>
+  <style>
+    /* Prevent auth-screen flash on load (matches sibling tools). */
+    #authScreen { display:none; }
+    body { opacity:0; transition:opacity .15s; }
+
+    .main-content { max-width:1680px; margin:0 auto; padding:20px 24px 24px; }
+    .oc-layout { display:grid; grid-template-columns:400px 1fr; gap:16px; align-items:start; }
+    .oc-rail { display:flex; flex-direction:column; gap:12px; }
+
+    /* ── Rail cards (shared glass shell) ── */
+    .oc-card { border-radius:16px; background:var(--glass-fill); border:1px solid var(--glass-border);
+               backdrop-filter:blur(22px) saturate(180%); }
+    #queueCard { padding:14px 16px 8px; }
+    #attentionCard, #rosterNotesCard { padding:14px 16px; }
+    .oc-card-lbl { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+                   text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin-bottom:6px; }
+
+    /* ── On call now ── */
+    .now-card { border-radius:16px; padding:18px; color:var(--text);
+                background:color-mix(in srgb, var(--tech-color) 20%, var(--glass-fill));
+                border:1px solid color-mix(in srgb, var(--tech-color) 28%, var(--glass-border));
+                backdrop-filter:blur(22px) saturate(180%); }
+    .now-eyebrow { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+                   text-transform:uppercase; letter-spacing:.12em;
+                   color:color-mix(in srgb, var(--tech-color) 72%, var(--text)); }
+    .now-id { display:flex; gap:14px; margin-top:12px; }
+    .now-avatar { width:60px; height:60px; border-radius:50%; flex-shrink:0; display:flex; align-items:center;
+                  justify-content:center; font-size:21px; font-weight:800; color:#fff;
+                  border:2px solid var(--glass-raise-border); cursor:pointer; }
+    .now-name { font-size:26px; font-weight:800; letter-spacing:-.02em; line-height:1.1; color:var(--text); }
+    .now-sub { font-size:13px; color:var(--text-secondary); margin-top:3px; }
+    .now-pips { display:flex; gap:4px; margin:16px 0 8px; }
+    .now-pip { flex:1; height:7px; border-radius:4px;
+               background:color-mix(in srgb, var(--tech-color) 22%, transparent); }
+    .now-pip.done { background:var(--tech-color); }
+    .now-pip.today { background:var(--tech-color); box-shadow:0 0 0 2px var(--glass-raise-border); }
+    /* Dark's --glass-raise-border (.14 white) is too faint over a saturated pip
+       to separate "today" from the solid "done" pips. --text is near-white in
+       dark, so this keeps the halo bright without a hardcoded literal. */
+    [data-theme="dark"] .now-pip.today { box-shadow:0 0 0 2px color-mix(in srgb, var(--text) 45%, transparent); }
+    .now-handoff { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    .now-handoff-txt { font-size:13px; color:var(--text-secondary); }
+    .now-handoff-txt strong { font-weight:700; color:var(--text); }
+    .now-countdown { font-size:22px; font-weight:800; letter-spacing:-.02em; white-space:nowrap;
+                     color:color-mix(in srgb, var(--tech-color) 80%, var(--text)); }
+    .now-divider { height:1px; background:var(--glass-raise-border); margin:14px 0 12px; }
+    .now-phone { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                 background:var(--glass-raise); border-radius:10px; padding:9px 12px; margin-bottom:6px; }
+    .now-phone:last-of-type { margin-bottom:0; }
+    .now-phone-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+    .now-phone-num { font-size:16px; font-weight:700; letter-spacing:-.01em; color:var(--text);
+                     font-family:'Cascadia Code','Consolas',monospace; }
+    .copy-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 11px;
+                font-size:12px; font-weight:600; color:var(--blue); cursor:pointer; font-family:inherit; flex-shrink:0; }
+    .now-note { font-size:11px; color:var(--muted); margin-top:8px; }
+
+    /* ── Queue ── */
+    .queue-row { display:flex; align-items:center; gap:10px; padding:9px 0; cursor:pointer;
+                 border-bottom:1px solid var(--border); }
+    .queue-row:last-child { border-bottom:none; }
+    .queue-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .queue-name { flex:1; font-size:14px; font-weight:600; color:var(--text); }
+    .queue-row.first .queue-name { font-weight:700; }
+    .queue-date { font-size:12px; color:var(--muted); }
+    .queue-next { font-size:11px; font-weight:700; background:var(--green-light); color:var(--green);
+                  border-radius:20px; padding:2px 8px; }
+    .queue-rel { font-size:11px; font-weight:600; color:var(--muted); min-width:44px; text-align:right; }
+
+    /* ── Derived note lists (needs attention / roster notes) ── */
+    .oc-note-item { display:flex; gap:9px; align-items:flex-start; font-size:12.5px; line-height:1.45;
+                    color:var(--text-secondary); margin-bottom:8px; }
+    .oc-note-item:last-child { margin-bottom:0; }
+    .oc-note-item strong { color:var(--text); font-weight:700; }
+    .oc-note-icon { flex-shrink:0; margin-top:1px; display:flex; }
+    .oc-note-item.warn .oc-note-icon { color:var(--amber); }
+    .oc-note-item.info .oc-note-icon { color:var(--muted2); }
+
+    /* ── Right column toolbar ── */
+    .oc-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .oc-toolbar-left, .oc-toolbar-right { display:flex; align-items:center; gap:10px; }
+    .oc-toolbar-right { gap:8px; }
+    .year-seg { display:inline-flex; background:var(--glass-raise); border:1px solid var(--glass-raise-border);
+                border-radius:10px; padding:3px; }
+    .year-seg span { padding:6px 14px; border-radius:7px; font-size:13px; font-weight:600; color:var(--muted);
+                     cursor:pointer; }
+    .year-seg span.on { background:var(--blue); color:#fff; font-weight:700; }
+    .oc-count { font-size:12px; color:var(--muted); }
+    .oc-btn { display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border);
+              border-radius:9px; padding:7px 12px; font-size:13px; font-weight:600; color:var(--text);
+              cursor:pointer; font-family:inherit; }
+    .oc-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+
+    /* ── Find a person ── */
+    .find-wrap { position:relative; }
+    .find-panel { position:absolute; top:calc(100% + 6px); right:0; width:220px; max-height:260px; overflow-y:auto;
+                  background:var(--panel-fill); border:1px solid var(--border); border-radius:10px;
+                  box-shadow:var(--shadow-md); z-index:30; padding:4px; }
+    .find-option { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; font-size:13px;
+                   cursor:pointer; color:var(--text); }
+    .find-option:hover { background:var(--surface2); }
+    .find-option.on { background:var(--blue-light); color:var(--blue); font-weight:700; }
+    .find-avatar { width:22px; height:22px; border-radius:50%; display:flex; align-items:center;
+                   justify-content:center; font-size:10px; font-weight:700; color:#fff; flex-shrink:0; }
+
+    /* ── Year board ── */
+    .board-panel { border-radius:16px; padding:14px 16px; background:var(--glass-fill);
+                   border:1px solid var(--glass-border); backdrop-filter:blur(22px) saturate(180%); }
+    .board-grid { display:grid; grid-template-columns:34px repeat(5, 1fr); gap:5px; align-items:center; }
+    .board-month { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--muted2); }
+    .board-month.current { color:var(--text); }
+    .wk { position:relative; height:42px; border-radius:8px; display:flex; align-items:center;
+          justify-content:center; gap:5px; color:#fff; cursor:pointer;
+          transition:transform .15s, box-shadow .15s, opacity .15s; }
+    .wk:hover { transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+    .wk-day { font-size:11px; opacity:.75; }
+    .wk-ini { font-size:12px; font-weight:800; }
+    .wk.today { box-shadow:0 0 0 2px var(--text), 0 4px 12px rgba(0,0,0,.2); }
+    .wk.next { box-shadow:0 0 0 1.5px color-mix(in srgb, var(--text) 35%, transparent); }
+    .wk.unmatched { background:var(--surface2); border:1px dashed var(--muted2); color:var(--muted); }
+    .wk.dim { opacity:.35; }
+    .wk.swappable { cursor:grab; }
+    .wk.dragging { opacity:.4; }
+    .wk.drag-over { outline:2px dashed var(--text); outline-offset:2px; }
+    /* top:-4px, not the brief's -9px: the tag is 14px tall and the grid row-gap is
+       only 5px, so a 9px overhang bled into the cell above in 44 of 52 weeks.
+       -4px keeps the tag straddling its own top edge without reaching the row
+       above, and without covering its own initials (which -2px does). */
+    .wk-now-tag { position:absolute; top:-4px; left:50%; transform:translateX(-50%); background:var(--text);
+                  color:var(--bg); font-size:9px; font-weight:800; letter-spacing:.06em; padding:2px 7px;
+                  border-radius:8px; pointer-events:none; z-index:2; }
+    .wk-flags { position:absolute; top:2px; right:3px; display:flex; gap:2px; opacity:.8; }
+    .wk-flags svg { display:block; width:11px; height:11px; }
+
+    /* ── Per-tech summary strip ── */
+    .tech-strip { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-top:12px; }
+    .tech-card { position:relative; border-radius:12px; padding:10px 12px; background:var(--glass-fill);
+                 border:1px solid var(--glass-border); border-left:3px solid var(--tech-color);
+                 backdrop-filter:blur(16px); cursor:pointer; transition:transform .15s, box-shadow .15s; }
+    .tech-card:hover { transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+    .tech-card-name { font-size:13px; font-weight:700; color:var(--text); }
+    .tech-card-meta { font-size:11.5px; color:var(--muted); margin-top:2px; }
+    .tech-card-meta.warn { color:var(--amber); }
+    .tech-grip { position:absolute; top:6px; right:6px; display:flex; cursor:grab; color:var(--muted); }
+    .tech-lock { position:absolute; top:7px; right:7px; display:flex; color:var(--muted2); }
+    /* Shift the lock clear of the drag handle, which shares this corner in edit mode. */
+    .tech-card.has-grip .tech-lock { right:24px; }
+    .also-lock { display:flex; color:var(--muted2); margin-left:-2px; }
+    .tech-card.dragging { opacity:.4; }
+    .tech-card.drag-over { outline:2px dashed var(--blue); outline-offset:2px; }
+    .tech-add { border-radius:12px; padding:10px 12px; border:1px dashed var(--border); display:flex;
+                align-items:center; justify-content:center; gap:5px; font-size:12px; font-weight:600;
+                color:var(--muted); cursor:pointer; }
+    .tech-add:hover { border-color:var(--blue); color:var(--blue); }
+
+    /* ── Also reachable ── */
+    .also-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; padding:9px 14px;
+                border-radius:12px; background:var(--glass-fill); border:1px solid var(--glass-border); }
+    .also-lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+    .also-chip { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-secondary);
+                 cursor:pointer; }
+    .also-avatar { width:20px; height:20px; border-radius:50%; display:flex; align-items:center;
+                   justify-content:center; font-size:9px; font-weight:800; color:#fff; flex-shrink:0; }
+    .also-add { display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--muted);
+                border:1px dashed var(--border); border-radius:20px; padding:3px 10px; cursor:pointer; }
+    .also-add:hover { border-color:var(--blue); color:var(--blue); }
+
+    /* ── Build Mode ── */
+    .build-trigger-btn { display:flex; align-items:center; gap:6px; background:var(--green); color:#fff; border:none;
+                          border-radius:10px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer; }
+    .build-setup-bar { display:flex; align-items:center; gap:14px; padding:14px 18px; margin-bottom:16px; border-radius:14px;
+                        background:var(--glass-fill); border:1px solid var(--glass-border); backdrop-filter:blur(16px); }
+    .setup-field { display:flex; flex-direction:column; gap:3px; font-size:12px; }
+    .setup-field .tag { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:700; }
+    .setup-field .val { font-weight:600; color:var(--text); }
+    .setup-go-btn { margin-left:auto; background:var(--green); color:#fff; border:none; border-radius:10px; padding:8px 16px;
+                    font-weight:700; font-size:12px; cursor:pointer; }
+    .setup-cancel-btn { background:none; border:1px solid var(--border); border-radius:10px; padding:8px 14px; font-weight:600;
+                        font-size:12px; cursor:pointer; color:var(--muted); }
+    .build-canvas-panel { padding:14px 16px; border-radius:14px; background:var(--glass-fill);
+                           border:1px solid var(--glass-border); backdrop-filter:blur(16px); margin-bottom:14px; }
+    .build-month-group { margin-bottom:12px; }
+    .build-month-lbl { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 4px 2px; }
+    .build-ribbon { display:flex; gap:5px; flex-wrap:wrap; }
+    .build-block { width:56px; height:52px; border-radius:9px; display:flex; flex-direction:column; align-items:center;
+                   justify-content:center; gap:2px; color:#fff; cursor:grab; box-shadow:0 1px 2px rgba(0,0,0,.1); }
+    .build-block.existing { opacity:.55; cursor:default; }
+    .build-block.dragging { transform:translateY(-8px) rotate(-3deg) scale(1.06); box-shadow:0 10px 20px rgba(0,0,0,.22); z-index:3; }
+    .build-block.drag-over { outline:2px dashed rgba(0,0,0,.35); outline-offset:2px; }
+    .build-block .build-block-initials { font-size:13px; font-weight:800; letter-spacing:.02em; }
+    .build-block .build-block-date { font-size:9px; font-weight:600; opacity:.85; }
+    .build-commit-bar { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:14px;
+                        background:var(--glass-fill); border:1px solid var(--glass-border); backdrop-filter:blur(16px); font-size:12px; }
+    .build-commit-bar > div { display:flex; gap:8px; }
+    .ghost-btn { background:none; border:1px solid var(--border); border-radius:10px; padding:8px 16px; font-weight:600;
+                 font-size:12px; cursor:pointer; color:var(--muted); }
+    .build-popover { position:absolute; width:200px; padding:12px; z-index:50; border-radius:12px;
+                      background:var(--glass-fill); border:1px solid var(--glass-border);
+                      backdrop-filter:blur(16px); box-shadow:0 14px 28px rgba(0,0,0,.16); }
+    .build-popover .pop-field { margin-bottom:8px; }
+    .build-popover .pop-field label { display:block; font-size:10px; color:var(--muted); font-weight:700; margin-bottom:3px;
+                                       text-transform:uppercase; }
+
+
+    /* Toggle switch used by the contact panel's In Rotation and Protected rows.
+       The markup (label.tog > input + div.track) already existed but lost its
+       CSS when the Edit Mode switch became a pencil button, leaving a raw
+       native checkbox visible. */
+    .tog { position:relative; display:inline-block; width:38px; height:22px; flex-shrink:0; cursor:pointer; }
+    .tog input { position:absolute; opacity:0; width:0; height:0; }
+    .tog .track { position:absolute; inset:0; background:var(--border-mid); border-radius:20px;
+                  transition:background .15s; }
+    .tog .track::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px;
+                         border-radius:50%; background:var(--surface); box-shadow:var(--shadow-sm);
+                         transition:transform .15s; }
+    .tog input:checked + .track { background:var(--blue); }
+    .tog input:checked + .track::after { transform:translateX(16px); }
+
+    .btn-remove { background:transparent; color:var(--red); border:1.5px solid var(--red-border); }
+    .btn-remove:hover:not(:disabled) { background:var(--red-light); }
+    .btn-remove:disabled { opacity:.45; cursor:not-allowed; }
+
+    /* ── Detail panel (shared: calendar week + roster contact) ── */
+    #panelBackdrop { position:fixed; top:var(--topbar-h); left:0; right:0; bottom:0; background:rgba(0,0,0,0); pointer-events:none;
+                     transition:background .15s; z-index:40; }
+    #panelBackdrop.open { background:rgba(0,0,0,.25); pointer-events:auto; }
+    #detailPanel { position:fixed; top:var(--topbar-h); right:0; bottom:0; width:340px; background:var(--surface); border-left:1px solid var(--border);
+                   box-shadow:-8px 0 24px rgba(0,0,0,.12); transform:translateX(100%); transition:transform .2s; z-index:41;
+                   padding:20px; overflow-y:auto; }
+    #detailPanel.open { transform:translateX(0); }
+    .panel-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .panel-dot { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                 font-weight:700; font-size:12px; color:#fff; flex-shrink:0; }
+    .panel-title { font-size:14px; font-weight:700; color:var(--text); }
+    .panel-sub { font-size:11px; color:var(--muted); }
+    .panel-badge { font-size:10px; background:#fef3c7; color:#92400e; padding:2px 9px; border-radius:10px; font-weight:700; margin-left:auto; }
+    .panel-close { background:none; border:none; cursor:pointer; color:var(--muted); padding:4px; margin-left:4px; }
+    .panel-row, .panel-field { margin-bottom:12px; }
+    .panel-row label, .panel-field label { display:block; font-size:10px; text-transform:uppercase; color:var(--muted);
+                                            letter-spacing:.05em; margin-bottom:4px; font-weight:700; }
+    .panel-value { font-size:13px; color:var(--text); }
+    .panel-input, .panel-select { width:100%; border:1px solid var(--border); border-radius:6px; padding:7px 9px; font-size:12px;
+                                   background:var(--bg); color:var(--text); box-sizing:border-box; font-family:inherit; }
+    .panel-toggle-row { display:flex; align-items:center; justify-content:space-between; font-size:12px; margin-bottom:12px; }
+    .panel-toggle-row label { margin:0; text-transform:none; font-size:12px; font-weight:400; color:var(--text); }
+    .phone-chip-row { font-size:12px; color:var(--text); margin-bottom:4px; }
+    .phone-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+    .phone-row .panel-input.phone-label { flex:0 0 90px; }
+    .phone-row .panel-input.phone-num { flex:1; }
+    .phone-rm { color:#c33; cursor:pointer; display:flex; }
+    .add-phone-link { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--blue); font-weight:600; cursor:pointer;
+                       margin-bottom:14px; }
+    .panel-btnrow { display:flex; gap:8px; margin-top:16px; }
+    .panel-btnrow .btn { flex:1; }
+  </style>
+</head>
+<body>
+<div id="topbar"></div>
+
+<!-- ── Auth screen ── -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <h1>On-Call Rotation</h1>
+    <p>Sign in with your M365 account to view the on-call schedule.</p>
+    <button class="btn-ms" onclick="doSignIn()">Sign in with Microsoft</button>
+    <div class="auth-error" id="authErr" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ── App screen ── -->
+<div id="appScreen" style="display:none">
+  <div class="app-body">
+    <main class="main-content">
+      <div id="deniedScreen" style="display:none">
+        <h2>Access Restricted</h2>
+        <p>This tool isn't available for your access group.</p>
+      </div>
+      <div id="toolContent" style="display:none">
+        <div class="oc-layout">
+          <aside class="oc-rail">
+            <div class="now-card" id="nowCard"></div>
+            <div class="oc-card" id="queueCard" style="display:none"></div>
+            <div class="oc-card" id="attentionCard" style="display:none"></div>
+            <div class="oc-card" id="rosterNotesCard" style="display:none"></div>
+          </aside>
+
+          <section class="oc-main">
+            <div class="oc-toolbar">
+              <div class="oc-toolbar-left">
+                <div class="year-seg" id="yearSeg"></div>
+                <span class="oc-count" id="ocCount"></span>
+              </div>
+              <div class="oc-toolbar-right">
+                <div class="find-wrap" id="findWrap">
+                  <button class="oc-btn" id="findBtn" onclick="toggleFindPanel()"></button>
+                  <div class="find-panel" id="findPanel" style="display:none"></div>
+                </div>
+                <button class="oc-btn" id="editToggleBtn" style="display:none" onclick="toggleEditMode()" title="Edit Mode"></button>
+                <button class="oc-btn" id="saveBtn" style="display:none" onclick="saveChanges()">Save</button>
+                <div id="buildTriggerWrap"></div>
+              </div>
+            </div>
+
+            <div class="board-panel" id="yearBoard"></div>
+            <div id="buildSetupBar" class="build-setup-bar" style="display:none"></div>
+            <div id="buildCanvasSection" style="display:none"></div>
+            <div class="tech-strip" id="techStrip"></div>
+            <div class="also-bar" id="alsoReachable"></div>
+          </section>
+        </div>
+      </div>
+    </main>
+    <div id="panelBackdrop" onclick="closePanel()"></div>
+    <div id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-dot" id="panelDot"></div>
+        <div>
+          <div class="panel-title" id="panelTitle"></div>
+          <div class="panel-sub" id="panelSub"></div>
+        </div>
+        <span class="panel-badge" id="panelBadge" style="display:none">Edit Mode</span>
+        <button class="panel-close" id="panelCloseBtn" onclick="closePanel()"></button>
+      </div>
+      <div id="panelBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOOL_SCOPES        = ["User.Read"];
+const GSD_GROUP_ID       = "3e1a4757-8189-4908-a611-b6029399e69e";
+const ONCALL_ADMIN_GROUP = "SG-IT-Tools-OnCall-Admin";
+// Left blank until the Function App (Task 10) is provisioned and deployed (Task 11).
+// While blank, the tool reads/writes the local data.json file instead of the live blob.
+const ONCALL_GET_URL  = "";
+const ONCALL_SAVE_URL = "";
+
+const PERSON_PALETTE      = ["#059669", "#1a56db", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#db2777"];
+const OTHER_CONTACT_COLOR = "#9ca3af";
+
+const ICON_SEARCH        = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+const ICON_PLUS          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`;
+const ICON_X             = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+const ICON_FILE_TEXT     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`;
+const ICON_PALMTREE      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/></svg>`;
+const ICON_HEADSET       = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M21 16v2a4 4 0 0 1-4 4h-5"/></svg>`;
+const ICON_PENCIL        = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
+const ICON_GRIP          = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`;
+// Same Lucide `lock` path the hub already uses for its locked-tile badges,
+// kept at stroke-width 2.5 to match how the hub renders it at small sizes.
+const ICON_LOCK          = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+function ordinal(n) {
+  const suffixes = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+}
+
+function initials(name) {
+  return name.split(" ").map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+}
+
+function buildPersonColors(data) {
+  const map = {};
+  const taken = new Set();
+
+  // Pass 1: honour any color already pinned on the tech.
+  data.rotationTechs.forEach(t => {
+    if (t.shortName && t.shortName.trim() && t.color) {
+      map[t.shortName] = t.color;
+      taken.add(t.color);
+    }
+  });
+
+  // Pass 2: backfill anyone without one, in sorted shortName order, taking the
+  // first palette entry nobody holds. With no pre-existing colors this
+  // reproduces the old sorted-position assignment exactly, so nothing changes
+  // visually the first time this runs.
+  //
+  // The write-back to t.color is load-bearing, not an optimisation: it is what
+  // makes deletion safe before the first save has ever happened. Every tech
+  // holds a concrete color in memory right after load, so a post-delete rebuild
+  // takes pass 1 for every survivor and cannot reshuffle them.
+  //
+  // Blank shortNames are skipped entirely: an abandoned "Add tech" leaves one
+  // behind, and an empty string sorts before every real name.
+  data.rotationTechs
+    .filter(t => t.shortName && t.shortName.trim() && !t.color)
+    .sort((a, b) => (a.shortName < b.shortName ? -1 : 1))
+    .forEach(t => {
+      const next = PERSON_PALETTE.find(c => !taken.has(c)) || PERSON_PALETTE[taken.size % PERSON_PALETTE.length];
+      t.color = next;
+      map[t.shortName] = next;
+      taken.add(next);
+    });
+
+  return map;
+}
+
+function personColorFor(shortName) {
+  return st.personColors[shortName] || OTHER_CONTACT_COLOR;
+}
+
+const st = { data: null, year: "2026", isAdmin: false, panel: null, draft: null, build: null, highlightTech: null };
+
+async function doSignIn() {
+  try {
+    const acct = await ITTools.auth.signIn();
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display  = "block";
+    ITTools.ui.setUser(acct);
+    await afterSignIn();
+  } catch(e) {
+    const el = document.getElementById("authErr");
+    el.textContent = e.message; el.style.display = "block";
+  }
+}
+
+async function afterSignIn() {
+  const token = await ITTools.auth.getToken();
+  const res = await fetch("https://graph.microsoft.com/v1.0/me/checkMemberObjects", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: [GSD_GROUP_ID] }),
+  });
+  const denied = res.ok && (await res.json()).value.includes(GSD_GROUP_ID);
+  if (denied) {
+    document.getElementById("deniedScreen").style.display = "block";
+    return;
+  }
+  document.getElementById("toolContent").style.display = "block";
+
+  await checkOnCallAdminAccess();
+  await loadData();
+}
+
+async function checkOnCallAdminAccess() {
+  try {
+    const enc = encodeURIComponent(`displayName eq '${ONCALL_ADMIN_GROUP}'`);
+    const res = await ITTools.graph.get(`https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`);
+    const groups = res.value || [];
+    if (!groups.length) { st.isAdmin = false; return; }
+    const groupId = groups[0].id;
+    const memberships = await ITTools.graph.getAll(`https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`);
+    st.isAdmin = memberships.some(m => m.id === groupId);
+  } catch (_) {
+    st.isAdmin = false; // fail secure
+  }
+}
+
+async function loadData() {
+  if (ONCALL_GET_URL) {
+    const token = await ITTools.auth.getToken();
+    const res = await fetch(ONCALL_GET_URL, { headers: { Authorization: "Bearer " + token } });
+    st.data = await res.json();
+  } else {
+    const res = await fetch("data.json?v=" + Date.now());
+    st.data = await res.json();
+  }
+  st.personColors = buildPersonColors(st.data);
+  renderAll();
+}
+
+let countdownTimer = null;
+
+function renderAll() {
+  renderNowCard();
+  renderQueue();
+  renderAttention();
+  renderRosterNotes();
+  renderYearSeg();
+  renderToolbar();
+  renderYearBoard();
+  renderTechStrip();
+  renderAlsoReachable();
+  renderBuildTrigger();
+}
+
+// ── Find a person (board highlight) ─────────────────────────
+function renderFindPanel() {
+  document.getElementById("findPanel").innerHTML = st.data.rotationTechs.map(t => `
+    <div class="find-option${st.highlightTech === t.shortName ? " on" : ""}" onclick="highlightPerson('${t.shortName}')">
+      <span class="find-avatar" style="background:${personColorFor(t.shortName)}">${initials(t.name)}</span>
+      ${t.name}
+    </div>`).join("");
+}
+
+function toggleFindPanel() {
+  const panel = document.getElementById("findPanel");
+  const opening = panel.style.display === "none";
+  if (opening) renderFindPanel();
+  panel.style.display = opening ? "block" : "none";
+}
+
+function highlightPerson(shortName) {
+  document.getElementById("findPanel").style.display = "none";
+
+  if (st.highlightTech === shortName) { clearHighlight(); return; }
+  st.highlightTech = shortName;
+
+  // The design brief specs pure highlight, which would silently drop the
+  // jump-to-next-upcoming behaviour added 2026-09-03. If the tech has no weeks
+  // in the year on screen, switch to the year holding their next shift.
+  if (!getYearWeeks(st.year).some(r => r.tech === shortName)) {
+    const rows = sortedByDate(st.data.schedule.filter(r => r.tech === shortName));
+    const target = rows.find(r => daysFromToday(r.startDate) >= 0) || rows[rows.length - 1];
+    if (target) {
+      st.year = target.startDate.slice(0, 4);
+      renderYearSeg();
+      renderToolbar();
+      renderAttention();
+      renderRosterNotes();
+      renderTechStrip();
+    }
+  }
+
+  const tech = st.data.rotationTechs.find(t => t.shortName === shortName);
+  document.getElementById("findBtn").innerHTML = ICON_SEARCH + " " + (tech ? tech.name : shortName);
+  renderYearBoard();
+}
+
+function clearHighlight() {
+  if (!st.highlightTech) return;
+  st.highlightTech = null;
+  document.getElementById("findBtn").innerHTML = ICON_SEARCH + " Find a person";
+  renderYearBoard();
+}
+
+// ── On call now card ────────────────────────────────────────
+function renderNowCard() {
+  const el = document.getElementById("nowCard");
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+
+  const week = findCurrentWeek(st.data.schedule);
+  if (!week) {
+    el.style.removeProperty("--tech-color");
+    el.innerHTML = `<div class="now-eyebrow">${ICON_HEADSET} On call now</div>
+      <div class="now-sub" style="margin-top:10px">No current on-call week found.</div>`;
+    return;
+  }
+
+  const techIdx = st.data.rotationTechs.findIndex(t => t.shortName === week.tech);
+  const tech = techIdx !== -1 ? st.data.rotationTechs[techIdx] : null;
+  const name = tech ? tech.name : week.tech;
+  const color = personColorFor(week.tech);
+  el.style.setProperty("--tech-color", color);
+
+  const elapsed = daysFromToday(week.startDate) * -1;
+  const pips = Array.from({ length: 7 }, (_, i) =>
+    `<span class="now-pip${i < elapsed ? " done" : i === elapsed ? " today" : ""}"></span>`).join("");
+
+  const nextRow = nextWeekAfter(week.startDate);
+  let handoff = "";
+  if (nextRow) {
+    const nextTech = st.data.rotationTechs.find(t => t.shortName === nextRow.tech);
+    const nextName = nextTech ? nextTech.name : nextRow.tech;
+    const d = new Date(nextRow.startDate + "T00:00:00Z");
+    const dayName = d.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+    const monthName = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+    handoff = `<div class="now-handoff">
+        <span class="now-handoff-txt">Hands off to <strong>${nextName}</strong>, ${dayName} ${monthName} ${ordinal(d.getUTCDate())}</span>
+        <span class="now-countdown" id="nowCountdown">${countdownLabel()}</span>
+      </div>`;
+  }
+
+  const phones = tech ? tech.phones : [];
+  const phoneRows = phones.map(p => `
+    <div class="now-phone">
+      <div>
+        <div class="now-phone-lbl">${p.label}</div>
+        <div class="now-phone-num">${p.number}</div>
+      </div>
+      <button class="copy-btn" onclick="copyNumber(event, '${p.number}')">Copy</button>
+    </div>`).join("");
+
+  const note = coverageNote(phones);
+  const avatarClick = tech ? `onclick="openContactPanel('rotation', ${techIdx})"` : "";
+
+  el.innerHTML = `
+    <div class="now-eyebrow">${ICON_HEADSET} On call now</div>
+    <div class="now-id">
+      <div class="now-avatar" ${avatarClick} style="background:${color}"
+           title="${tech ? "View " + name + "'s contact info" : ""}">${initials(name)}</div>
+      <div>
+        <div class="now-name">${name}</div>
+        <div class="now-sub">${weekRangeLabel(week.startDate)} &middot; week ${weekOrdinalInYear(week.startDate)}</div>
+      </div>
+    </div>
+    <div class="now-pips">${pips}</div>
+    ${handoff}
+    ${phoneRows ? `<div class="now-divider"></div>${phoneRows}` : ""}
+    ${note ? `<div class="now-note">${note}</div>` : ""}`;
+
+  if (nextRow) {
+    countdownTimer = setInterval(() => {
+      const c = document.getElementById("nowCountdown");
+      if (!c) { clearInterval(countdownTimer); countdownTimer = null; return; }
+      c.textContent = countdownLabel();
+    }, 60000);
+  }
+}
+
+function copyNumber(evt, number) {
+  evt.stopPropagation();
+  const btn = evt.currentTarget;
+  navigator.clipboard.writeText(number).then(() => {
+    btn.textContent = "Copied";
+    setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+  });
+}
+
+// ── Queue (next four weeks) ─────────────────────────────────
+function renderQueue() {
+  const el = document.getElementById("queueCard");
+  // Date-based, not "index after the current week": with no current week the
+  // index approach fell back to 0 and listed the oldest rows in the data.
+  const upcoming = sortedByDate(st.data.schedule)
+    .filter(r => daysFromToday(r.startDate) > 0)
+    .slice(0, 4);
+  if (!upcoming.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+
+  const rows = upcoming.map((row, i) => {
+    const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+    const name = tech ? tech.name : row.tech;
+    const right = i === 0
+      ? `<span class="queue-next">next up</span>`
+      : `<span class="queue-rel">in ${daysFromToday(row.startDate)}d</span>`;
+    return `<div class="queue-row${i === 0 ? " first" : ""}" onclick="openWeekPanel('${row.startDate}')">
+        <span class="queue-dot" style="background:${personColorFor(row.tech)}"></span>
+        <span class="queue-name">${name}</span>
+        <span class="queue-date">${shortDate(row.startDate)}</span>
+        ${right}
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `<div class="oc-card-lbl">Queue</div>${rows}`;
+}
+
+// ── Derived note cards ──────────────────────────────────────
+// Two lists, deliberately separated. "Needs attention" is amber and actionable.
+// "Roster notes" is grey and informational: a departed tech's rows are a deliberate
+// historical-record keep, so filing them as a warning would create a nag that
+// can only be cleared by reversing that decision.
+function renderAttention() {
+  const el = document.getElementById("attentionCard");
+  const items = [];
+
+  const yearRows = getYearWeeks(st.year);
+  if (yearRows.length && !yearRows.some(r => r.timeOff)) {
+    items.push({ icon: ICON_PALMTREE,
+      text: `No time off recorded anywhere in ${st.year}. Worth a pass before the holidays.` });
+  }
+
+  // Unmatched weeks that are still ahead of us are uncovered coverage, not
+  // history, so they belong here rather than in Roster notes.
+  const { upcoming } = unmatchedTechs(st.year);
+  Object.keys(upcoming).forEach(t => {
+    const n = upcoming[t].length;
+    items.push({ icon: ICON_FILE_TEXT,
+      text: `${n} upcoming week${n === 1 ? "" : "s"} ${n === 1 ? "is" : "are"} assigned to <strong>${t}</strong>, who is no longer in the roster. Reassign ${n === 1 ? "it" : "them"}. ${upcoming[t].map(shortDate).join(", ")}.` });
+  });
+
+  if (!items.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.innerHTML = `<div class="oc-card-lbl">Needs attention</div>` + items.map(i =>
+    `<div class="oc-note-item warn"><span class="oc-note-icon">${i.icon}</span><span>${i.text}</span></div>`
+  ).join("");
+}
+
+function renderRosterNotes() {
+  const el = document.getElementById("rosterNotesCard");
+  const { past } = unmatchedTechs(st.year);
+  const names = Object.keys(past);
+  if (!names.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+
+  const items = names.map(t => {
+    const dates = past[t].map(shortDate).join(", ");
+    const n = past[t].length;
+    return `<div class="oc-note-item info">
+        <span class="oc-note-icon">${ICON_FILE_TEXT}</span>
+        <span>${n} week${n === 1 ? "" : "s"} in ${st.year} ${n === 1 ? "is" : "are"} assigned to
+        <strong>${t}</strong>, who has left the rotation. Kept as historical record. ${dates}.</span>
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `<div class="oc-card-lbl">Roster notes</div>${items}`;
+}
+
+// ── Hero card (current on-call week) ───────────────────────
+function findCurrentWeek(schedule) {
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  let best = null;
+  for (const row of schedule) {
+    const rowUtc = Date.parse(row.startDate + "T00:00:00Z");
+    // Bounded to the row's own 7-day span. Without the upper bound, a gap over
+    // today (or the schedule simply running out) makes the most recent past
+    // week read as "on call now" indefinitely — worse than showing nothing,
+    // since someone could page the wrong person during an incident.
+    if (rowUtc <= todayUtc && todayUtc < rowUtc + 7 * 86400000 &&
+        (!best || rowUtc > Date.parse(best.startDate + "T00:00:00Z"))) {
+      best = row;
+    }
+  }
+  return best;
+}
+
+// First week starting after today, independent of whether a current week
+// exists. Used for the queue and the board's "next" ring so both stay correct
+// when there is no current week at all.
+function firstUpcomingWeek() {
+  return sortedByDate(st.data.schedule).find(r => daysFromToday(r.startDate) > 0) || null;
+}
+
+// ── Calendar strip ──────────────────────────────────────────
+function getYearWeeks(year) {
+  return st.data.schedule.filter(r => r.startDate.startsWith(year));
+}
+
+function getScheduleYears() {
+  const years = new Set(st.data.schedule.map(r => r.startDate.slice(0, 4)));
+  return Array.from(years).sort();
+}
+
+function renderYearSeg() {
+  const years = getScheduleYears();
+  if (!years.includes(st.year)) st.year = years[years.length - 1] || st.year;
+  document.getElementById("yearSeg").innerHTML = years.map(y =>
+    `<span class="${y === st.year ? "on" : ""}" onclick="setYear('${y}')">${y}</span>`
+  ).join("");
+}
+
+// renderYearSeg (above) owns the year pills. This owns the count text and the
+// admin button visibility that used to live in toggleEditMode and afterSignIn.
+function renderToolbar() {
+  document.getElementById("ocCount").textContent =
+    `${getYearWeeks(st.year).length} weeks · ${st.data.rotationTechs.length} techs`;
+
+  const editBtn = document.getElementById("editToggleBtn");
+  editBtn.style.display = st.isAdmin ? "flex" : "none";
+  editBtn.classList.toggle("active", editMode);
+  document.getElementById("saveBtn").style.display = (st.isAdmin && editMode) ? "flex" : "none";
+}
+
+// ── Year board (12 rows x 5 week columns) ───────────────────
+function weekCellHtml(row, todayStr, nextStr) {
+  const known = st.data.rotationTechs.find(t => t.shortName === row.tech);
+  const name = known ? known.name : row.tech;
+  const d = new Date(row.startDate + "T00:00:00Z");
+  const cls = ["wk"];
+  if (!known) cls.push("unmatched");
+  if (row.startDate === todayStr) cls.push("today");
+  else if (row.startDate === nextStr) cls.push("next");
+  if (st.highlightTech && row.tech !== st.highlightTech) cls.push("dim");
+
+  // Unmatched cells (departed techs kept as historical record) are deliberately
+  // excluded as both drag source and drop target: swapping onto one would push a
+  // departed name into a week a real person currently owns. Edit them via the panel.
+  const canSwap = st.isAdmin && editMode && !!known;
+  if (canSwap) cls.push("swappable");
+  const dragAttrs = canSwap
+    ? `draggable="true" ondragstart="boardDragStart(event, '${row.startDate}')" ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="boardDrop(event, '${row.startDate}')" ondragend="boardDragEnd(event)"`
+    : "";
+
+  const flags = (row.notes ? ICON_FILE_TEXT : "") + (row.timeOff ? ICON_PALMTREE : "");
+  return `<div class="${cls.join(" ")}" ${dragAttrs} ${known ? `style="background:${personColorFor(row.tech)}"` : ""}
+       title="${name}" onclick="openWeekPanel('${row.startDate}')">
+      ${row.startDate === todayStr ? `<span class="wk-now-tag">NOW</span>` : ""}
+      <span class="wk-day">${d.getUTCDate()}</span>
+      <span class="wk-ini">${initials(name)}</span>
+      ${flags ? `<span class="wk-flags">${flags}</span>` : ""}
+    </div>`;
+}
+
+// ── Board drag-to-swap (edit mode) ──────────────────────────
+// Keyed by startDate rather than index: the grid interleaves month labels and
+// spacer divs, so positional indexes would not line up with schedule rows.
+let boardDragSrc = null;
+
+function boardDragStart(evt, startDate) {
+  boardDragSrc = startDate;
+  evt.currentTarget.classList.add("dragging");
+  evt.dataTransfer.effectAllowed = "move";
+}
+
+function boardDragOver(evt) {
+  evt.preventDefault();
+  evt.currentTarget.classList.add("drag-over");
+}
+
+function boardDragLeave(evt) {
+  evt.currentTarget.classList.remove("drag-over");
+}
+
+function boardDrop(evt, startDate) {
+  evt.preventDefault();
+  evt.currentTarget.classList.remove("drag-over");
+  const src = boardDragSrc;
+  boardDragSrc = null;
+  if (!src || src === startDate) return;
+  const a = st.data.schedule.find(r => r.startDate === src);
+  const b = st.data.schedule.find(r => r.startDate === startDate);
+  if (!a || !b) return;
+  const moved = a.tech;
+  a.tech = b.tech;
+  b.tech = moved;
+  // A swap can change who is on call now, the queue, and each tech's "next"
+  // date, so re-render everything rather than just the board.
+  renderAll();
+  saveChanges();
+}
+
+function boardDragEnd(evt) {
+  evt.currentTarget.classList.remove("dragging");
+  document.querySelectorAll(".wk.drag-over").forEach(el => el.classList.remove("drag-over"));
+}
+
+function renderYearBoard() {
+  const el = document.getElementById("yearBoard");
+  const weeks = sortedByDate(getYearWeeks(st.year));
+  const cur = findCurrentWeek(st.data.schedule);
+  const todayStr = cur ? cur.startDate : null;
+  const nextRow = firstUpcomingWeek();
+  const nextStr = nextRow ? nextRow.startDate : null;
+  const todayMonth = todayStr && todayStr.slice(0, 4) === st.year
+    ? new Date(todayStr + "T00:00:00Z").getUTCMonth() : -1;
+
+  let html = "";
+  for (let m = 0; m < 12; m++) {
+    const inMonth = weeks.filter(w => new Date(w.startDate + "T00:00:00Z").getUTCMonth() === m);
+    html += `<div class="board-month${m === todayMonth ? " current" : ""}">${MONTH_NAMES[m].toUpperCase()}</div>`;
+    html += inMonth.map(w => weekCellHtml(w, todayStr, nextStr)).join("");
+    // Spacers keep the five columns aligned in months with only four Sundays.
+    for (let i = inMonth.length; i < 5; i++) html += `<div></div>`;
+  }
+  el.innerHTML = `<div class="board-grid">${html}</div>`;
+}
+
+// ── Per-tech summary strip ──────────────────────────────────
+// Also hosts the two admin affordances the roster grid used to own: drag-to-
+// reorder (which defines the order Build Mode cycles through) and add-to-
+// rotation. The drag handlers are reused unchanged; only the host element moved.
+function renderTechStrip() {
+  const el = document.getElementById("techStrip");
+  const cur = findCurrentWeek(st.data.schedule);
+  const canEdit = st.isAdmin && editMode;
+  const yearRows = getYearWeeks(st.year);
+
+  const cards = st.data.rotationTechs.map((t, i) => {
+    const count = yearRows.filter(r => r.tech === t.shortName).length;
+    const isNow = cur && cur.tech === t.shortName;
+    const upcoming = sortedByDate(st.data.schedule)
+      .find(r => r.tech === t.shortName && daysFromToday(r.startDate) > 0);
+    let when = "no upcoming week";
+    if (isNow) when = "on call now";
+    else if (upcoming) when = "next " + shortDate(upcoming.startDate);
+
+    const n = t.phones.length;
+    const dragAttrs = canEdit
+      ? `draggable="true" ondragstart="rosterDragStart(event, ${i})" ondragover="rosterDragOver(event)" ondrop="rosterDrop(event, ${i})" ondragend="rosterDragEnd(event)"`
+      : "";
+
+    return `<div class="tech-card${canEdit ? " has-grip" : ""}" ${dragAttrs} style="--tech-color:${personColorFor(t.shortName)}"
+         onclick="openContactPanel('rotation', ${i})">
+        ${canEdit ? `<span class="tech-grip">${ICON_GRIP}</span>` : ""}
+        ${t.locked ? `<span class="tech-lock" title="Protected from removal">${ICON_LOCK}</span>` : ""}
+        <div class="tech-card-name">${t.name}</div>
+        <div class="tech-card-meta">${count} week${count === 1 ? "" : "s"} · ${when}</div>
+        <div class="tech-card-meta${n <= 1 ? " warn" : ""}">${n} number${n === 1 ? "" : "s"} on file</div>
+      </div>`;
+  }).join("");
+
+  const addCard = canEdit
+    ? `<div class="tech-add" onclick="addContact('rotation')">${ICON_PLUS} Add tech</div>` : "";
+
+  el.innerHTML = cards + addCard;
+}
+
+// ── Also reachable (non-rotation contacts) ──────────────────
+// One line, not a card grid: these people never appear on the calendar, so
+// they get a different component rather than a dimmed copy of the tech card.
+function renderAlsoReachable() {
+  const el = document.getElementById("alsoReachable");
+  const canEdit = st.isAdmin && editMode;
+  const chips = st.data.otherContacts.map((c, i) => `
+    <span class="also-chip" onclick="openContactPanel('other', ${i})">
+      <span class="also-avatar" style="background:${OTHER_CONTACT_COLOR}">${initials(c.name)}</span>${c.name}
+      ${c.locked ? `<span class="also-lock" title="Protected from removal">${ICON_LOCK}</span>` : ""}
+    </span>`).join("");
+  const addChip = canEdit
+    ? `<span class="also-add" onclick="addContact('other')">${ICON_PLUS} Add</span>` : "";
+
+  if (!chips && !addChip) { el.style.display = "none"; return; }
+  el.style.display = "flex";
+  el.innerHTML = `<span class="also-lbl">Also reachable</span>${chips}${addChip}`;
+}
+
+function setYear(y) {
+  st.year = y;
+  renderYearSeg();
+  renderToolbar();
+  renderAttention();
+  renderRosterNotes();
+  renderYearBoard();
+  renderTechStrip();
+}
+
+function weekRangeLabel(startDate) {
+  const start = new Date(startDate + "T00:00:00Z");
+  const end = new Date(start.getTime() + 6 * 86400000);
+  const fmt = (d, withMonth) => (withMonth ? d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }) + " " : "") + ordinal(d.getUTCDate());
+  const crossesMonth = start.getUTCMonth() !== end.getUTCMonth();
+  return fmt(start, true) + " to " + fmt(end, crossesMonth);
+}
+
+// ── Derived helpers (layout 1a) ─────────────────────────────
+// getYearWeeks filters without sorting and trusts data.json's order. Everything
+// below sorts defensively so a commitBuild append can't scramble the board.
+function sortedByDate(rows) {
+  return rows.slice().sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+}
+
+function weekOrdinalInYear(startDate) {
+  const weeks = sortedByDate(getYearWeeks(startDate.slice(0, 4)));
+  return weeks.findIndex(w => w.startDate === startDate) + 1;
+}
+
+// Returns { past, upcoming }, each a { shortName: [startDate] } map. Upcoming
+// weeks are a coverage gap needing action; past ones are historical record.
+// "Upcoming" uses the same test as the queue and the board's next-week ring.
+function unmatchedTechs(year) {
+  const known = new Set(st.data.rotationTechs.map(t => t.shortName));
+  const past = {}, upcoming = {};
+  sortedByDate(getYearWeeks(year))
+    .filter(r => !known.has(r.tech))
+    .forEach(r => {
+      const bucket = daysFromToday(r.startDate) > 0 ? upcoming : past;
+      (bucket[r.tech] = bucket[r.tech] || []).push(r.startDate);
+    });
+  return { past, upcoming };
+}
+
+function shortDate(startDate) {
+  const d = new Date(startDate + "T00:00:00Z");
+  return d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }) + " " + d.getUTCDate();
+}
+
+function daysFromToday(startDate) {
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((Date.parse(startDate + "T00:00:00Z") - todayUtc) / 86400000);
+}
+
+function nextWeekAfter(startDate) {
+  const all = sortedByDate(st.data.schedule);
+  const i = all.findIndex(w => w.startDate === startDate);
+  return i !== -1 ? all[i + 1] || null : null;
+}
+
+function msToNextSunday() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  next.setDate(next.getDate() + ((7 - next.getDay()) % 7 || 7));
+  return next.getTime() - now.getTime();
+}
+
+function countdownLabel() {
+  const totalHours = Math.floor(msToNextSunday() / 3600000);
+  return Math.floor(totalHours / 24) + "d " + String(totalHours % 24).padStart(2, "0") + "h";
+}
+
+function coverageNote(phones) {
+  if (!phones.length) return "No numbers on file.";
+  const labels = phones.map(p => p.label.toLowerCase()).join(" ");
+  const missing = ["8x8", "Teams"].filter(c => !labels.includes(c.toLowerCase()));
+  const lead = phones.length === 1 ? "Only number on file." : "";
+  const tail = missing.length ? "No " + missing.join(", no ") + " line." : "";
+  return [lead, tail].filter(Boolean).join(" ");
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// ── Build Mode ──────────────────────────────────────────────
+function computeYearSundays(year) {
+  const y = Number(year);
+  let d = new Date(Date.UTC(y, 0, 1));
+  while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+  const sundays = [];
+  while (d.getUTCFullYear() === y) {
+    sundays.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 7);
+  }
+  return sundays;
+}
+
+function getNextGapYear() {
+  const years = getScheduleYears();
+  const lastYear = years.length ? Number(years[years.length - 1]) : new Date().getUTCFullYear();
+  const candidate = String(lastYear + 1);
+  const sundays = computeYearSundays(candidate);
+  const existing = new Set(st.data.schedule.map(r => r.startDate));
+  const hasGap = sundays.some(d => !existing.has(d));
+  return hasGap ? candidate : null;
+}
+
+function renderBuildTrigger() {
+  const wrap = document.getElementById("buildTriggerWrap");
+  const gapYear = (st.isAdmin && editMode) ? getNextGapYear() : null;
+  wrap.innerHTML = gapYear
+    ? `<button class="build-trigger-btn" onclick="openBuildSetup('${gapYear}')">${ICON_PENCIL} Build ${gapYear} Rotation</button>`
+    : "";
+}
+
+function describeContinuation(year) {
+  const sundays = computeYearSundays(year);
+  const before = st.data.schedule
+    .filter(r => r.startDate < sundays[0])
+    .sort((a, b) => (a.startDate < b.startDate ? 1 : -1))[0];
+  if (!before) return { fromLabel: "No prior rotation history", nextLabel: "", nextIdx: 0 };
+  const fromIdx = st.data.rotationTechs.findIndex(t => t.shortName === before.tech);
+  const fromTech = st.data.rotationTechs.find(t => t.shortName === before.tech);
+  const nextIdx = fromIdx === -1 ? 0 : (fromIdx + 1) % st.data.rotationTechs.length;
+  const nextTech = st.data.rotationTechs[nextIdx];
+  return {
+    fromLabel: (fromTech ? fromTech.name : before.tech) + " (" + before.startDate + ")",
+    nextLabel: nextTech ? nextTech.name : "",
+    nextIdx
+  };
+}
+
+function openBuildSetup(year) {
+  st.build = { phase: "setup", year, weeks: [] };
+  setBuildViewVisibility();
+  renderBuildSetupBar();
+}
+
+function renderBuildSetupBar() {
+  const info = describeContinuation(st.build.year);
+  document.getElementById("buildSetupBar").innerHTML = `
+    <div class="setup-field"><span class="tag">Start date</span><span class="val">January 1st, ${st.build.year}</span></div>
+    <div class="setup-field"><span class="tag">Length</span><span class="val">Full year</span></div>
+    <div class="setup-field"><span class="tag">Continuing from</span><span class="val">${info.fromLabel} &rarr; next: ${info.nextLabel}</span></div>
+    <button class="setup-go-btn" onclick="generateProposal()">Generate Proposal</button>
+    <button class="setup-cancel-btn" onclick="cancelBuild()">Cancel</button>
+  `;
+}
+
+function cancelBuild() {
+  closeBuildPopover();
+  st.build = null;
+  setBuildViewVisibility();
+  renderBuildTrigger();
+}
+
+function setBuildViewVisibility() {
+  const inBuild = !!st.build;
+  document.getElementById("yearBoard").style.display = inBuild ? "none" : "block";
+  document.getElementById("techStrip").style.display = inBuild ? "none" : "grid";
+  document.getElementById("alsoReachable").style.display = inBuild ? "none" : "flex";
+  document.getElementById("buildSetupBar").style.display = (inBuild && st.build.phase === "setup") ? "flex" : "none";
+  document.getElementById("buildCanvasSection").style.display = (inBuild && st.build.phase === "canvas") ? "block" : "none";
+}
+
+function generateProposal() {
+  const year = st.build.year;
+  const sundays = computeYearSundays(year);
+  const existingByDate = {};
+  st.data.schedule.forEach(r => { existingByDate[r.startDate] = r; });
+  const info = describeContinuation(year);
+  let position = info.nextIdx;
+  const weeks = sundays.map(startDate => {
+    const existingRow = existingByDate[startDate];
+    if (existingRow) {
+      const idx = st.data.rotationTechs.findIndex(t => t.shortName === existingRow.tech);
+      if (idx !== -1) position = (idx + 1) % st.data.rotationTechs.length;
+      return { startDate, tech: existingRow.tech, timeOff: existingRow.timeOff, notes: existingRow.notes, existing: true };
+    }
+    const tech = st.data.rotationTechs[position];
+    position = (position + 1) % st.data.rotationTechs.length;
+    return { startDate, tech: tech ? tech.shortName : "", timeOff: "", notes: "", existing: false };
+  });
+  st.build.phase = "canvas";
+  st.build.weeks = weeks;
+  setBuildViewVisibility();
+  renderBuildCanvas();
+}
+
+function buildBlockHtml(week, idx) {
+  const tech = st.data.rotationTechs.find(t => t.shortName === week.tech);
+  const name = tech ? tech.name : week.tech;
+  const color = personColorFor(week.tech);
+  const blockDate = new Date(week.startDate + "T00:00:00Z");
+  const dateLabel = blockDate.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }) + " " + ordinal(blockDate.getUTCDate());
+  const dragAttrs = week.existing ? "" :
+    `draggable="true" ondragstart="buildDragStart(event, ${idx})" ondragover="buildDragOver(event)" ondrop="buildDrop(event, ${idx})" ondragend="buildDragEnd(event)" onclick="openBuildPopover(${idx})"`;
+  return `
+    <div class="build-block${week.existing ? " existing" : ""}" data-idx="${idx}" style="background:${color}"
+         title="${name}${week.existing ? " (already saved)" : ""}" ${dragAttrs}>
+      <span class="build-block-initials">${initials(name)}</span>
+      <span class="build-block-date">${dateLabel}</span>
+    </div>`;
+}
+
+function renderBuildCanvas() {
+  const groups = [];
+  st.build.weeks.forEach((w, idx) => {
+    const d = new Date(w.startDate + "T00:00:00Z");
+    const label = d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }).toUpperCase() + " " + d.getUTCFullYear();
+    if (!groups.length || groups[groups.length - 1].label !== label) groups.push({ label, items: [] });
+    groups[groups.length - 1].items.push({ week: w, idx });
+  });
+  const proposedCount = st.build.weeks.filter(w => !w.existing).length;
+  document.getElementById("buildCanvasSection").innerHTML = `
+    <div class="build-canvas-panel">
+      ${groups.map(g => `
+        <div class="build-month-group">
+          <div class="build-month-lbl">${g.label}</div>
+          <div class="build-ribbon">${g.items.map(it => buildBlockHtml(it.week, it.idx)).join("")}</div>
+        </div>`).join("")}
+    </div>
+    <div class="build-commit-bar">
+      <span>${proposedCount} week${proposedCount === 1 ? "" : "s"} proposed</span>
+      <div>
+        <button class="ghost-btn" onclick="cancelBuild()">Discard</button>
+        <button class="setup-go-btn" onclick="commitBuild()">Commit ${st.build.year} Rotation</button>
+      </div>
+    </div>
+  `;
+}
+
+let buildDragSrcIdx = null;
+
+function buildDragStart(evt, idx) {
+  buildDragSrcIdx = idx;
+  evt.currentTarget.classList.add("dragging");
+  evt.dataTransfer.effectAllowed = "move";
+}
+
+function buildDragOver(evt) {
+  evt.preventDefault();
+  evt.currentTarget.classList.add("drag-over");
+}
+
+function buildDrop(evt, idx) {
+  evt.preventDefault();
+  evt.currentTarget.classList.remove("drag-over");
+  if (buildDragSrcIdx === null || buildDragSrcIdx === idx) return;
+  const weeks = st.build.weeks;
+  const techA = weeks[buildDragSrcIdx].tech;
+  weeks[buildDragSrcIdx].tech = weeks[idx].tech;
+  weeks[idx].tech = techA;
+  buildDragSrcIdx = null;
+  renderBuildCanvas();
+}
+
+function buildDragEnd(evt) {
+  evt.currentTarget.classList.remove("dragging");
+  document.querySelectorAll(".build-block.drag-over").forEach(el => el.classList.remove("drag-over"));
+}
+
+let buildPopoverIdx = null;
+
+function openBuildPopover(idx) {
+  buildPopoverIdx = idx;
+  renderBuildPopover();
+}
+
+function closeBuildPopover() {
+  buildPopoverIdx = null;
+  const el = document.getElementById("buildPopover");
+  if (el) el.remove();
+}
+
+function renderBuildPopover() {
+  const existingEl = document.getElementById("buildPopover");
+  if (existingEl) existingEl.remove();
+  const week = st.build.weeks[buildPopoverIdx];
+  const blockEl = document.querySelector(`.build-block[data-idx="${buildPopoverIdx}"]`);
+  if (!blockEl) return;
+  const rect = blockEl.getBoundingClientRect();
+  const options = st.data.rotationTechs.map(t =>
+    `<option value="${t.shortName}"${t.shortName === week.tech ? " selected" : ""}>${t.name}</option>`
+  ).join("");
+  const pop = document.createElement("div");
+  pop.id = "buildPopover";
+  pop.className = "build-popover";
+  pop.style.top = (rect.bottom + window.scrollY + 6) + "px";
+  pop.style.left = (rect.left + window.scrollX) + "px";
+  pop.innerHTML = `
+    <div class="pop-field"><label>Week of ${week.startDate}</label></div>
+    <div class="pop-field"><label>Tech</label>
+      <select class="panel-select" onchange="st.build.weeks[${buildPopoverIdx}].tech=this.value">${options}</select>
+    </div>
+    <div class="pop-field"><label>Time off</label>
+      <input class="panel-input" value="${week.timeOff || ""}" onchange="st.build.weeks[${buildPopoverIdx}].timeOff=this.value"/>
+    </div>
+    <div class="pop-field"><label>Notes</label>
+      <input class="panel-input" value="${week.notes || ""}" onchange="st.build.weeks[${buildPopoverIdx}].notes=this.value"/>
+    </div>
+    <button class="setup-go-btn" style="width:100%" onclick="applyBuildPopover()">Apply</button>
+  `;
+  document.body.appendChild(pop);
+}
+
+function applyBuildPopover() {
+  closeBuildPopover();
+  renderBuildCanvas();
+}
+
+function commitBuild() {
+  const proposed = st.build.weeks.filter(w => !w.existing).map(w => ({
+    startDate: w.startDate, tech: w.tech, timeOff: w.timeOff || "", notes: w.notes || ""
+  }));
+  st.data.schedule.push(...proposed);
+  st.data.schedule.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+  const builtYear = st.build.year;
+  st.build = null;
+  setBuildViewVisibility();
+  st.year = builtYear;
+  renderAll();
+  saveChanges();
+}
+
+// ── Edit mode toggle (schedule-side wiring finishes in a later task) ──
+let editMode = false;
+
+function toggleEditMode() {
+  editMode = !editMode;
+  if (!editMode && st.build) { st.build = null; setBuildViewVisibility(); }
+  closePanel();
+  renderToolbar();
+  renderYearBoard();
+  renderTechStrip();
+  renderAlsoReachable();
+  renderBuildTrigger();
+}
+
+// ── Detail panel (shared shell) ─────────────────────────────
+function openPanelShell(color, ini, title, sub) {
+  document.getElementById("panelDot").style.background = color;
+  document.getElementById("panelDot").textContent = ini;
+  document.getElementById("panelTitle").textContent = title;
+  document.getElementById("panelSub").textContent = sub;
+  document.getElementById("panelBadge").style.display = st.draft ? "inline-block" : "none";
+  document.getElementById("detailPanel").classList.add("open");
+  document.getElementById("panelBackdrop").classList.add("open");
+}
+
+function closePanel() {
+  st.panel = null;
+  st.draft = null;
+  document.getElementById("detailPanel").classList.remove("open");
+  document.getElementById("panelBackdrop").classList.remove("open");
+}
+
+// ── Week panel ───────────────────────────────────────────────
+function openWeekPanel(startDate) {
+  const row = st.data.schedule.find(r => r.startDate === startDate);
+  const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+  const name = tech ? tech.name : row.tech;
+  st.panel = { kind: "week", startDate };
+  st.draft = (st.isAdmin && editMode) ? JSON.parse(JSON.stringify(row)) : null;
+  openPanelShell(personColorFor(row.tech), initials(name), "Week of " + row.startDate, st.draft ? "Editing this week's assignment" : name);
+  renderWeekPanelBody();
+}
+
+function renderWeekPanelBody() {
+  const row = st.data.schedule.find(r => r.startDate === st.panel.startDate);
+  if (!st.draft) {
+    const tech = st.data.rotationTechs.find(t => t.shortName === row.tech);
+    const phones = tech ? tech.phones : [];
+    document.getElementById("panelBody").innerHTML = `
+      <div class="panel-row"><label>On-Call Tech</label><div class="panel-value">${tech ? tech.name : row.tech}</div></div>
+      <div class="panel-row"><label>Phone Numbers</label>
+        ${phones.length ? phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
+                         : `<div class="phone-chip-row">No numbers on file</div>`}
+      </div>
+      ${row.timeOff ? `<div class="panel-row"><label>Time Off</label><div class="panel-value">${row.timeOff}</div></div>` : ""}
+      ${row.notes ? `<div class="panel-row"><label>Notes</label><div class="panel-value">${row.notes}</div></div>` : ""}
+    `;
+    return;
+  }
+  const options = st.data.rotationTechs.map(t =>
+    `<option value="${t.shortName}"${t.shortName === st.draft.tech ? " selected" : ""}>${t.name}</option>`
+  ).join("");
+  document.getElementById("panelBody").innerHTML = `
+    <div class="panel-field">
+      <label>On-Call Tech</label>
+      <select class="panel-select" onchange="st.draft.tech=this.value">${options}</select>
+    </div>
+    <div class="panel-field">
+      <label>Time Off</label>
+      <input class="panel-input" value="${st.draft.timeOff || ""}" onchange="st.draft.timeOff=this.value"/>
+    </div>
+    <div class="panel-field">
+      <label>Notes</label>
+      <textarea class="panel-input" rows="3" onchange="st.draft.notes=this.value">${st.draft.notes || ""}</textarea>
+    </div>
+    <div class="panel-btnrow">
+      <button class="btn btn-secondary" onclick="closePanel()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWeekPanel()">Save</button>
+    </div>
+  `;
+}
+
+function saveWeekPanel() {
+  const row = st.data.schedule.find(r => r.startDate === st.panel.startDate);
+  Object.assign(row, st.draft);
+  closePanel();
+  renderAll();
+  saveChanges();
+}
+
+// ── Roster ──────────────────────────────────────────────────
+let rosterDragSrcIdx = null;
+
+function rosterDragStart(evt, idx) {
+  rosterDragSrcIdx = idx;
+  evt.currentTarget.classList.add("dragging");
+  evt.dataTransfer.effectAllowed = "move";
+}
+
+function rosterDragOver(evt) {
+  evt.preventDefault();
+  evt.currentTarget.classList.add("drag-over");
+}
+
+function rosterDrop(evt, idx) {
+  evt.preventDefault();
+  evt.currentTarget.classList.remove("drag-over");
+  if (rosterDragSrcIdx === null || rosterDragSrcIdx === idx) return;
+  const arr = st.data.rotationTechs;
+  const [moved] = arr.splice(rosterDragSrcIdx, 1);
+  arr.splice(idx, 0, moved);
+  st.personColors = buildPersonColors(st.data);
+  rosterDragSrcIdx = null;
+  renderTechStrip();
+  renderYearBoard();
+  saveChanges();
+}
+
+function rosterDragEnd(evt) {
+  evt.currentTarget.classList.remove("dragging");
+  document.querySelectorAll(".tech-card.drag-over").forEach(el => el.classList.remove("drag-over"));
+}
+
+function addContact(group) {
+  const arr = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"];
+  const blank = group === "rotation" ? { name: "New Person", shortName: "", phones: [] } : { name: "New Person", phones: [] };
+  arr.push(blank);
+  if (group === "rotation") renderTechStrip(); else renderAlsoReachable();
+  openContactPanel(group, arr.length - 1);
+}
+
+function removeContact() {
+  const { group, idx } = st.panel;
+  const arr = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"];
+  const person = arr[idx];
+  if (!person || person.locked) return;   // defensive; the button is disabled
+
+  // Count across every year, not just the selected one: the weeks being kept
+  // as history are not limited to whatever tab happens to be open.
+  const weeks = group === "rotation" && person.shortName
+    ? st.data.schedule.filter(r => r.tech === person.shortName).length
+    : 0;
+  const tail = weeks
+    ? `\n\nTheir ${weeks} scheduled week${weeks === 1 ? "" : "s"} are kept as historical record.`
+    : "";
+  if (!confirm(`Remove ${person.name} from the roster?${tail}`)) return;
+
+  arr.splice(idx, 1);
+  st.personColors = buildPersonColors(st.data);
+  closePanel();
+  renderAll();
+  saveChanges();
+}
+
+// ── Contact panel ────────────────────────────────────────────
+function openContactPanel(group, idx) {
+  const person = st.data[group === "rotation" ? "rotationTechs" : "otherContacts"][idx];
+  st.panel = { kind: "contact", group, idx };
+  st.draft = (st.isAdmin && editMode) ? JSON.parse(JSON.stringify(person)) : null;
+  if (st.draft && st.draft.shortName === undefined) st.draft.shortName = "";
+  const color = group === "rotation" ? personColorFor(person.shortName) : OTHER_CONTACT_COLOR;
+  openPanelShell(color, initials(person.name), person.name, group === "rotation" ? "Rotation member" : "Other contact");
+  renderContactPanelBody();
+}
+
+function renderContactPanelBody() {
+  const person = st.data[st.panel.group === "rotation" ? "rotationTechs" : "otherContacts"][st.panel.idx];
+  if (!st.draft) {
+    document.getElementById("panelBody").innerHTML = `
+      <div class="panel-row"><label>Name</label><div class="panel-value">${person.name}</div></div>
+      <div class="panel-row"><label>Phone Numbers</label>
+        ${person.phones.length ? person.phones.map(p => `<div class="phone-chip-row"><strong>${p.label}:</strong> ${p.number}</div>`).join("")
+                                : `<div class="phone-chip-row">No numbers on file</div>`}
+      </div>
+    `;
+    return;
+  }
+  document.getElementById("panelBody").innerHTML = `
+    <div class="panel-field"><label>Full Name</label>
+      <input class="panel-input" value="${st.draft.name}" onchange="st.draft.name=this.value"/>
+    </div>
+    <div class="panel-field"><label>Short Name</label>
+      <input class="panel-input" value="${st.draft.shortName}" onchange="st.draft.shortName=this.value"/>
+    </div>
+    <div class="panel-toggle-row">
+      <label>In Rotation</label>
+      <label class="tog"><input type="checkbox" id="draftInRotation" ${st.panel.group === "rotation" ? "checked" : ""}/><div class="track"></div></label>
+    </div>
+    <div class="panel-toggle-row">
+      <label>Protected</label>
+      <label class="tog"><input type="checkbox" id="draftLocked" ${st.draft.locked ? "checked" : ""}
+        onchange="st.draft.locked=this.checked; renderContactPanelBody()"/><div class="track"></div></label>
+    </div>
+    <div id="draftPhones"></div>
+    <div class="add-phone-link" onclick="addDraftPhone()">${ICON_PLUS} Add phone number</div>
+    <div class="panel-btnrow">
+      <button class="btn btn-remove" ${st.draft.locked ? `disabled title="Unlock to remove"` : ""}
+              onclick="removeContact()">Remove</button>
+      <button class="btn btn-secondary" onclick="closePanel()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContactPanel()">Save</button>
+    </div>
+  `;
+  renderDraftPhones();
+}
+
+function renderDraftPhones() {
+  document.getElementById("draftPhones").innerHTML = st.draft.phones.map((p, i) => `
+    <div class="phone-row">
+      <input class="panel-input phone-label" value="${p.label}" onchange="st.draft.phones[${i}].label=this.value"/>
+      <input class="panel-input phone-num" value="${p.number}" onchange="st.draft.phones[${i}].number=this.value"/>
+      <span class="phone-rm" onclick="removeDraftPhone(${i})">${ICON_X}</span>
+    </div>`).join("");
+}
+
+function removeDraftPhone(i) {
+  st.draft.phones.splice(i, 1);
+  renderDraftPhones();
+}
+
+function addDraftPhone() {
+  st.draft.phones.push({ label: "", number: "" });
+  renderDraftPhones();
+}
+
+function saveContactPanel() {
+  const wantsRotation = document.getElementById("draftInRotation").checked;
+  if (wantsRotation && !st.draft.shortName.trim()) {
+    alert("Short Name is required for rotation members (used to match them on the calendar).");
+    return;
+  }
+  const currentlyRotation = st.panel.group === "rotation";
+  const sourceArr = st.data[currentlyRotation ? "rotationTechs" : "otherContacts"];
+  if (wantsRotation === currentlyRotation) {
+    sourceArr[st.panel.idx] = st.draft;
+  } else {
+    sourceArr.splice(st.panel.idx, 1);
+    st.data[wantsRotation ? "rotationTechs" : "otherContacts"].push(st.draft);
+    st.personColors = buildPersonColors(st.data);
+  }
+  closePanel();
+  renderAll();
+  saveChanges();
+}
+
+// ── Save ──────────────────────────────────────────────────
+async function saveChanges() {
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+  try {
+    if (ONCALL_SAVE_URL) {
+      const token = await ITTools.auth.getToken();
+      const res = await fetch(ONCALL_SAVE_URL, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify(st.data),
+      });
+      if (!res.ok) throw new Error("Save failed: " + res.status);
+    } else {
+      console.warn("ONCALL_SAVE_URL not configured yet — changes are local-only until Task 10/11 land.");
+    }
+    btn.textContent = "Saved";
+    setTimeout(() => { btn.textContent = "Save"; btn.disabled = false; }, 1500);
+  } catch (e) {
+    alert("Save failed: " + e.message);
+    btn.textContent = "Save";
+    btn.disabled = false;
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  ITTools.theme.init();
+  ITTools.ui.renderTopbar({ toolName: "On-Call Rotation", hubRelPath: "../../", status: "beta" });
+  ITTools.ui.syncThemeIcon();
+  document.getElementById("panelCloseBtn").innerHTML = ICON_X;
+  document.getElementById("editToggleBtn").innerHTML = ICON_PENCIL + " Edit";
+  document.getElementById("findBtn").innerHTML = ICON_SEARCH + " Find a person";
+  document.addEventListener("click", evt => {
+    if (buildPopoverIdx === null) return;
+    const pop = document.getElementById("buildPopover");
+    if (pop && !pop.contains(evt.target) && !evt.target.closest(".build-block")) closeBuildPopover();
+  });
+  document.addEventListener("click", evt => {
+    const panel = document.getElementById("findPanel");
+    if (panel.style.display !== "none" && !evt.target.closest("#findWrap")) panel.style.display = "none";
+  });
+  document.addEventListener("keydown", evt => {
+    if (evt.key !== "Escape") return;
+    document.getElementById("findPanel").style.display = "none";
+    clearHighlight();
+  });
+
+  let _sessionFound = false;
+  await ITTools.auth.init({
+    scopes: TOOL_SCOPES,
+    onSignIn: async acct => {
+      _sessionFound = true;
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("appScreen").style.display  = "block";
+      ITTools.ui.setUser(acct);
+      document.body.style.opacity = "1";
+      await afterSignIn();
+    },
+    onSignOut: () => {
+      document.getElementById("appScreen").style.display  = "none";
+      document.getElementById("authScreen").style.display = "flex";
+      ITTools.ui.clearUser();
+      document.body.style.opacity = "1";
+    }
+  });
+  if (!_sessionFound) {
+    document.getElementById("authScreen").style.display = "flex";
+    document.body.style.opacity = "1";
+  }
+}
+
+window.addEventListener("load", init);
+</script>
+</body>
+</html>

@@ -1,0 +1,999 @@
+{
+  "schedule": [
+    {
+      "startDate": "2024-01-07",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-01-21",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-02-04",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-02-18",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-03-03",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-03-17",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-03-31",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-04-14",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-04-28",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-05-12",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-05-19",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-05-26",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-02",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-09",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-16",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-23",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-06-30",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-07",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-14",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-21",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-07-28",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-04",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-11",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-18",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-08-25",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-01",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-08",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-15",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-22",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-09-29",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-06",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-13",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-20",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-10-27",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-03",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-10",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-17",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-11-24",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-01",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-08",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-15",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-22",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2024-12-29",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-05",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-12",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-19",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-01-26",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-02",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-09",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-16",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-02-23",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-02",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-09",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-16",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-23",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-03-30",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-06",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-13",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-20",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-04-27",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-04",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-11",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-18",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-05-25",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-01",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-08",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-15",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-22",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-06-29",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-06",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-13",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-20",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-07-27",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-03",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-10",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-17",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-24",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-08-31",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-07",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-14",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-21",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-09-28",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-05",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-12",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-19",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-10-26",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-02",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-09",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-16",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-23",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-11-30",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-07",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-14",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-21",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2025-12-28",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-04",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-11",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-18",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-01-25",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-01",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-08",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-15",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-02-22",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-01",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-08",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-15",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-22",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-03-29",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-05",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-12",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-19",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-04-26",
+      "tech": "Morgan Hale",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-03",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-10",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-17",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-24",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-05-31",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-07",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-14",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-21",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-06-28",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-05",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-12",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-19",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-07-26",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-02",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-09",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-16",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-23",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-08-30",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-06",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-13",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-20",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-09-27",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-04",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-11",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-18",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-10-25",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-01",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-08",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-15",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-22",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-11-29",
+      "tech": "Ellis",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-06",
+      "tech": "Avery",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-13",
+      "tech": "Blake",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-20",
+      "tech": "Casey",
+      "timeOff": "",
+      "notes": ""
+    },
+    {
+      "startDate": "2026-12-27",
+      "tech": "Drew",
+      "timeOff": "",
+      "notes": ""
+    }
+  ],
+  "rotationTechs": [
+    {
+      "name": "Avery Stone",
+      "shortName": "Avery",
+      "phones": [
+        {
+          "label": "8x8",
+          "number": "555-555-0101"
+        },
+        {
+          "label": "Work",
+          "number": "555-555-0102"
+        },
+        {
+          "label": "Personal",
+          "number": "555-555-0103"
+        },
+        {
+          "label": "Teams",
+          "number": "555-555-0104"
+        }
+      ]
+    },
+    {
+      "name": "Blake Rivers",
+      "shortName": "Blake",
+      "phones": [
+        {
+          "label": "Personal",
+          "number": "555-555-0105"
+        }
+      ]
+    },
+    {
+      "name": "Casey Lane",
+      "shortName": "Casey",
+      "phones": [
+        {
+          "label": "Personal/Work",
+          "number": "555-555-0106"
+        },
+        {
+          "label": "Teams",
+          "number": "555-555-0107"
+        }
+      ]
+    },
+    {
+      "name": "Drew Park",
+      "shortName": "Drew",
+      "phones": [
+        {
+          "label": "Personal/Work",
+          "number": "555-555-0108"
+        },
+        {
+          "label": "Teams",
+          "number": "555-555-0109"
+        }
+      ]
+    },
+    {
+      "name": "Ellis Vance",
+      "shortName": "Ellis",
+      "phones": [
+        {
+          "label": "Work",
+          "number": "555-555-0110"
+        },
+        {
+          "label": "Personal",
+          "number": "555-555-0111"
+        },
+        {
+          "label": "Teams",
+          "number": "555-555-0112"
+        }
+      ]
+    }
+  ],
+  "otherContacts": [
+    {
+      "name": "Jordan Reed",
+      "phones": [
+        {
+          "label": "Personal",
+          "number": "555-555-0113"
+        },
+        {
+          "label": "Teams",
+          "number": "555-555-0114"
+        }
+      ]
+    },
+    {
+      "name": "Quinn Marsh",
+      "phones": [
+        {
+          "label": "Teams",
+          "number": "555-555-0115"
+        }
+      ]
+    },
+    {
+      "name": "Sawyer Bell",
+      "phones": [
+        {
+          "label": "Personal",
+          "number": "555-555-0116"
+        }
+      ]
+    }
+  ]
+}

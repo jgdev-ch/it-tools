@@ -48,6 +48,8 @@
   --accent-magenta: #a25099;
   --accent-olive:   #80872d;
   --accent-slate:   #5b6472;
+  --accent-violet:  #5b21b6;
+  --accent-copper:  #a15c34;
 }
 [data-theme="dark"] {
   --blue:         #4c8dff;
@@ -663,6 +665,13 @@ const GROUP_GATES = {
     id:       "0df94db1-7166-4e65-9108-6298cb0cadfd",
     localKey: "it-tools-security-unlocked",
   },
+  "oncall-admin": {
+    // No hub card uses data-gate="oncall-admin" (unlockCard() safely no-ops for it) —
+    // this entry exists purely so runGateChecks()/restoreFromLocalStorage() pick up
+    // membership and pass it to renderAccountDropdown() for the pill below.
+    id:       "036477e6-92a0-4eb7-b372-0849bd404bd9",
+    localKey: "it-tools-oncall-admin-unlocked",
+  },
 };
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -861,6 +870,11 @@ function renderAccountDropdown(unlockedGates) {
       cls:   "account-pill--slate",
       icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
     },
+    "oncall-admin": {
+      label: "On-Call Admin",
+      cls:   "account-pill--purple",
+      icon:  `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg>`,
+    },
   };
   const pills    = unlockedGates.filter(k => PILL_DEFS[k])
                                .sort((a, b) => PILL_DEFS[a].cls.localeCompare(PILL_DEFS[b].cls));
@@ -886,6 +900,38 @@ async function runGateChecks(token) {
     }
   }
   renderAccountDropdown(unlocked);
+  await applyDenyGates(token);
+  applyAdminPreviewGates(unlocked);
+}
+
+// ── Coming-soon cards with a comingSoonGate: swap to live for unlocked gate keys ──
+// Reuses the membership result `runGateChecks`/`restoreFromLocalStorage` already
+// computed rather than re-checking Graph — this only ever runs right after one of those.
+function applyAdminPreviewGates(unlockedGateKeys) {
+  document.querySelectorAll("[data-preview-gate]").forEach(el => {
+    if (!unlockedGateKeys.includes(el.dataset.previewGate)) return;
+    el.outerHTML = buildLiveCard({
+      path: el.dataset.path, accent: el.dataset.accent, icon: el.dataset.icon,
+      status: "beta", name: el.dataset.name, desc: el.dataset.desc,
+    });
+  });
+}
+
+// ── Deny-gates: hide a card specifically for members of one group (inverse of GROUP_GATES) ──
+async function applyDenyGates(token) {
+  const denyEls = [...document.querySelectorAll("[data-deny]")];
+  for (const el of denyEls) {
+    const gate = GROUP_GATES[el.getAttribute("data-deny")];
+    if (!gate) continue;
+    const isMember = await checkMembership(token, gate.id);
+    if (isMember) {
+      el.outerHTML = `<div class="tool-card no-hover" style="--tool-accent:${el.dataset.accent}">
+        <div class="tool-icon-sq">${el.dataset.icon}</div>
+        <div class="tool-name">${el.dataset.name}</div>
+        <div class="tool-desc">Restricted for your access group</div>
+      </div>`;
+    }
+  }
 }
 
 // ── Restore locks from localStorage ──────────────────────────────────────────
@@ -898,6 +944,7 @@ function restoreFromLocalStorage() {
     }
   }
   renderAccountDropdown(unlocked);
+  applyAdminPreviewGates(unlocked);
 }
 
 // ── Clear all gate flags on sign-out ─────────────────────────────────────────
@@ -1014,7 +1061,35 @@ async function loadTools() {
         return buildLockedCard({ gateKey: "security", ...meta });
       }
 
+      // "coming-soon" for everyone, except members of `comingSoonGate`'s group see it
+      // fully live (still in beta, still building) so work on it can continue without
+      // exposing it to the rest of the team. Distinct from financeOnly/reportingOnly/
+      // securityOnly above: those are ready tools gated by permission (locked-badge
+      // visual); this is an unready tool gated by "should you even know this exists yet."
+      if (tool.status === "coming-soon" && tool.comingSoonGate) {
+        return buildComingSoonCard({
+          accent: tool.accent, icon: tool.icon,
+          name: tool.name, desc: tool.description, status: tool.status,
+        }).replace(
+          '<div class="tool-card no-hover"',
+          `<div class="tool-card no-hover" data-preview-gate="${tool.comingSoonGate}"` +
+          `${tool.denyGate ? ` data-deny="${tool.denyGate}"` : ""}` +
+          ` data-path="${tool.path}" data-accent="${tool.accent}" data-icon="${tool.icon}"` +
+          ` data-name="${tool.name}" data-desc="${tool.description}"`
+        );
+      }
+
       if (isClickableStatus(tool.status) && tool.path) {
+        if (tool.denyGate) {
+          return buildLiveCard({
+            path: tool.path, accent: tool.accent,
+            icon: tool.icon, status: tool.status, name: tool.name,
+            desc: tool.description, betaNote: tool.betaNote || "",
+          }).replace(
+            '<a class="tool-card"',
+            `<a class="tool-card" data-deny="${tool.denyGate}" data-accent="${tool.accent}" data-icon="${tool.icon}" data-name="${tool.name}"`
+          );
+        }
         return buildLiveCard({
           path: tool.path, accent: tool.accent,
           icon: tool.icon, status: tool.status, name: tool.name,
@@ -1082,7 +1157,14 @@ async function loadTools() {
 }
 
 // ── Downloads section ─────────────────────────────────────────────────────────
-const GITHUB_RAW = "https://raw.githubusercontent.com/jgdev-ch/it-tools/main/";
+// Pinning this to main meant preview always handed out production's copy of a
+// script, so a change staged on testing could never be tested through the
+// download button, and a brand new tool 404'd until it was promoted. Preview
+// is deployed to its own repo (testing -> jgdev-ch/it-tools-preview@main), so
+// point at that repo when we are running there. Production is unaffected.
+const GITHUB_RAW = IS_PREVIEW
+  ? "https://raw.githubusercontent.com/jgdev-ch/it-tools-preview/main/"
+  : "https://raw.githubusercontent.com/jgdev-ch/it-tools/main/";
 
 const _DL_BTN_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 
