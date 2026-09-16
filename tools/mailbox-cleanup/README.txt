@@ -229,13 +229,13 @@ an active delay hold and fail to reclaim quota — triggering a wasted extra run
 VALIDATED RESULTS
 -----------------
 Date         User                    Before              After           Reduction
-2026-05-07   priyanka.rengaraj       Over quota          30.4 GB/100GB   Cleared
-2026-05-08   varunkumar.luthra       147.3 GB/100 GB     652.5 MB/100GB  99.6%
-2026-05-11   varunkumar.luthra       [post-cleanup]      75.62 GB/100GB  User confirmed
+2026-05-07   user.one                Over quota          30.4 GB/100GB   Cleared
+2026-05-08   user.two                147.3 GB/100 GB     652.5 MB/100GB  99.6%
+2026-05-11   user.two                [post-cleanup]      75.62 GB/100GB  User confirmed
              (screenshot confirmed)  user functional     (75.62%)        sending/receiving
-2026-05-13   raviteja.kowtarapu      100.7 GB/100 GB     Pending MFA     2,713,009 items
+2026-05-13   user.three              100.7 GB/100 GB     Pending MFA     2,713,009 items
                                      (101%)                              purged; SIR disabled
-2026-05-21   divyalakshmi.palanivel  79.5 GB/100 GB      Pending MFA     Async delay hold
+2026-05-21   user.four               79.5 GB/100 GB      Pending MFA     Async delay hold
                                      (79%)                               found and cleared
                                                                          on session 2;
                                                                          MFA re-triggered

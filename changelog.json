@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "2.4.6",
+      "date": "2026-09-16",
+      "notes": [
+        "User Creation: the downloadable CSV template now uses generic placeholder rows",
+        "Mailbox Cleanup: the validated results table in the README now uses generic user labels, and the download has been rebuilt to match",
+        "Exchange Audit: the offline sample data now uses a generic example mailbox"
+      ]
+    },
+    {
       "version": "2.4.5",
       "date": "2026-09-14",
       "notes": [
