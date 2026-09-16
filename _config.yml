@@ -1,0 +1,23 @@
+# GitHub Pages (Jekyll) build configuration.
+#
+# GitHub Pages runs Jekyll over this repository by default. Anything listed
+# under "exclude" is left out of the published site, so it stays in the repo
+# for reference without being fetchable from the live URL.
+#
+# docs/ holds internal design specs and implementation plans. Nothing on the
+# site links to them, and they are not intended for the published hub.
+#
+# Note: defining "exclude" replaces Jekyll's built-in default list rather than
+# adding to it, so the standard entries are repeated here.
+exclude:
+  - docs
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
