@@ -496,11 +496,15 @@ function formatCurrencyRound(val) {
 }
 
 // ── Finance gate ──────────────────────────────────────────────────────────────
-const FINANCE_GROUP = "SG-IT-Tools-Finance-View";
+// Gated on the group's object ID, not its displayName. A name lookup costs an
+// extra Graph round trip and silently closes the gate the moment the group is
+// renamed; object IDs survive renames. Matches how the hub's GROUP_GATES and
+// REPORTING_GROUP_ID/GSD_GROUP_ID below already work.
+const FINANCE_GROUP_ID = "ff9c3232-251f-4570-9564-340039d17aa9";  // SG-IT-Tools-Finance-View
 let _hasFinanceAccess = false;
 
 // ── License modify gate ────────────────────────────────────────────────────────
-const LICENSE_MODIFY_GROUP = "SG-IT-Tools-License-Modify";
+const LICENSE_MODIFY_GROUP_ID = "d98cbaa9-da66-4d1a-8a31-2442b7cc0ca8";  // SG-IT-Tools-License-Modify
 let _hasLicenseModifyAccess = false;
 
 const REPORTING_GROUP_ID = "cea8f0fe-a3d5-4f8a-9f77-e9ce6fdf7b8d";
@@ -510,20 +514,11 @@ let _hasGsdAccess        = false;
 
 async function checkFinanceAccess() {
   try {
-    // Find the group by name first
-    const enc = encodeURIComponent(`displayName eq '${FINANCE_GROUP}'`);
-    const res = await ITTools.graph.get(
-      `https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`
-    );
-    const groups = res.value || [];
-    if (!groups.length) { _hasFinanceAccess = false; return; }
-    const groupId = groups[0].id;
-
     // Use transitiveMemberOf — handles nested groups correctly
     const memberships = await ITTools.graph.getAll(
       `https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`
     );
-    _hasFinanceAccess = memberships.some(m => m.id === groupId);
+    _hasFinanceAccess = memberships.some(m => m.id === FINANCE_GROUP_ID);
   } catch(_) {
     _hasFinanceAccess = false; // fail secure
   }
@@ -531,17 +526,10 @@ async function checkFinanceAccess() {
 
 async function checkLicenseModifyAccess() {
   try {
-    const enc = encodeURIComponent(`displayName eq '${LICENSE_MODIFY_GROUP}'`);
-    const res = await ITTools.graph.get(
-      `https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`
-    );
-    const groups = res.value || [];
-    if (!groups.length) { _hasLicenseModifyAccess = false; return; }
-    const groupId = groups[0].id;
     const memberships = await ITTools.graph.getAll(
       `https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`
     );
-    _hasLicenseModifyAccess = memberships.some(m => m.id === groupId);
+    _hasLicenseModifyAccess = memberships.some(m => m.id === LICENSE_MODIFY_GROUP_ID);
   } catch(_) {
     _hasLicenseModifyAccess = false; // fail secure
   }

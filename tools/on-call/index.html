@@ -337,7 +337,9 @@
 <script>
 const TOOL_SCOPES        = ["User.Read"];
 const GSD_GROUP_ID       = "3e1a4757-8189-4908-a611-b6029399e69e";
-const ONCALL_ADMIN_GROUP = "SG-IT-Tools-OnCall-Admin";
+// Object ID, not displayName: a name lookup costs an extra Graph call and
+// silently closes the gate if the group is renamed. IDs survive renames.
+const ONCALL_ADMIN_GROUP_ID = "036477e6-92a0-4eb7-b372-0849bd404bd9";  // SG-IT-Tools-OnCall-Admin
 // Left blank until the Function App (Task 10) is provisioned and deployed (Task 11).
 // While blank, the tool reads/writes the local data.json file instead of the live blob.
 const ONCALL_GET_URL  = "";
@@ -443,13 +445,8 @@ async function afterSignIn() {
 
 async function checkOnCallAdminAccess() {
   try {
-    const enc = encodeURIComponent(`displayName eq '${ONCALL_ADMIN_GROUP}'`);
-    const res = await ITTools.graph.get(`https://graph.microsoft.com/v1.0/groups?$filter=${enc}&$select=id`);
-    const groups = res.value || [];
-    if (!groups.length) { st.isAdmin = false; return; }
-    const groupId = groups[0].id;
     const memberships = await ITTools.graph.getAll(`https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id`);
-    st.isAdmin = memberships.some(m => m.id === groupId);
+    st.isAdmin = memberships.some(m => m.id === ONCALL_ADMIN_GROUP_ID);
   } catch (_) {
     st.isAdmin = false; // fail secure
   }
